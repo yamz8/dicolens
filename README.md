@@ -1,6 +1,8 @@
 # Dicolens
 
-![Dicolens showing a made-up chest CT, with a ruler across the heart](docs/screenshot.png)
+![Dicolens opening a made-up chest CT: scrolling slices, windowing, zooming, measuring, playing the series, and searching its tags](docs/demo.gif)
+
+<sub>A 30-second tour, with made-up scans. [Watch it as a video](docs/demo.mp4).</sub>
 
 Dicolens is a DICOM viewer for [Omarchy](https://omarchy.org). Open the CD a
 hospital gave you, a folder, or a single file, and look through it: every
