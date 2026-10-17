@@ -124,7 +124,8 @@ int info(QStringList args) {
                          .arg(s.rows)
                          .arg(canDecode(s.transferSyntax) ? "" : "  (can't decode " + s.transferSyntax + ")");
         }
-        out() << "\n" << scan.files << " images read, " << scan.skipped << " other files skipped\n";
+        out() << "\n" << scan.files << (scan.files == 1 ? " DICOM file" : " DICOM files") << " read, " << scan.skipped
+              << (scan.skipped == 1 ? " other file" : " other files") << " skipped\n";
         for (const auto &problem : scan.unreadable)
             err() << "unreadable: " << problem << "\n";
     }

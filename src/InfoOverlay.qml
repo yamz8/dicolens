@@ -83,6 +83,7 @@ Item {
     Item {
         anchors.fill: parent
         LayoutMirroring.enabled: false
+        LayoutMirroring.childrenInherit: true
         visible: backend.edges.length === 4
         Line { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: backend.edges[0] || ""; color: theme.accent; font.bold: true }
         Line { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: backend.edges[1] || ""; color: theme.accent; font.bold: true }

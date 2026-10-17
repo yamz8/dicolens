@@ -53,7 +53,7 @@ ApplicationWindow {
     Shortcut { sequence: "0"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.fileWindow() }
     Shortcut { sequence: "A"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.fullRange() }
     Shortcut { sequence: "I"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.toggleInvert() }
-    Shortcut { sequence: "M"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: { win.measuring = !win.measuring; if (!win.measuring) view.clearRuler() } }
+    Shortcut { sequence: "M"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.measuring = !win.measuring }
     Shortcut { sequence: "F"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: view.fit() }
     Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: { view.fit(); backend.fileWindow() } }
     Shortcut { sequence: "S"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.seriesVisible = !win.seriesVisible }
@@ -262,6 +262,7 @@ ApplicationWindow {
                 height: 14
                 visible: backend.sliceCount > 1
                 LayoutMirroring.enabled: false
+                LayoutMirroring.childrenInherit: true
 
                 Rectangle {
                     anchors.left: parent.left
