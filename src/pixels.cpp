@@ -43,13 +43,6 @@ Frame failed(const QString &error, const QString &detail = {}) {
     return frame;
 }
 
-QByteArray readSpan(const QString &path, qint64 offset, qint64 length) {
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly) || !file.seek(offset))
-        return {};
-    return file.read(length);
-}
-
 quint8 clamp8(double v) { return quint8(std::clamp(v, 0.0, 255.0) + 0.5); }
 
 void ybrToRgb(int y, int cb, int cr, uchar *out) {
@@ -124,14 +117,39 @@ Frame monoFrame(const ImageFormat &format, qint64 pixels, int levelShift, auto s
     return frame;
 }
 
-// JPEG 2000 marks signed components in its SIZ segment, and ffmpeg hands
-// them back shifted up by half their range.
-int jpeg2000Shift(const QByteArray &codestream) {
-    const int siz = codestream.indexOf("\xFF\x51");
-    if (siz < 0 || siz + 41 > codestream.size())
-        return 0;
-    const uchar ssiz = uchar(codestream[siz + 40]);
-    return ssiz & 0x80 ? 1 << (ssiz & 0x7F) : 0;
+// The sample precision a codestream declares: JPEG 2000 in its SIZ
+// segment (with whether samples are signed), JPEG and JPEG-LS in their
+// start-of-frame. Zero when it can't be found.
+int codestreamPrecision(const QByteArray &codestream, const QString &demuxer, bool *isSigned) {
+    const auto *p = reinterpret_cast<const uchar *>(codestream.constData());
+    const qint64 size = codestream.size();
+    *isSigned = false;
+    if (demuxer == Jpeg2000) {
+        const qint64 siz = codestream.indexOf("\xFF\x51");
+        if (siz < 0 || siz + 41 > size)
+            return 0;
+        *isSigned = p[siz + 40] & 0x80;
+        return (p[siz + 40] & 0x7F) + 1;
+    }
+    for (qint64 i = 2; i + 4 < size;) {
+        if (p[i] != 0xFF) {
+            ++i;
+            continue;
+        }
+        const uchar marker = p[i + 1];
+        const bool frame = (marker >= 0xC0 && marker <= 0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC) ||
+                           marker == 0xF7;
+        if (frame)
+            return p[i + 4];
+        if (marker == 0xDA || marker == 0xD9)
+            return 0;
+        if (marker == 0xD8 || marker == 0xFF || marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
+            i += marker == 0xFF ? 1 : 2;
+            continue;
+        }
+        i += 2 + ((p[i + 2] << 8) | p[i + 3]);
+    }
+    return 0;
 }
 
 Frame runFfmpeg(const QByteArray &codestream, const QString &demuxer, const ImageFormat &format) {
@@ -185,11 +203,31 @@ Frame runFfmpeg(const QByteArray &codestream, const QString &demuxer, const Imag
     else
         return failed("The decoded image is a different size than its header says");
 
+    // ffmpeg widens samples to its output's depth: a 12-bit codestream
+    // comes back in 16 bits, shifted up (JPEG 2000) or with its top bits
+    // repeated below (JPEG-LS); shifting down undoes either exactly. Its
+    // JPEG decoder is left as it is unless the values can't be the
+    // codestream's own. Signed JPEG 2000 comes back offset by half its
+    // range.
     const auto *p = reinterpret_cast<const uchar *>(output.constData());
-    const int shift = demuxer == Jpeg2000 ? jpeg2000Shift(codestream) : 0;
+    bool signedSamples = false;
+    const int precision = codestreamPrecision(codestream, demuxer, &signedSamples);
+    const int depth = bytes * 8;
+    int down = 0;
+    if (precision > 0 && precision < depth) {
+        down = depth - precision;
+        if (demuxer == Jpeg) {
+            int high = 0;
+            for (qint64 i = 0; i < pixels; ++i)
+                high = std::max<int>(high, bytes == 1 ? p[i] : qFromLittleEndian<quint16>(p + 2 * i));
+            if (high < (1 << precision))
+                down = 0;
+        }
+    }
+    const int shift = demuxer == Jpeg2000 && signedSamples && precision > 0 ? 1 << (precision - 1) : 0;
     if (bytes == 1)
-        return monoFrame(format, pixels, shift, [p](qint64 i) { return p[i]; });
-    return monoFrame(format, pixels, shift, [p](qint64 i) { return qFromLittleEndian<quint16>(p + 2 * i); });
+        return monoFrame(format, pixels, shift, [p, down](qint64 i) { return p[i] >> down; });
+    return monoFrame(format, pixels, shift, [p, down](qint64 i) { return qFromLittleEndian<quint16>(p + 2 * i) >> down; });
 }
 
 Frame decodeLossless(const QByteArray &codestream, const ImageFormat &format) {
@@ -260,9 +298,13 @@ void Frame::range(double &low, double &high) const {
     int lo = INT_MAX, hi = INT_MIN;
     for (quint16 raw : mono) {
         const int v = isSigned ? int(qint16(raw)) : int(raw);
+        if (hasPadding && v == padding)
+            continue;
         lo = std::min(lo, v);
         hi = std::max(hi, v);
     }
+    if (lo > hi)
+        lo = hi = 0;
     const double a = lo * slope + intercept, b = hi * slope + intercept;
     low = std::min(a, b);
     high = std::max(a, b);
@@ -275,6 +317,24 @@ void defaultWindow(const DicomFile &file, const Frame &frame, int frameIndex, do
         center = centers.first();
         width = widths.first();
         return;
+    }
+    // Without a window, a VOI LUT's input range stands in for one: the
+    // values it was made to show. (Its curve itself isn't applied, so the
+    // window can still be dragged from there.)
+    if (const DicomElement *voi = file.find(Tag::VoiLutSequence, frameIndex); voi && !voi->items.isEmpty()) {
+        for (const auto &e : voi->items.first())
+            if (e.tag == Tag::LutDescriptor) {
+                const auto descriptor = file.numbers(&e);
+                if (descriptor.size() >= 2) {
+                    const double entries = descriptor[0] == 0 ? 65536 : descriptor[0];
+                    const double first = frame.isSigned ? double(qint16(quint16(descriptor[1]))) : descriptor[1];
+                    const double a = first * frame.slope + frame.intercept;
+                    const double b = (first + entries - 1) * frame.slope + frame.intercept;
+                    center = (a + b) / 2;
+                    width = std::max(1.0, std::abs(b - a) + 1);
+                    return;
+                }
+            }
     }
     double low = 0, high = 255;
     frame.range(low, high);
@@ -325,13 +385,42 @@ Frame convertNative(const uchar *data, qint64 size, const ImageFormat &f) {
     const qint64 pixels = qint64(f.rows) * f.columns;
     if (pixels <= 0)
         return failed("This file has no image size");
-    if (f.bitsAllocated != 8 && f.bitsAllocated != 16)
+    if (f.bitsAllocated != 8 && f.bitsAllocated != 16 && !(f.bitsAllocated == 32 && f.samples == 1))
         return failed("This image's pixel format isn't supported", QStringLiteral("%1-bit").arg(f.bitsAllocated));
 
     const int bytes = f.bitsAllocated / 8;
     Frame frame;
     frame.width = f.columns;
     frame.height = f.rows;
+
+    if (f.samples == 1 && bytes == 4) {
+        // 32-bit values (dose maps, some PET) are kept in 16 bits: shifted
+        // to start at zero, and scaled down only when their range needs it,
+        // with the rescale adjusted so the values shown stay the same.
+        if (size < pixels * 4)
+            return failed("The image data is cut short");
+        QVector<qint64> values(pixels);
+        qint64 lo = LLONG_MAX, hi = LLONG_MIN;
+        const int bits = std::clamp(f.bitsStored, 1, 32);
+        for (qint64 i = 0; i < pixels; ++i) {
+            const quint32 w = f.littleEndian ? qFromLittleEndian<quint32>(data + 4 * i) : qFromBigEndian<quint32>(data + 4 * i);
+            const quint32 v = bits >= 32 ? w : w & ((1u << bits) - 1);
+            qint64 value = v;
+            if (f.isSigned && (v & (1u << (bits - 1))))
+                value = qint64(v) - (qint64(1) << bits);
+            values[i] = value;
+            lo = std::min(lo, value);
+            hi = std::max(hi, value);
+        }
+        const double scale = hi - lo > 65535 ? 65535.0 / double(hi - lo) : 1.0;
+        frame.mono.resize(pixels);
+        for (qint64 i = 0; i < pixels; ++i)
+            frame.mono[i] = quint16(std::llround((values[i] - lo) * scale));
+        frame.slope = f.slope / scale;
+        frame.intercept = f.intercept + f.slope * double(lo);
+        frame.inverted = f.photometric == "MONOCHROME1";
+        return frame;
+    }
 
     if (f.samples == 1) {
         if (size < pixels * bytes)
@@ -466,14 +555,32 @@ Frame decodeFrame(const DicomFile &file, int frameIndex, const QList<QByteArray>
     const bool palette = f.photometric == "PALETTE COLOR";
 
     Frame frame;
-    if (!file.encapsulated()) {
+    if (!file.encapsulated() && f.bitsAllocated == 1 && f.samples == 1) {
+        // Bits are packed across frames, least significant first; spread
+        // to a byte a pixel and read as 8-bit.
+        const qint64 pixels = qint64(f.rows) * f.columns;
+        const qint64 firstBit = qint64(frameIndex) * pixels;
+        const QByteArray packed = file.readPixels(firstBit / 8, (firstBit % 8 + pixels + 7) / 8);
+        if (packed.size() * 8 < firstBit % 8 + pixels)
+            return failed("The image data is cut short");
+        QByteArray bytes(pixels, 0);
+        for (qint64 i = 0; i < pixels; ++i) {
+            const qint64 bit = firstBit % 8 + i;
+            bytes[i] = char((uchar(packed[bit / 8]) >> (bit % 8)) & 1);
+        }
+        ImageFormat spread = f;
+        spread.bitsAllocated = spread.bitsStored = 8;
+        spread.highBit = 7;
+        spread.isSigned = false;
+        frame = convertNative(reinterpret_cast<const uchar *>(bytes.constData()), bytes.size(), spread);
+    } else if (!file.encapsulated()) {
         const qint64 pixels = qint64(f.rows) * f.columns;
         const bool subsampled = f.photometric.endsWith("_422");
         const qint64 frameBytes = subsampled ? pixels * 2 : pixels * f.samples * std::max(1, f.bitsAllocated / 8);
         const qint64 offset = qint64(frameIndex) * frameBytes;
         if (offset + frameBytes > file.pixelLength())
             return failed("The image data is cut short");
-        const QByteArray data = readSpan(file.path(), file.pixelOffset() + offset, frameBytes);
+        const QByteArray data = file.readPixels(offset, frameBytes);
         // Big-endian files store 8-bit pixels as bytes, which need no swap.
         ImageFormat native = f;
         if (file.pixelVr() == "OB")
@@ -481,7 +588,7 @@ Frame decodeFrame(const DicomFile &file, int frameIndex, const QList<QByteArray>
         frame = convertNative(reinterpret_cast<const uchar *>(data.constData()), data.size(), native);
     } else {
         const QList<QByteArray> frames = split ? *split
-            : DicomFile::splitFrames(readSpan(file.path(), file.pixelOffset(), file.pixelLength()), f.frames);
+            : DicomFile::splitFrames(file.readPixels(0, file.pixelLength()), f.frames);
         if (frameIndex >= frames.size() || frames[frameIndex].isEmpty())
             return failed("The image data is cut short");
         const QByteArray &codestream = frames[frameIndex];
@@ -508,21 +615,34 @@ Frame decodeFrame(const DicomFile &file, int frameIndex, const QList<QByteArray>
     }
     if (frame.error.isEmpty() && palette)
         frame = applyPalette(frame, file);
-    if (frame.error.isEmpty())
-        defaultWindow(file, frame, frameIndex, frame.windowCenter, frame.windowWidth);
+    if (!frame.error.isEmpty())
+        return frame;
+    if (!frame.isColor()) {
+        // A presentation LUT can say the image is meant to be seen inverted.
+        if (file.first(Tag::PresentationLutShape).toUpper() == "INVERSE")
+            frame.inverted = !frame.inverted;
+        // Padding marks the area outside the scanned field; it isn't part
+        // of the image's range.
+        if (file.has(Tag::PixelPaddingValue)) {
+            const int padding = int(file.number(Tag::PixelPaddingValue));
+            frame.hasPadding = true;
+            frame.padding = f.isSigned ? int(qint16(quint16(padding))) : padding;
+        }
+    }
+    defaultWindow(file, frame, frameIndex, frame.windowCenter, frame.windowWidth);
     return frame;
 }
 
 QList<QByteArray> readFrames(const DicomFile &file) {
     if (!file.encapsulated())
         return {};
-    return DicomFile::splitFrames(readSpan(file.path(), file.pixelOffset(), file.pixelLength()),
+    return DicomFile::splitFrames(file.readPixels(0, file.pixelLength()),
                                   std::max(1, file.integer(Tag::NumberOfFrames, 1)));
 }
 
-QList<Frame> decodeVideo(const DicomFile &file) {
+QList<Frame> decodeVideo(const DicomFile &file, int maxFrames) {
     const ImageFormat f = ImageFormat::from(file);
-    const QByteArray span = readSpan(file.path(), file.pixelOffset(), file.pixelLength());
+    const QByteArray span = file.readPixels(0, file.pixelLength());
     QByteArray stream;
     for (const auto &fragment : DicomFile::splitFrames(span, 1))
         stream += fragment;
@@ -530,7 +650,10 @@ QList<Frame> decodeVideo(const DicomFile &file) {
         return {failed("ffmpeg isn't installed, and this image needs it")};
 
     QProcess process;
-    process.start(ffmpeg(), {"-v", "error", "-i", "-", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"});
+    QStringList arguments{"-v", "error", "-i", "-"};
+    if (maxFrames > 0)
+        arguments << "-frames:v" << QString::number(maxFrames);
+    process.start(ffmpeg(), arguments + QStringList{"-f", "rawvideo", "-pix_fmt", "rgb24", "-"});
     if (!process.waitForStarted(10000))
         return {failed("ffmpeg couldn't be started", process.errorString())};
     process.write(stream);

@@ -6,6 +6,7 @@
 #include <QtEndian>
 #include <climits>
 #include <cstring>
+#include <zlib.h>
 
 namespace {
 
@@ -36,6 +37,26 @@ QString trimmed(QString value) {
 }
 
 QString tr(const char *text, int n = -1) { return QCoreApplication::translate("scans", text, nullptr, n); }
+
+QByteArray inflate(const uchar *data, qint64 size) {
+    z_stream stream{};
+    if (inflateInit2(&stream, -MAX_WBITS) != Z_OK)
+        return {};
+    QByteArray out;
+    stream.next_in = const_cast<Bytef *>(data);
+    stream.avail_in = uInt(std::min<qint64>(size, UINT_MAX));
+    char buffer[65536];
+    int status = Z_OK;
+    while (status == Z_OK) {
+        stream.next_out = reinterpret_cast<Bytef *>(buffer);
+        stream.avail_out = sizeof buffer;
+        status = ::inflate(&stream, Z_NO_FLUSH);
+        out.append(buffer, int(sizeof buffer - stream.avail_out));
+    }
+    inflateEnd(&stream);
+    // Some writers leave the stream unterminated; what inflated is kept.
+    return status == Z_STREAM_END || status == Z_BUF_ERROR ? out : QByteArray();
+}
 
 }
 
@@ -121,20 +142,31 @@ DicomFile DicomFile::parse(const uchar *data, qint64 size, QString *error) {
         explicitVr = false;
     } else if (file.m_transferSyntax == "1.2.840.10008.1.2.2") {
         littleEndian = false;
-    } else if (file.m_transferSyntax == "1.2.840.10008.1.2.1.99") {
-        return fail("Deflated DICOM files aren't supported");
     }
     file.m_littleEndian = littleEndian;
 
-    QList<DicomElement> body;
+    // A deflated file's data set is one raw deflate stream after the meta
+    // group; it's read inflated, pixel data and all.
+    const uchar *body = data;
+    qint64 bodySize = size;
+    if (file.m_transferSyntax == "1.2.840.10008.1.2.1.99") {
+        file.m_inflated = inflate(data + pos, size - pos);
+        if (file.m_inflated.isEmpty())
+            return fail("This deflated file is damaged");
+        body = reinterpret_cast<const uchar *>(file.m_inflated.constData());
+        bodySize = file.m_inflated.size();
+        pos = 0;
+    }
+
+    QList<DicomElement> elements;
     QString reason;
-    const bool complete = file.parseDataSet(data, size, pos, size, explicitVr, littleEndian, body, 0, &reason);
+    const bool complete = file.parseDataSet(body, bodySize, pos, bodySize, explicitVr, littleEndian, elements, 0, &reason);
     // A file cut short after its image header still shows what it has; one
     // that breaks before saying what it is doesn't.
-    if (!complete && body.isEmpty())
+    if (!complete && elements.isEmpty())
         return fail(reason);
 
-    file.m_elements = meta + body;
+    file.m_elements = meta + elements;
     file.index();
     file.m_valid = true;
     return file;
@@ -271,6 +303,15 @@ void DicomFile::index() {
     m_index.clear();
     for (int i = 0; i < m_elements.size(); ++i)
         m_index.insert(m_elements[i].tag, i);
+}
+
+QByteArray DicomFile::readPixels(qint64 offset, qint64 length) const {
+    if (!m_inflated.isEmpty())
+        return m_inflated.mid(m_pixelOffset + offset, length);
+    QFile file(m_path);
+    if (!file.open(QIODevice::ReadOnly) || !file.seek(m_pixelOffset + offset))
+        return {};
+    return file.read(length);
 }
 
 const DicomElement *DicomFile::element(quint32 tag) const {

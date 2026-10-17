@@ -44,6 +44,8 @@ struct Frame {
     QString detail;               // Untranslated specifics, such as what ffmpeg said.
     double windowCenter = 0;      // The window the file suggests, or the full range.
     double windowWidth = 0;
+    bool hasPadding = false;      // A stored value marking pixels outside the scan.
+    int padding = 0;
 
     bool isNull() const { return width == 0 || height == 0; }
     bool isColor() const { return !color.isNull(); }
@@ -63,7 +65,8 @@ QImage render(const Frame &frame, double center, double width, bool invert);
 Frame decodeFrame(const DicomFile &file, int frameIndex, const QList<QByteArray> *frames = nullptr);
 bool isVideo(const QString &transferSyntax);
 QList<QByteArray> readFrames(const DicomFile &file);
-QList<Frame> decodeVideo(const DicomFile &file);
+// Every frame of a video, or the first maxFrames of it.
+QList<Frame> decodeVideo(const DicomFile &file, int maxFrames = 0);
 bool canDecode(const QString &transferSyntax);
 
 // For tests and the decoder alike.

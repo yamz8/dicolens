@@ -65,6 +65,10 @@ constexpr quint32 BluePaletteDescriptor = 0x00281103;
 constexpr quint32 RedPaletteData = 0x00281201;
 constexpr quint32 GreenPaletteData = 0x00281202;
 constexpr quint32 BluePaletteData = 0x00281203;
+constexpr quint32 PixelPaddingValue = 0x00280120;
+constexpr quint32 VoiLutSequence = 0x00283010;
+constexpr quint32 LutDescriptor = 0x00283002;
+constexpr quint32 PresentationLutShape = 0x20500020;
 constexpr quint32 PixelData = 0x7FE00010;
 constexpr quint32 Item = 0xFFFEE000;
 constexpr quint32 ItemEnd = 0xFFFEE00D;
@@ -119,6 +123,9 @@ public:
     qint64 pixelOffset() const { return m_pixelOffset; }
     qint64 pixelLength() const { return m_pixelLength; }
     QByteArray pixelVr() const { return m_pixelVr; }
+    // Bytes of the pixel data, from its start; from the file on disk, or
+    // from memory when the file was deflated.
+    QByteArray readPixels(qint64 offset, qint64 length) const;
 
     // The compressed fragments of each frame of encapsulated pixel data,
     // read from disk. frameCount is the file's Number of Frames.
@@ -145,6 +152,7 @@ private:
     qint64 m_pixelLength = 0;              // Bytes on disk, items and all when encapsulated.
     bool m_encapsulated = false;
     QByteArray m_pixelVr;
+    QByteArray m_inflated;
 };
 
 namespace Dictionary {

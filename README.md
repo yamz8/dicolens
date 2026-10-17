@@ -8,9 +8,12 @@ series with a thumbnail, slice by slice, through the window you choose. It
 follows the Omarchy theme and language as they change.
 
 It reads CT, MR, X-ray, mammography, ultrasound, nuclear medicine, and PET:
-uncompressed and RLE images, JPEG (baseline, extended, and lossless, with a
-decoder of its own), JPEG-LS, JPEG 2000 and HTJ2K, and MPEG/H.264/HEVC video,
-the last few through `ffmpeg`. It shows the values under the pointer (in
+uncompressed (little or big endian, implicit or explicit, deflated), RLE,
+JPEG (baseline, extended, and lossless, with a decoder of its own), JPEG-LS,
+JPEG 2000 and HTJ2K, and MPEG/H.264/HEVC video, the last few through
+`ffmpeg`; grey images of 1 to 32 bits, signed or not, and RGB, YBR, and
+palette colour; enhanced multi-frame files, whose spacing, position, and
+rescale come frame by frame. It shows the values under the pointer (in
 Hounsfield units on CT), measures in millimetres, labels the patient
 directions at the image's edges, plays multi-frame series as loops, and lists
 every tag.

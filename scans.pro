@@ -31,4 +31,6 @@ SOURCES += \
     src/theme.cpp \
     src/translator.cpp
 
+LIBS += -lz
+
 RESOURCES += src/resources.qrc

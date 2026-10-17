@@ -126,6 +126,19 @@ bool write(const QString &path, const QByteArray &contents) {
 
 const QString ExplicitLE = "1.2.840.10008.1.2.1";
 
+// Encodes grey samples with ffmpeg, or returns nothing when it can't.
+QByteArray encode(const QList<int> &values, int width, const QString &pixelFormat, const QStringList &codec) {
+    if (QStandardPaths::findExecutable("ffmpeg").isEmpty())
+        return {};
+    QProcess ffmpeg;
+    ffmpeg.start("ffmpeg", QStringList{"-v", "error", "-f", "rawvideo", "-pix_fmt", pixelFormat, "-s",
+                                       QString("%1x%2").arg(width).arg(values.size() / width), "-i", "-"} + codec + QStringList{"-"});
+    ffmpeg.write(le16(values));
+    ffmpeg.closeWriteChannel();
+    ffmpeg.waitForFinished();
+    return ffmpeg.exitCode() == 0 ? ffmpeg.readAllStandardOutput() : QByteArray();
+}
+
 // A plain lossless JPEG encoder (T.81 process 14), with one Huffman table
 // giving each difference category a 5-bit code.
 QByteArray losslessJpeg(const QVector<quint16> &samples, int width, int height, int components, int precision,
@@ -418,6 +431,9 @@ private slots:
         for (int i = 0; i < 64; ++i)
             values << (i * 61) % 4096;
         QProcess ffmpeg;
+        // ffmpeg's encoder writes 12-bit input as a 16-bit codestream, so the
+        // values go in as 16 bits; its decoder's widening of real 12-bit
+        // streams is undone by the same code as JPEG 2000's.
         ffmpeg.start("ffmpeg", {"-v", "error", "-f", "rawvideo", "-pix_fmt", "gray16le", "-s", "8x8", "-i", "-",
                                 "-c:v", "jpegls", "-f", "image2pipe", "-"});
         ffmpeg.write(le16(values));
@@ -434,6 +450,162 @@ private slots:
         QVERIFY2(frame.error.isEmpty(), qPrintable(frame.error + " " + frame.detail));
         for (int i = 0; i < 64; ++i)
             QCOMPARE(frame.stored(i % 8, i / 8), values[i]);
+    }
+
+    void decodesTwelveBitJpeg2000() {
+        // ffmpeg widens 12-bit JPEG 2000 to 16 bits, and offsets signed
+        // samples; both must be undone.
+        QList<int> values;
+        for (int i = 0; i < 32 * 32; ++i)
+            values << (i * 997) % 4096;
+        QByteArray stream = encode(values, 32, "gray12le", {"-c:v", "libopenjpeg", "-numresolution", "3", "-f", "image2", "-update", "1"});
+        if (stream.isEmpty())
+            QSKIP("ffmpeg can't encode JPEG 2000 here");
+        QTemporaryDir dir;
+        auto decode = [&](const QByteArray &codestream, bool isSigned) {
+            Writer w;
+            w.image(32, 32, 16, 12, isSigned).encapsulated({codestream});
+            write(dir.filePath("j2k.dcm"), w.file("1.2.840.10008.1.2.4.90"));
+            return decodeFrame(DicomFile::read(dir.filePath("j2k.dcm")), 0);
+        };
+        Frame frame = decode(stream, false);
+        QVERIFY2(frame.error.isEmpty(), qPrintable(frame.error + " " + frame.detail));
+        for (int i = 0; i < values.size(); ++i)
+            QCOMPARE(frame.stored(i % 32, i / 32), values[i]);
+
+        // Marked signed, the same codestream holds each value less 2048.
+        const int siz = stream.indexOf("\xFF\x51");
+        stream[siz + 40] = char(uchar(stream[siz + 40]) | 0x80);
+        frame = decode(stream, true);
+        QVERIFY2(frame.error.isEmpty(), qPrintable(frame.error + " " + frame.detail));
+        for (int i = 0; i < values.size(); ++i)
+            QCOMPARE(frame.stored(i % 32, i / 32), values[i] - 2048);
+    }
+
+    void decodesVideo() {
+        if (QStandardPaths::findExecutable("ffmpeg").isEmpty())
+            QSKIP("ffmpeg isn't installed");
+        QProcess ffmpeg;
+        ffmpeg.start("ffmpeg", {"-v", "error", "-f", "lavfi", "-i", "testsrc=size=64x48:rate=10", "-frames:v", "6",
+                                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-f", "h264", "-"});
+        QVERIFY(ffmpeg.waitForFinished());
+        const QByteArray stream = ffmpeg.readAllStandardOutput();
+        if (stream.isEmpty())
+            QSKIP("ffmpeg can't encode H.264 here");
+        QTemporaryDir dir;
+        Writer w;
+        w.image(48, 64, 8, 8, false, "YBR_PARTIAL_420").add(Tag::NumberOfFrames, "IS", "6").encapsulated({stream});
+        QVERIFY(write(dir.filePath("video.dcm"), w.file("1.2.840.10008.1.2.4.102")));
+        const Scan scan = scanFiles({dir.filePath("video.dcm")});
+        QCOMPARE(scan.series.first().slices.size(), 6);
+        const QList<Frame> frames = decodeVideo(DicomFile::read(dir.filePath("video.dcm")));
+        QCOMPARE(frames.size(), 6);
+        QVERIFY(frames.first().isColor());
+        QCOMPARE(frames.first().color.size(), QSize(64, 48));
+        QCOMPARE(decodeVideo(DicomFile::read(dir.filePath("video.dcm")), 1).size(), 1);
+    }
+
+    void readsDeflatedFiles() {
+        Writer body;
+        body.add(Tag::PatientName, "PN", "Deflated^Demo").image(1, 2, 16, 16, false).pixels(le16({7, 4095}));
+        // qCompress gives a zlib stream after a 4-byte length; DICOM wants
+        // the raw deflate inside it.
+        const QByteArray zlib = qCompress(body.body, 9);
+        const QByteArray raw = zlib.mid(4 + 2, zlib.size() - 4 - 2 - 4);
+        Writer meta;
+        meta.add(Tag::TransferSyntax, "UI", "1.2.840.10008.1.2.1.99");
+        QTemporaryDir dir;
+        QVERIFY(write(dir.filePath("deflated.dcm"), QByteArray(128, 0) + "DICM" + meta.body + raw));
+        QString error;
+        const DicomFile file = DicomFile::read(dir.filePath("deflated.dcm"), &error);
+        QVERIFY2(file.isValid(), qPrintable(error));
+        QCOMPARE(file.string(Tag::PatientName), QString("Deflated^Demo"));
+        const Frame frame = decodeFrame(file, 0);
+        QVERIFY(frame.error.isEmpty());
+        QCOMPARE(frame.stored(1, 0), 4095);
+    }
+
+    void keepsThirtyTwoBitValues() {
+        ImageFormat f;
+        f.rows = 1;
+        f.columns = 3;
+        f.bitsAllocated = 32;
+        f.bitsStored = 32;
+        f.highBit = 31;
+        f.isSigned = true;
+        f.slope = 0.5;
+        QByteArray data;
+        for (qint32 v : {-100000, 0, 100000}) {
+            char b[4];
+            qToLittleEndian(v, b);
+            data.append(b, 4);
+        }
+        const Frame frame = convertNative(reinterpret_cast<const uchar *>(data.constData()), data.size(), f);
+        QVERIFY(frame.error.isEmpty());
+        // Scaled into 16 bits, the values shown stay within a step of true.
+        const double step = 200000.0 / 65535 * 0.5;
+        QVERIFY(qAbs(frame.value(0, 0) + 50000) <= step);
+        QVERIFY(qAbs(frame.value(1, 0)) <= step);
+        QVERIFY(qAbs(frame.value(2, 0) - 50000) <= step);
+    }
+
+    void readsOneBitImages() {
+        // Two 3x3 frames, packed across the byte boundary.
+        QTemporaryDir dir;
+        Writer w;
+        w.image(3, 3, 1, 1, false).add(Tag::NumberOfFrames, "IS", "2").pixels(QByteArray("\x01\xFF\x02\x00", 4), "OB");
+        QVERIFY(write(dir.filePath("bits.dcm"), w.file(ExplicitLE)));
+        const DicomFile file = DicomFile::read(dir.filePath("bits.dcm"));
+        const Frame first = decodeFrame(file, 0), second = decodeFrame(file, 1);
+        QVERIFY2(first.error.isEmpty(), qPrintable(first.error));
+        QCOMPARE(first.stored(0, 0), 1);
+        QCOMPARE(first.stored(1, 0), 0);
+        QCOMPARE(first.stored(2, 2), 1);   // Bit 8.
+        QCOMPARE(second.stored(0, 0), 1);  // Bit 9.
+        QCOMPARE(second.stored(1, 2), 0);  // Bit 16, the lowest of 0x02.
+        QCOMPARE(second.stored(2, 2), 1);  // Bit 17.
+    }
+
+    void leavesPaddingOutOfTheRange() {
+        QTemporaryDir dir;
+        Writer w;
+        w.image(1, 3, 16, 16, true)
+            .add(Tag::PixelPaddingValue, "SS", QByteArray("\x30\xF8", 2))
+            .add(Tag::PresentationLutShape, "CS", "INVERSE")
+            .pixels(le16({quint16(qint16(-2000)), 10, 30}));
+        QVERIFY(write(dir.filePath("pad.dcm"), w.file(ExplicitLE)));
+        const Frame frame = decodeFrame(DicomFile::read(dir.filePath("pad.dcm")), 0);
+        QVERIFY(frame.hasPadding);
+        double low = 0, high = 0;
+        frame.range(low, high);
+        QCOMPARE(low, 10.0);
+        QCOMPARE(high, 30.0);
+        QVERIFY(frame.inverted);
+    }
+
+    void windowsFromAVoiLut() {
+        QTemporaryDir dir;
+        Writer item;
+        QByteArray descriptor;
+        for (int v : {1024, 512, 12})
+            descriptor += le16({v});
+        item.add(Tag::LutDescriptor, "US", descriptor);
+        Writer w;
+        w.image(1, 2, 16, 12, false);
+        QByteArray sequence;
+        w.body += w.header(Tag::VoiLutSequence, "SQ", 0xFFFFFFFF);
+        auto tag = [&](quint16 g, quint16 e, quint32 length) {
+            QByteArray out;
+            w.u16(out, g); w.u16(out, e); w.u32(out, length);
+            return out;
+        };
+        w.body += tag(0xFFFE, 0xE000, item.body.size()) + item.body + tag(0xFFFE, 0xE0DD, 0);
+        w.pixels(le16({0, 4095}));
+        QVERIFY(write(dir.filePath("voi.dcm"), w.file(ExplicitLE)));
+        const Frame frame = decodeFrame(DicomFile::read(dir.filePath("voi.dcm")), 0);
+        QVERIFY(frame.error.isEmpty());
+        QCOMPARE(frame.windowWidth, 1024.0);
+        QCOMPARE(frame.windowCenter, 512 + 1023 / 2.0);
     }
 
     void sortsSlicesAlongTheNormal() {

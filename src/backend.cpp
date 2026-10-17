@@ -292,10 +292,14 @@ void Backend::scanFinished(int generation, const Scan &scan, const QString &focu
     for (int s = 0; s < m_scan.series.size(); ++s) {
         const Series copy = m_scan.series[s];
         m_thumbnailPool.start([this, copy, s, generation, cancel] {
-            if (*cancel || isVideo(copy.transferSyntax))
+            if (*cancel)
                 return;
+            // A video's first frame is cheap; its middle would mean
+            // decoding half of it.
             const Slice &middle = copy.slices[copy.slices.size() / 2];
-            const Frame frame = decodeFrame(DicomFile::read(middle.path), middle.frame);
+            const Frame frame = isVideo(copy.transferSyntax)
+                                    ? decodeVideo(DicomFile::read(copy.slices.first().path), 1).value(0)
+                                    : decodeFrame(DicomFile::read(middle.path), middle.frame);
             if (*cancel || frame.isNull() || !frame.error.isEmpty())
                 return;
             const QImage image = trueShape(render(frame, frame.windowCenter, frame.windowWidth, false), copy.pixelAspect())
@@ -337,8 +341,8 @@ QVariantList Backend::seriesList() const {
             {"count", s.slices.size()},
             {"number", s.number},
             // The first series of each study carries its heading.
-            {"study", key != study ? (s.studyDescription.isEmpty() ? tr("Study") : s.studyDescription) : QString()},
-            {"studyDate", key != study ? localeDate(s.studyDate) : QString()},
+            {"study", i == 0 || key != study ? (s.studyDescription.isEmpty() ? tr("Study") : s.studyDescription) : QString()},
+            {"studyDate", i == 0 || key != study ? localeDate(s.studyDate) : QString()},
             {"decodable", canDecode(s.transferSyntax)},
         };
         study = key;
