@@ -1,0 +1,23 @@
+pkgname=scans
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Look through DICOM scans: CT, MR, X-ray, ultrasound, and hospital CDs'
+arch=('x86_64' 'aarch64')
+license=('MIT')
+depends=('qt6-base' 'qt6-declarative' 'qt6-wayland' 'xdg-desktop-portal' 'ffmpeg')
+makedepends=('gcc' 'make')
+source=()
+sha256sums=()
+
+build() {
+  cd "$startdir/.."
+  ./bin/build
+}
+
+package() {
+  cd "$startdir/.."
+  install -Dm755 build/scans "$pkgdir/usr/bin/scans"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$startdir/scans.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/scans.svg"
+  install -Dm644 "$startdir/scans.desktop" "$pkgdir/usr/share/applications/scans.desktop"
+}

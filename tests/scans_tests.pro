@@ -1,0 +1,11 @@
+QT += core gui qml quick quickcontrols2 testlib dbus
+CONFIG += c++20 testcase
+TARGET = scans_tests
+TEMPLATE = app
+
+INCLUDEPATH += ../src
+
+HEADERS += ../src/backend.h ../src/filepicker.h ../src/theme.h ../src/translator.h
+SOURCES += scans_tests.cpp ../src/backend.cpp ../src/dicom.cpp ../src/dictionary.cpp ../src/ljpeg.cpp \
+    ../src/pixels.cpp ../src/study.cpp ../src/theme.cpp ../src/translator.cpp
+RESOURCES += ../src/resources.qrc

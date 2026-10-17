@@ -1,0 +1,11 @@
+{
+  "%n images": { "one": "%n image", "other": "%n images" },
+  "%n items": { "one": "%n item", "other": "%n items" },
+  "%n bytes": { "one": "%n byte", "other": "%n bytes" },
+  "Image data, %n bytes": { "one": "Image data, %n byte", "other": "Image data, %n bytes" },
+  "%n files couldn't be read": { "one": "%n file couldn't be read", "other": "%n files couldn't be read" },
+  "%n years old": { "one": "%n year old", "other": "%n years old" },
+  "%n months old": { "one": "%n month old", "other": "%n months old" },
+  "%n weeks old": { "one": "%n week old", "other": "%n weeks old" },
+  "%n days old": { "one": "%n day old", "other": "%n days old" }
+}

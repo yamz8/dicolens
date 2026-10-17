@@ -1,0 +1,13 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="Main.qml">Main.qml</file>
+        <file alias="EmptyState.qml">EmptyState.qml</file>
+        <file alias="HelpOverlay.qml">HelpOverlay.qml</file>
+        <file alias="InfoOverlay.qml">InfoOverlay.qml</file>
+        <file alias="Notice.qml">Notice.qml</file>
+        <file alias="SeriesList.qml">SeriesList.qml</file>
+        <file alias="TagPanel.qml">TagPanel.qml</file>
+        <file alias="skill/SKILL.md">skill/SKILL.md</file>
+        <file alias="i18n/en.json">i18n/en.json</file>
+    </qresource>
+</RCC>

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Scans
+Comment=Look through DICOM scans from a CD or a folder
+Exec=scans %F
+Icon=scans
+Terminal=false
+Categories=Graphics;Viewer;MedicalSoftware;
+MimeType=application/dicom;
+Keywords=DICOM;CT;MRI;MR;X-ray;ultrasound;radiology;medical;
+StartupWMClass=scans
