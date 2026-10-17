@@ -150,10 +150,10 @@
   "This image's pixel format isn't supported": "תבנית הפיקסלים של התמונה הזו אינה נתמכת",
   "The image data is cut short": "נתוני התמונה קטועים",
   "This file has no image": "בקובץ זה אין תמונה",
-  "This image is compressed in a way scans can't read": "התמונה דחוסה בשיטה ש־scans לא יכול לקרוא",
   "This RLE image is damaged": "תמונת ה־RLE הזו פגומה",
   "This JPEG image is damaged": "תמונת ה־JPEG הזו פגומה",
   "This JPEG image isn't lossless": "תמונת ה־JPEG הזו אינה ללא אובדן",
   "This JPEG image's layout isn't supported": "מבנה תמונת ה־JPEG הזו אינו נתמך",
-  "This file can't be read": "לא ניתן לקרוא את הקובץ הזה"
+  "This file can't be read": "לא ניתן לקרוא את הקובץ הזה",
+  "This image is compressed in a way Dicolens can't read": "התמונה דחוסה בשיטה ש־Dicolens לא יכול לקרוא"
 }

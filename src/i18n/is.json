@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "Pixlasnið þessarar myndar er ekki stutt",
   "The image data is cut short": "Myndgögnin eru stýfð",
   "This file has no image": "Þessi skrá inniheldur enga mynd",
-  "This image is compressed in a way scans can't read": "Þessi mynd er þjöppuð á hátt sem scans getur ekki lesið",
   "This RLE image is damaged": "Þessi RLE-mynd er skemmd",
   "This JPEG image is damaged": "Þessi JPEG-mynd er skemmd",
   "This JPEG image isn't lossless": "Þessi JPEG-mynd er ekki taplaus",
   "This JPEG image's layout isn't supported": "Uppbygging þessarar JPEG-myndar er ekki studd",
-  "This file can't be read": "Ekki er hægt að lesa þessa skrá"
+  "This file can't be read": "Ekki er hægt að lesa þessa skrá",
+  "This image is compressed in a way Dicolens can't read": "Þessi mynd er þjöppuð á hátt sem Dicolens getur ekki lesið"
 }

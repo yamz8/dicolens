@@ -610,7 +610,7 @@ Frame decodeFrame(const DicomFile &file, int frameIndex, const QList<QByteArray>
             frame = runFfmpeg(codestream, demuxer, f);
         } else {
             QString name = Dictionary::transferSyntaxName(uid);
-            return failed("This image is compressed in a way scans can't read", name.isEmpty() ? uid : name);
+            return failed("This image is compressed in a way Dicolens can't read", name.isEmpty() ? uid : name);
         }
     }
     if (frame.error.isEmpty() && palette)

@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "Muundo wa pikseli wa picha hii hautumiki",
   "The image data is cut short": "Data ya picha imekatika",
   "This file has no image": "Faili hii haina picha",
-  "This image is compressed in a way scans can't read": "Picha hii imebanwa kwa njia ambayo scans haiwezi kusoma",
   "This RLE image is damaged": "Picha hii ya RLE imeharibika",
   "This JPEG image is damaged": "Picha hii ya JPEG imeharibika",
   "This JPEG image isn't lossless": "Picha hii ya JPEG si ya bila upotevu",
   "This JPEG image's layout isn't supported": "Mpangilio wa picha hii ya JPEG hautumiki",
-  "This file can't be read": "Faili hii haiwezi kusomwa"
+  "This file can't be read": "Faili hii haiwezi kusomwa",
+  "This image is compressed in a way Dicolens can't read": "Picha hii imebanwa kwa njia ambayo Dicolens haiwezi kusoma"
 }

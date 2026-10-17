@@ -150,10 +150,10 @@
   "This image's pixel format isn't supported": "Formát pixelů tohoto obrázku není podporován",
   "The image data is cut short": "Obrazová data jsou neúplná",
   "This file has no image": "Tento soubor neobsahuje obrázek",
-  "This image is compressed in a way scans can't read": "Tento obrázek je komprimován způsobem, který scans neumí přečíst",
   "This RLE image is damaged": "Tento obrázek RLE je poškozený",
   "This JPEG image is damaged": "Tento obrázek JPEG je poškozený",
   "This JPEG image isn't lossless": "Tento obrázek JPEG není bezeztrátový",
   "This JPEG image's layout isn't supported": "Uspořádání tohoto obrázku JPEG není podporováno",
-  "This file can't be read": "Tento soubor nelze přečíst"
+  "This file can't be read": "Tento soubor nelze přečíst",
+  "This image is compressed in a way Dicolens can't read": "Tento obrázek je komprimován způsobem, který Dicolens neumí přečíst"
 }

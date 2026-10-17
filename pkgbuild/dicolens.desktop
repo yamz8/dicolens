@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Scans
+Name=Dicolens
 Comment=Look through DICOM scans from a CD or a folder
 Comment[ar]=تصفّح فحوصات DICOM من قرص أو مجلد
 Comment[bg]=Разглеждайте DICOM изследвания от CD или папка
@@ -51,10 +51,10 @@ Comment[uz]=CD yoki jilddagi DICOM skanlarini koʻrish
 Comment[vi]=Xem ảnh chụp DICOM từ đĩa CD hoặc thư mục
 Comment[zh_CN]=浏览光盘或文件夹中的 DICOM 影像
 Comment[zh_TW]=瀏覽光碟或資料夾中的 DICOM 影像
-Exec=scans %F
-Icon=scans
+Exec=dicolens %F
+Icon=dicolens
 Terminal=false
 Categories=Graphics;Viewer;MedicalSoftware;
 MimeType=application/dicom;
 Keywords=DICOM;CT;MRI;MR;X-ray;ultrasound;radiology;medical;
-StartupWMClass=scans
+StartupWMClass=dicolens

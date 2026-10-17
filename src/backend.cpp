@@ -63,7 +63,7 @@ struct DecodeJob {
 
 namespace {
 
-QString tr(const char *text, int n = -1) { return QCoreApplication::translate("scans", text, nullptr, n); }
+QString tr(const char *text, int n = -1) { return QCoreApplication::translate("dicolens", text, nullptr, n); }
 
 struct Preset {
     const char *name;
@@ -73,10 +73,10 @@ struct Preset {
 
 // The CT windows radiologists reach for, in Hounsfield units.
 const Preset Presets[] = {
-    {QT_TRANSLATE_NOOP("scans", "Brain"), 40, 80},
-    {QT_TRANSLATE_NOOP("scans", "Soft tissue"), 40, 400},
-    {QT_TRANSLATE_NOOP("scans", "Lung"), -600, 1500},
-    {QT_TRANSLATE_NOOP("scans", "Bone"), 400, 1800},
+    {QT_TRANSLATE_NOOP("dicolens", "Brain"), 40, 80},
+    {QT_TRANSLATE_NOOP("dicolens", "Soft tissue"), 40, 400},
+    {QT_TRANSLATE_NOOP("dicolens", "Lung"), -600, 1500},
+    {QT_TRANSLATE_NOOP("dicolens", "Bone"), 400, 1800},
 };
 
 QString number(double value, int decimals) { return QLocale().toString(value, 'f', decimals); }

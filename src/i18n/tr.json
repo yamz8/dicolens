@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "Bu görüntünün piksel biçimi desteklenmiyor",
   "The image data is cut short": "Görüntü verisi eksik",
   "This file has no image": "Bu dosyada görüntü yok",
-  "This image is compressed in a way scans can't read": "Bu görüntü, scans'in okuyamadığı bir şekilde sıkıştırılmış",
   "This RLE image is damaged": "Bu RLE görüntüsü bozuk",
   "This JPEG image is damaged": "Bu JPEG görüntüsü bozuk",
   "This JPEG image isn't lossless": "Bu JPEG görüntüsü kayıpsız değil",
   "This JPEG image's layout isn't supported": "Bu JPEG görüntüsünün yapısı desteklenmiyor",
-  "This file can't be read": "Bu dosya okunamıyor"
+  "This file can't be read": "Bu dosya okunamıyor",
+  "This image is compressed in a way Dicolens can't read": "Bu görüntü, Dicolens'in okuyamadığı bir şekilde sıkıştırılmış"
 }

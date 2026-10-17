@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "Hindi suportado ang pixel format ng larawang ito",
   "The image data is cut short": "Putol ang image data",
   "This file has no image": "Walang larawan ang file na ito",
-  "This image is compressed in a way scans can't read": "Naka-compress ang larawang ito sa paraang hindi mabasa ng scans",
   "This RLE image is damaged": "Sira ang RLE na larawang ito",
   "This JPEG image is damaged": "Sira ang JPEG na larawang ito",
   "This JPEG image isn't lossless": "Hindi lossless ang JPEG na larawang ito",
   "This JPEG image's layout isn't supported": "Hindi suportado ang layout ng JPEG na larawang ito",
-  "This file can't be read": "Hindi mabasa ang file na ito"
+  "This file can't be read": "Hindi mabasa ang file na ito",
+  "This image is compressed in a way Dicolens can't read": "Naka-compress ang larawang ito sa paraang hindi mabasa ng Dicolens"
 }

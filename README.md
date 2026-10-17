@@ -1,8 +1,8 @@
-# Scans
+# Dicolens
 
-![Scans showing a made-up chest CT, with a ruler across the heart](docs/screenshot.png)
+![Dicolens showing a made-up chest CT, with a ruler across the heart](docs/screenshot.png)
 
-Scans is a DICOM viewer for [Omarchy](https://omarchy.org). Open the CD a
+Dicolens is a DICOM viewer for [Omarchy](https://omarchy.org). Open the CD a
 hospital gave you, a folder, or a single file, and look through it: every
 series with a thumbnail, slice by slice, through the window you choose. It
 follows the Omarchy theme and language as they change.
@@ -18,14 +18,14 @@ Hounsfield units on CT), measures in millimetres, labels the patient
 directions at the image's edges, plays multi-frame series as loops, and lists
 every tag.
 
-Scans is for looking at your own scans. It's not for diagnosis.
+Dicolens is for looking at your own scans. It's not for diagnosis.
 
 ## Opening scans
 
 ```sh
-scans                  # then press O, or drop files on the window
-scans /run/media/$USER/CDROM
-scans IM0001.dcm       # opens the rest of its folder too, at that slice
+dicolens                  # then press O, or drop files on the window
+dicolens /run/media/$USER/CDROM
+dicolens IM0001.dcm       # opens the rest of its folder too, at that slice
 ```
 
 A folder is read with everything under it, so a CD's root works; `DICOMDIR`
@@ -65,20 +65,20 @@ Commands that need no display; each takes `--json`, and exits 0 on success
 and 1 on failure with the error on stderr.
 
 ```sh
-scans info <file|folder>...                    # series, patient, study
-scans tags <file>                              # every tag, sequences nested
-scans export <file|folder> out.png --series 2 --slice 40 --window 40,400
-scans export <file|folder> frames/ --all       # a whole series, 0001.png on
-scans skill install                            # teach Claude Code to use these
+dicolens info <file|folder>...                    # series, patient, study
+dicolens tags <file>                              # every tag, sequences nested
+dicolens export <file|folder> out.png --series 2 --slice 40 --window 40,400
+dicolens export <file|folder> frames/ --all       # a whole series, 0001.png on
+dicolens skill install                            # teach Claude Code to use these
 ```
 
 ## Building
 
-Scans is C++ and Qt Quick, built with `qmake6`. Everything it needs comes
+Dicolens is C++ and Qt Quick, built with `qmake6`. Everything it needs comes
 with Omarchy.
 
 ```sh
-bin/build      # build/scans
+bin/build      # build/dicolens
 bin/test       # the tests, offscreen
 bin/install    # package and install, so it's in the app launcher
 ```

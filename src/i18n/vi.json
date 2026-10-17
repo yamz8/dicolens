@@ -132,10 +132,10 @@
   "This image's pixel format isn't supported": "Định dạng điểm ảnh của ảnh này không được hỗ trợ",
   "The image data is cut short": "Dữ liệu ảnh bị cắt cụt",
   "This file has no image": "Tệp này không có ảnh",
-  "This image is compressed in a way scans can't read": "Ảnh này được nén theo cách scans không đọc được",
   "This RLE image is damaged": "Ảnh RLE này bị hỏng",
   "This JPEG image is damaged": "Ảnh JPEG này bị hỏng",
   "This JPEG image isn't lossless": "Ảnh JPEG này không phải dạng không mất dữ liệu",
   "This JPEG image's layout isn't supported": "Bố cục của ảnh JPEG này không được hỗ trợ",
-  "This file can't be read": "Không đọc được tệp này"
+  "This file can't be read": "Không đọc được tệp này",
+  "This image is compressed in a way Dicolens can't read": "Ảnh này được nén theo cách Dicolens không đọc được"
 }

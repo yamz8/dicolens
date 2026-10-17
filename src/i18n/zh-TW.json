@@ -132,10 +132,10 @@
   "This image's pixel format isn't supported": "不支援這張影像的像素格式",
   "The image data is cut short": "影像資料不完整",
   "This file has no image": "這個檔案沒有影像",
-  "This image is compressed in a way scans can't read": "這張影像的壓縮方式 scans 無法讀取",
   "This RLE image is damaged": "這張 RLE 影像已損毀",
   "This JPEG image is damaged": "這張 JPEG 影像已損毀",
   "This JPEG image isn't lossless": "這張 JPEG 影像不是無失真壓縮",
   "This JPEG image's layout isn't supported": "不支援這張 JPEG 影像的結構",
-  "This file can't be read": "無法讀取這個檔案"
+  "This file can't be read": "無法讀取這個檔案",
+  "This image is compressed in a way Dicolens can't read": "這張影像的壓縮方式 Dicolens 無法讀取"
 }

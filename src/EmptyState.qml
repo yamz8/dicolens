@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 
-// Before anything is open: what scans opens, and how.
+// Before anything is open: what Dicolens opens, and how.
 ColumnLayout {
     spacing: 10
 

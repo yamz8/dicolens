@@ -159,10 +159,10 @@
   "This image's pixel format isn't supported": "Формат пікселів цього зображення не підтримується",
   "The image data is cut short": "Дані зображення обриваються",
   "This file has no image": "У цьому файлі немає зображення",
-  "This image is compressed in a way scans can't read": "Це зображення стиснено способом, який scans не вміє читати",
   "This RLE image is damaged": "Це зображення RLE пошкоджене",
   "This JPEG image is damaged": "Це зображення JPEG пошкоджене",
   "This JPEG image isn't lossless": "Це зображення JPEG стиснено із втратами",
   "This JPEG image's layout isn't supported": "Структура цього зображення JPEG не підтримується",
-  "This file can't be read": "Не вдається прочитати цей файл"
+  "This file can't be read": "Не вдається прочитати цей файл",
+  "This image is compressed in a way Dicolens can't read": "Це зображення стиснено способом, який Dicolens не вміє читати"
 }

@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "اس تصویر کا پکسل فارمیٹ معاون نہیں",
   "The image data is cut short": "تصویری ڈیٹا ادھورا ہے",
   "This file has no image": "اس فائل میں کوئی تصویر نہیں",
-  "This image is compressed in a way scans can't read": "یہ تصویر ایسے طریقے سے کمپریس ہے جو scans نہیں پڑھ سکتا",
   "This RLE image is damaged": "یہ RLE تصویر خراب ہے",
   "This JPEG image is damaged": "یہ JPEG تصویر خراب ہے",
   "This JPEG image isn't lossless": "یہ JPEG تصویر لاس لیس نہیں ہے",
   "This JPEG image's layout isn't supported": "اس JPEG تصویر کا لے آؤٹ معاون نہیں",
-  "This file can't be read": "یہ فائل پڑھی نہیں جا سکتی"
+  "This file can't be read": "یہ فائل پڑھی نہیں جا سکتی",
+  "This image is compressed in a way Dicolens can't read": "یہ تصویر ایسے طریقے سے کمپریس ہے جو Dicolens نہیں پڑھ سکتا"
 }

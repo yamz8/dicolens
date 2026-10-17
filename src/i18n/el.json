@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "Η μορφή εικονοστοιχείων αυτής της εικόνας δεν υποστηρίζεται",
   "The image data is cut short": "Τα δεδομένα εικόνας είναι ελλιπή",
   "This file has no image": "Αυτό το αρχείο δεν περιέχει εικόνα",
-  "This image is compressed in a way scans can't read": "Αυτή η εικόνα είναι συμπιεσμένη με τρόπο που το scans δεν μπορεί να διαβάσει",
   "This RLE image is damaged": "Αυτή η εικόνα RLE είναι κατεστραμμένη",
   "This JPEG image is damaged": "Αυτή η εικόνα JPEG είναι κατεστραμμένη",
   "This JPEG image isn't lossless": "Αυτή η εικόνα JPEG δεν είναι χωρίς απώλειες",
   "This JPEG image's layout isn't supported": "Η διάταξη αυτής της εικόνας JPEG δεν υποστηρίζεται",
-  "This file can't be read": "Αυτό το αρχείο δεν μπορεί να διαβαστεί"
+  "This file can't be read": "Αυτό το αρχείο δεν μπορεί να διαβαστεί",
+  "This image is compressed in a way Dicolens can't read": "Αυτή η εικόνα είναι συμπιεσμένη με τρόπο που το Dicolens δεν μπορεί να διαβάσει"
 }

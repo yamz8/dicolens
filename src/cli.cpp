@@ -16,18 +16,18 @@
 namespace {
 
 const char *Usage = R"(Usage:
-  scans [file | folder]...                 Open the viewer
-  scans open [file | folder]...            The same
-  scans info <file | folder>... [--json]   List the series found, with patient and study
-  scans tags <file> [--frame <n>] [--json] Every tag in a file, sequences indented
-  scans export <file | folder> <output.png> [--series <n>] [--slice <n>]
-               [--window <center>,<width>] [--invert]
-                                           Save one slice as a PNG or JPEG, windowed as given
-                                           or as the file says; series and slice count from 1
-  scans export <file | folder> <folder> --all [--series <n>] [same options]
-                                           Save every slice of a series, 0001.png onwards
-  scans skill install                      Install the agent skill to ~/.claude/skills/scans
-  scans --help | --version
+  dicolens [file | folder]...                 Open the viewer
+  dicolens open [file | folder]...            The same
+  dicolens info <file | folder>... [--json]   List the series found, with patient and study
+  dicolens tags <file> [--frame <n>] [--json] Every tag in a file, sequences indented
+  dicolens export <file | folder> <output.png> [--series <n>] [--slice <n>]
+                  [--window <center>,<width>] [--invert]
+                                              Save one slice as a PNG or JPEG, windowed as given
+                                              or as the file says; series and slice count from 1
+  dicolens export <file | folder> <folder> --all [--series <n>] [same options]
+                                              Save every slice of a series, 0001.png onwards
+  dicolens skill install                      Install the agent skill to ~/.claude/skills/dicolens
+  dicolens --help | --version
 
 Folders are read recursively, so a hospital CD's root works. Commands exit
 0 on success and 1 on failure, with errors on stderr.
@@ -47,7 +47,7 @@ int fail(const QString &message, bool json) {
     if (json)
         err() << QJsonDocument(QJsonObject{{"error", message}}).toJson(QJsonDocument::Compact) << Qt::endl;
     else
-        err() << "scans: " << message << Qt::endl;
+        err() << "dicolens: " << message << Qt::endl;
     return 1;
 }
 
@@ -288,11 +288,11 @@ int exportImages(QStringList args) {
 int skill(QStringList args) {
     const bool json = flag(args, "--json");
     if (args != QStringList{"install"})
-        return fail("try: scans skill install", json);
+        return fail("try: dicolens skill install", json);
     QFile bundled(":/skill/SKILL.md");
     if (!bundled.open(QIODevice::ReadOnly))
         return fail("the skill isn't bundled in this build", json);
-    const QString directory = QDir::homePath() + "/.claude/skills/scans";
+    const QString directory = QDir::homePath() + "/.claude/skills/dicolens";
     QDir().mkpath(directory);
     QSaveFile file(directory + "/SKILL.md");
     if (!file.open(QIODevice::WriteOnly) || file.write(bundled.readAll()) < 0 || !file.commit())
@@ -316,7 +316,7 @@ int runCli(const QStringList &arguments, QStringList &open) {
         return 0;
     }
     if (command == "--version") {
-        out() << "scans " << QCoreApplication::applicationVersion() << "\n";
+        out() << "dicolens " << QCoreApplication::applicationVersion() << "\n";
         out().flush();
         return 0;
     }
@@ -332,7 +332,7 @@ int runCli(const QStringList &arguments, QStringList &open) {
         args.removeFirst();
     for (const auto &arg : args)
         if (arg.startsWith("-")) {
-            err() << "scans: unknown option " << arg << "\n\n" << Usage;
+            err() << "dicolens: unknown option " << arg << "\n\n" << Usage;
             err().flush();
             return 1;
         }

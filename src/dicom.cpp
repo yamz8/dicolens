@@ -36,7 +36,7 @@ QString trimmed(QString value) {
     return value;
 }
 
-QString tr(const char *text, int n = -1) { return QCoreApplication::translate("scans", text, nullptr, n); }
+QString tr(const char *text, int n = -1) { return QCoreApplication::translate("dicolens", text, nullptr, n); }
 
 QByteArray inflate(const uchar *data, qint64 size) {
     z_stream stream{};

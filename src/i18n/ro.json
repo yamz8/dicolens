@@ -150,10 +150,10 @@
   "This image's pixel format isn't supported": "Formatul de pixel al acestei imagini nu este acceptat",
   "The image data is cut short": "Datele imaginii sunt incomplete",
   "This file has no image": "Acest fișier nu conține nicio imagine",
-  "This image is compressed in a way scans can't read": "Această imagine este comprimată într-un mod pe care scans nu îl poate citi",
   "This RLE image is damaged": "Această imagine RLE este deteriorată",
   "This JPEG image is damaged": "Această imagine JPEG este deteriorată",
   "This JPEG image isn't lossless": "Această imagine JPEG nu este fără pierderi",
   "This JPEG image's layout isn't supported": "Structura acestei imagini JPEG nu este acceptată",
-  "This file can't be read": "Acest fișier nu poate fi citit"
+  "This file can't be read": "Acest fișier nu poate fi citit",
+  "This image is compressed in a way Dicolens can't read": "Această imagine este comprimată într-un mod pe care Dicolens nu îl poate citi"
 }

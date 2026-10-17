@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "Selle pildi pikslivormingut ei toetata",
   "The image data is cut short": "Pildiandmed on poolikud",
   "This file has no image": "Selles failis pole pilti",
-  "This image is compressed in a way scans can't read": "See pilt on tihendatud viisil, mida scans ei oska lugeda",
   "This RLE image is damaged": "See RLE-pilt on vigane",
   "This JPEG image is damaged": "See JPEG-pilt on vigane",
   "This JPEG image isn't lossless": "See JPEG-pilt pole kadudeta",
   "This JPEG image's layout isn't supported": "Selle JPEG-pildi ülesehitust ei toetata",
-  "This file can't be read": "Seda faili ei saa lugeda"
+  "This file can't be read": "Seda faili ei saa lugeda",
+  "This image is compressed in a way Dicolens can't read": "See pilt on tihendatud viisil, mida Dicolens ei oska lugeda"
 }

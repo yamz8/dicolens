@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "قالب پیکسل این تصویر پشتیبانی نمی‌شود",
   "The image data is cut short": "دادهٔ تصویر ناقص است",
   "This file has no image": "این فایل تصویری ندارد",
-  "This image is compressed in a way scans can't read": "این تصویر به روشی فشرده شده که scans نمی‌تواند بخواند",
   "This RLE image is damaged": "این تصویر RLE آسیب دیده است",
   "This JPEG image is damaged": "این تصویر JPEG آسیب دیده است",
   "This JPEG image isn't lossless": "این تصویر JPEG بدون اتلاف نیست",
   "This JPEG image's layout isn't supported": "چیدمان این تصویر JPEG پشتیبانی نمی‌شود",
-  "This file can't be read": "این فایل خوانده نمی‌شود"
+  "This file can't be read": "این فایل خوانده نمی‌شود",
+  "This image is compressed in a way Dicolens can't read": "این تصویر به روشی فشرده شده که Dicolens نمی‌تواند بخواند"
 }

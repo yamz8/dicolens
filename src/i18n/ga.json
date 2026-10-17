@@ -168,10 +168,10 @@
   "This image's pixel format isn't supported": "Ní thacaítear le formáid picteilíní na híomhá seo",
   "The image data is cut short": "Tá sonraí na híomhá teasctha",
   "This file has no image": "Níl íomhá sa chomhad seo",
-  "This image is compressed in a way scans can't read": "Tá an íomhá seo comhbhrúite ar bhealach nach féidir le scans a léamh",
   "This RLE image is damaged": "Tá an íomhá RLE seo damáistithe",
   "This JPEG image is damaged": "Tá an íomhá JPEG seo damáistithe",
   "This JPEG image isn't lossless": "Níl an íomhá JPEG seo gan chailliúint",
   "This JPEG image's layout isn't supported": "Ní thacaítear le leagan amach na híomhá JPEG seo",
-  "This file can't be read": "Ní féidir an comhad seo a léamh"
+  "This file can't be read": "Ní féidir an comhad seo a léamh",
+  "This image is compressed in a way Dicolens can't read": "Tá an íomhá seo comhbhrúite ar bhealach nach féidir le Dicolens a léamh"
 }

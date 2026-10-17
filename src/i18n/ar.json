@@ -177,10 +177,10 @@
   "This image's pixel format isn't supported": "تنسيق البكسل في هذه الصورة غير مدعوم",
   "The image data is cut short": "بيانات الصورة مبتورة",
   "This file has no image": "هذا الملف بلا صورة",
-  "This image is compressed in a way scans can't read": "هذه الصورة مضغوطة بطريقة لا يستطيع scans قراءتها",
   "This RLE image is damaged": "صورة RLE هذه تالفة",
   "This JPEG image is damaged": "صورة JPEG هذه تالفة",
   "This JPEG image isn't lossless": "صورة JPEG هذه ليست بلا فقد",
   "This JPEG image's layout isn't supported": "تخطيط صورة JPEG هذه غير مدعوم",
-  "This file can't be read": "تعذّرت قراءة هذا الملف"
+  "This file can't be read": "تعذّرت قراءة هذا الملف",
+  "This image is compressed in a way Dicolens can't read": "هذه الصورة مضغوطة بطريقة لا يستطيع Dicolens قراءتها"
 }

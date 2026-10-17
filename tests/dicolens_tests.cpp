@@ -244,7 +244,7 @@ QByteArray losslessJpeg(const QVector<quint16> &samples, int width, int height, 
 
 }
 
-class ScansTests : public QObject {
+class DicolensTests : public QObject {
     Q_OBJECT
 
 private slots:
@@ -768,5 +768,5 @@ private slots:
     }
 };
 
-QTEST_MAIN(ScansTests)
-#include "scans_tests.moc"
+QTEST_MAIN(DicolensTests)
+#include "dicolens_tests.moc"

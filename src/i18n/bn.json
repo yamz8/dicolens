@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "এই ছবির পিক্সেল ফরম্যাট সমর্থিত নয়",
   "The image data is cut short": "ছবির ডেটা অসম্পূর্ণ",
   "This file has no image": "এই ফাইলে কোনো ছবি নেই",
-  "This image is compressed in a way scans can't read": "এই ছবিটি এমনভাবে সংকুচিত যা scans পড়তে পারে না",
   "This RLE image is damaged": "এই RLE ছবিটি ক্ষতিগ্রস্ত",
   "This JPEG image is damaged": "এই JPEG ছবিটি ক্ষতিগ্রস্ত",
   "This JPEG image isn't lossless": "এই JPEG ছবিটি লসলেস নয়",
   "This JPEG image's layout isn't supported": "এই JPEG ছবির বিন্যাস সমর্থিত নয়",
-  "This file can't be read": "এই ফাইলটি পড়া যায় না"
+  "This file can't be read": "এই ফাইলটি পড়া যায় না",
+  "This image is compressed in a way Dicolens can't read": "এই ছবিটি এমনভাবে সংকুচিত যা Dicolens পড়তে পারে না"
 }

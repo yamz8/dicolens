@@ -132,10 +132,10 @@
   "This image's pixel format isn't supported": "이 영상의 픽셀 형식은 지원되지 않습니다",
   "The image data is cut short": "영상 데이터가 중간에 끊겼습니다",
   "This file has no image": "이 파일에는 영상이 없습니다",
-  "This image is compressed in a way scans can't read": "이 영상은 scans가 읽을 수 없는 방식으로 압축되어 있습니다",
   "This RLE image is damaged": "이 RLE 영상이 손상되었습니다",
   "This JPEG image is damaged": "이 JPEG 영상이 손상되었습니다",
   "This JPEG image isn't lossless": "이 JPEG 영상은 무손실 방식이 아닙니다",
   "This JPEG image's layout isn't supported": "이 JPEG 영상의 구성은 지원되지 않습니다",
-  "This file can't be read": "이 파일을 읽을 수 없습니다"
+  "This file can't be read": "이 파일을 읽을 수 없습니다",
+  "This image is compressed in a way Dicolens can't read": "이 영상은 Dicolens가 읽을 수 없는 방식으로 압축되어 있습니다"
 }

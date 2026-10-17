@@ -150,10 +150,10 @@
   "This image's pixel format isn't supported": "Le format de pixel de cette image n’est pas pris en charge",
   "The image data is cut short": "Les données de l’image sont tronquées",
   "This file has no image": "Ce fichier ne contient pas d’image",
-  "This image is compressed in a way scans can't read": "Cette image est compressée d’une manière que scans ne sait pas lire",
   "This RLE image is damaged": "Cette image RLE est endommagée",
   "This JPEG image is damaged": "Cette image JPEG est endommagée",
   "This JPEG image isn't lossless": "Cette image JPEG n’est pas sans perte",
   "This JPEG image's layout isn't supported": "La structure de cette image JPEG n’est pas prise en charge",
-  "This file can't be read": "Ce fichier est illisible"
+  "This file can't be read": "Ce fichier est illisible",
+  "This image is compressed in a way Dicolens can't read": "Cette image est compressée d’une manière que Dicolens ne sait pas lire"
 }

@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "Bu tasvirning piksel formati qoʻllab-quvvatlanmaydi",
   "The image data is cut short": "Tasvir maʼlumotlari chala",
   "This file has no image": "Bu faylda tasvir yoʻq",
-  "This image is compressed in a way scans can't read": "Bu tasvir scans oʻqiy olmaydigan usulda siqilgan",
   "This RLE image is damaged": "Bu RLE tasvir shikastlangan",
   "This JPEG image is damaged": "Bu JPEG tasvir shikastlangan",
   "This JPEG image isn't lossless": "Bu JPEG tasvir yoʻqotishsiz emas",
   "This JPEG image's layout isn't supported": "Bu JPEG tasvirning tuzilishi qoʻllab-quvvatlanmaydi",
-  "This file can't be read": "Bu faylni oʻqib boʻlmaydi"
+  "This file can't be read": "Bu faylni oʻqib boʻlmaydi",
+  "This image is compressed in a way Dicolens can't read": "Bu tasvir Dicolens oʻqiy olmaydigan usulda siqilgan"
 }

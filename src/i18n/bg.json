@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "Пикселният формат на това изображение не се поддържа",
   "The image data is cut short": "Данните на изображението са непълни",
   "This file has no image": "Този файл не съдържа изображение",
-  "This image is compressed in a way scans can't read": "Това изображение е компресирано по начин, който scans не може да прочете",
   "This RLE image is damaged": "Това RLE изображение е повредено",
   "This JPEG image is damaged": "Това JPEG изображение е повредено",
   "This JPEG image isn't lossless": "Това JPEG изображение не е без загуби",
   "This JPEG image's layout isn't supported": "Структурата на това JPEG изображение не се поддържа",
-  "This file can't be read": "Този файл не може да бъде прочетен"
+  "This file can't be read": "Този файл не може да бъде прочетен",
+  "This image is compressed in a way Dicolens can't read": "Това изображение е компресирано по начин, който Dicolens не може да прочете"
 }

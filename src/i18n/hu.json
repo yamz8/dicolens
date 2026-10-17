@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "Ennek a képnek a pixelformátuma nem támogatott",
   "The image data is cut short": "A képadat csonka",
   "This file has no image": "Ebben a fájlban nincs kép",
-  "This image is compressed in a way scans can't read": "Ez a kép olyan módon tömörített, amelyet a scans nem tud olvasni",
   "This RLE image is damaged": "Ez az RLE-kép sérült",
   "This JPEG image is damaged": "Ez a JPEG-kép sérült",
   "This JPEG image isn't lossless": "Ez a JPEG-kép nem veszteségmentes",
   "This JPEG image's layout isn't supported": "Ennek a JPEG-képnek a felépítése nem támogatott",
-  "This file can't be read": "Ez a fájl nem olvasható"
+  "This file can't be read": "Ez a fájl nem olvasható",
+  "This image is compressed in a way Dicolens can't read": "Ez a kép olyan módon tömörített, amelyet a Dicolens nem tud olvasni"
 }

@@ -132,10 +132,10 @@
   "This image's pixel format isn't supported": "Format piksel imej ini tidak disokong",
   "The image data is cut short": "Data imej terputus",
   "This file has no image": "Fail ini tiada imej",
-  "This image is compressed in a way scans can't read": "Imej ini dimampatkan dengan cara yang tidak dapat dibaca oleh scans",
   "This RLE image is damaged": "Imej RLE ini rosak",
   "This JPEG image is damaged": "Imej JPEG ini rosak",
   "This JPEG image isn't lossless": "Imej JPEG ini bukan tanpa kehilangan",
   "This JPEG image's layout isn't supported": "Susun atur imej JPEG ini tidak disokong",
-  "This file can't be read": "Fail ini tidak dapat dibaca"
+  "This file can't be read": "Fail ini tidak dapat dibaca",
+  "This image is compressed in a way Dicolens can't read": "Imej ini dimampatkan dengan cara yang tidak dapat dibaca oleh Dicolens"
 }

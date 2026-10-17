@@ -150,10 +150,10 @@
   "This image's pixel format isn't supported": "El format de píxel d’aquesta imatge no és compatible",
   "The image data is cut short": "Les dades de la imatge estan truncades",
   "This file has no image": "Aquest fitxer no té cap imatge",
-  "This image is compressed in a way scans can't read": "Aquesta imatge està comprimida d’una manera que scans no pot llegir",
   "This RLE image is damaged": "Aquesta imatge RLE està malmesa",
   "This JPEG image is damaged": "Aquesta imatge JPEG està malmesa",
   "This JPEG image isn't lossless": "Aquesta imatge JPEG no és sense pèrdua",
   "This JPEG image's layout isn't supported": "L’estructura d’aquesta imatge JPEG no és compatible",
-  "This file can't be read": "No es pot llegir aquest fitxer"
+  "This file can't be read": "No es pot llegir aquest fitxer",
+  "This image is compressed in a way Dicolens can't read": "Aquesta imatge està comprimida d’una manera que Dicolens no pot llegir"
 }

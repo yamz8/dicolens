@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
-import Scans
+import Dicolens
 
 ApplicationWindow {
     id: win
@@ -11,7 +11,7 @@ ApplicationWindow {
     minimumWidth: 720
     minimumHeight: 480
     visible: true
-    title: backend.hasImages && !win.infoHidden && backend.info.patient ? backend.info.patient + " — Scans" : "Scans"
+    title: backend.hasImages && !win.infoHidden && backend.info.patient ? backend.info.patient + " — Dicolens" : "Dicolens"
     color: "#0e0e10"
 
     Material.theme: Material.Dark

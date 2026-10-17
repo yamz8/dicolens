@@ -72,7 +72,7 @@ void registerPortalFilterTypes() {
 // by the "DICM" magic, as application/dicom.
 PortalFileFilter dicomFilter() {
     return {
-        QCoreApplication::translate("scans", "DICOM images"),
+        QCoreApplication::translate("dicolens", "DICOM images"),
         {
             {1, QStringLiteral("application/dicom")},
             {0, QStringLiteral("*.dcm")},
@@ -85,15 +85,15 @@ PortalFileFilter dicomFilter() {
 }
 
 PortalFileFilter allFilter() {
-    return {QCoreApplication::translate("scans", "All files"), {{0, QStringLiteral("*")}}};
+    return {QCoreApplication::translate("dicolens", "All files"), {{0, QStringLiteral("*")}}};
 }
 
 PortalFileFilter pngFilter() {
-    return {QCoreApplication::translate("scans", "PNG image"), {{1, QStringLiteral("image/png")}, {0, QStringLiteral("*.png")}}};
+    return {QCoreApplication::translate("dicolens", "PNG image"), {{1, QStringLiteral("image/png")}, {0, QStringLiteral("*.png")}}};
 }
 
 QString portalToken() {
-    return QStringLiteral("scans_%1").arg(QRandomGenerator::global()->generate());
+    return QStringLiteral("dicolens_%1").arg(QRandomGenerator::global()->generate());
 }
 
 QByteArray portalPathBytes(const QString &path) {
@@ -121,19 +121,19 @@ void PortalFilePicker::choose(Purpose purpose, const QString &suggestedName) {
     QString title, method = QStringLiteral("OpenFile");
     if (purpose == Purpose::SaveImage) {
         method = QStringLiteral("SaveFile");
-        title = QCoreApplication::translate("scans", "Save Image");
-        options.insert(QStringLiteral("accept_label"), QCoreApplication::translate("scans", "Save"));
+        title = QCoreApplication::translate("dicolens", "Save Image");
+        options.insert(QStringLiteral("accept_label"), QCoreApplication::translate("dicolens", "Save"));
         options.insert(QStringLiteral("current_name"), suggestedName);
         options.insert(QStringLiteral("current_folder"), portalPathBytes(startFolder()));
         options.insert(QStringLiteral("filters"), QVariant::fromValue(PortalFileFilters{pngFilter()}));
     } else if (purpose == Purpose::OpenFolder) {
-        title = QCoreApplication::translate("scans", "Open a Folder of Scans");
-        options.insert(QStringLiteral("accept_label"), QCoreApplication::translate("scans", "Open"));
+        title = QCoreApplication::translate("dicolens", "Open a Folder of Scans");
+        options.insert(QStringLiteral("accept_label"), QCoreApplication::translate("dicolens", "Open"));
         options.insert(QStringLiteral("directory"), true);
         options.insert(QStringLiteral("multiple"), false);
     } else {
-        title = QCoreApplication::translate("scans", "Open a Scan");
-        options.insert(QStringLiteral("accept_label"), QCoreApplication::translate("scans", "Open"));
+        title = QCoreApplication::translate("dicolens", "Open a Scan");
+        options.insert(QStringLiteral("accept_label"), QCoreApplication::translate("dicolens", "Open"));
         options.insert(QStringLiteral("multiple"), true);
         options.insert(QStringLiteral("filters"), QVariant::fromValue(PortalFileFilters{dicomFilter(), allFilter()}));
         options.insert(QStringLiteral("current_filter"), QVariant::fromValue(dicomFilter()));
@@ -145,7 +145,7 @@ void PortalFilePicker::choose(Purpose purpose, const QString &suggestedName) {
                           QStringLiteral("org.freedesktop.portal.FileChooser"),
                           bus);
     if (!portal.isValid()) {
-        emit failed(QCoreApplication::translate("scans", "The desktop's file chooser isn't available"));
+        emit failed(QCoreApplication::translate("dicolens", "The desktop's file chooser isn't available"));
         return;
     }
 
@@ -163,7 +163,7 @@ void PortalFilePicker::choose(Purpose purpose, const QString &suggestedName) {
     m_purpose = purpose;
     if (!connectToRequestPath(predictedPath)) {
         clearPending();
-        emit failed(QCoreApplication::translate("scans", "The desktop's file chooser didn't answer"));
+        emit failed(QCoreApplication::translate("dicolens", "The desktop's file chooser didn't answer"));
         return;
     }
 
@@ -180,7 +180,7 @@ void PortalFilePicker::choose(Purpose purpose, const QString &suggestedName) {
 
         if (reply.isError()) {
             clearPending();
-            emit failed(QCoreApplication::translate("scans", "The desktop's file chooser failed: %1").arg(reply.error().message()));
+            emit failed(QCoreApplication::translate("dicolens", "The desktop's file chooser failed: %1").arg(reply.error().message()));
             return;
         }
 
@@ -194,7 +194,7 @@ void PortalFilePicker::choose(Purpose purpose, const QString &suggestedName) {
                 this, SLOT(handleResponse(uint,QVariantMap)));
             if (!connectToRequestPath(actualPath)) {
                 clearPending();
-                emit failed(QCoreApplication::translate("scans", "The desktop's file chooser didn't answer"));
+                emit failed(QCoreApplication::translate("dicolens", "The desktop's file chooser didn't answer"));
             }
         }
     });

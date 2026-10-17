@@ -150,10 +150,10 @@
   "This image's pixel format isn't supported": "Šī attēla pikseļu formāts netiek atbalstīts",
   "The image data is cut short": "Attēla dati ir nepilnīgi",
   "This file has no image": "Šajā failā nav attēla",
-  "This image is compressed in a way scans can't read": "Šis attēls ir saspiests veidā, ko scans nevar nolasīt",
   "This RLE image is damaged": "Šis RLE attēls ir bojāts",
   "This JPEG image is damaged": "Šis JPEG attēls ir bojāts",
   "This JPEG image isn't lossless": "Šis JPEG attēls nav bezzudumu",
   "This JPEG image's layout isn't supported": "Šī JPEG attēla struktūra netiek atbalstīta",
-  "This file can't be read": "Šo failu nevar nolasīt"
+  "This file can't be read": "Šo failu nevar nolasīt",
+  "This image is compressed in a way Dicolens can't read": "Šis attēls ir saspiests veidā, ko Dicolens nevar nolasīt"
 }

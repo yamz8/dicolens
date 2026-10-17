@@ -132,10 +132,10 @@
   "This image's pixel format isn't supported": "ไม่รองรับรูปแบบพิกเซลของภาพนี้",
   "The image data is cut short": "ข้อมูลภาพขาดหายไม่ครบ",
   "This file has no image": "ไฟล์นี้ไม่มีภาพ",
-  "This image is compressed in a way scans can't read": "ภาพนี้บีบอัดในแบบที่ scans อ่านไม่ได้",
   "This RLE image is damaged": "ภาพ RLE นี้เสียหาย",
   "This JPEG image is damaged": "ภาพ JPEG นี้เสียหาย",
   "This JPEG image isn't lossless": "ภาพ JPEG นี้ไม่ใช่แบบไม่สูญเสียข้อมูล",
   "This JPEG image's layout isn't supported": "ไม่รองรับโครงสร้างของภาพ JPEG นี้",
-  "This file can't be read": "อ่านไฟล์นี้ไม่ได้"
+  "This file can't be read": "อ่านไฟล์นี้ไม่ได้",
+  "This image is compressed in a way Dicolens can't read": "ภาพนี้บีบอัดในแบบที่ Dicolens อ่านไม่ได้"
 }

@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "Tämän kuvan pikselimuotoa ei tueta",
   "The image data is cut short": "Kuvadata on katkennut",
   "This file has no image": "Tiedostossa ei ole kuvaa",
-  "This image is compressed in a way scans can't read": "Tämä kuva on pakattu tavalla, jota scans ei osaa lukea",
   "This RLE image is damaged": "Tämä RLE-kuva on vioittunut",
   "This JPEG image is damaged": "Tämä JPEG-kuva on vioittunut",
   "This JPEG image isn't lossless": "Tämä JPEG-kuva ei ole häviötön",
   "This JPEG image's layout isn't supported": "Tämän JPEG-kuvan rakennetta ei tueta",
-  "This file can't be read": "Tiedostoa ei voi lukea"
+  "This file can't be read": "Tiedostoa ei voi lukea",
+  "This image is compressed in a way Dicolens can't read": "Tämä kuva on pakattu tavalla, jota Dicolens ei osaa lukea"
 }

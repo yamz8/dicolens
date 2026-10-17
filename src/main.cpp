@@ -1,4 +1,4 @@
-// scans — a DICOM viewer: open a scan, a folder, or a hospital CD, and look
+// Dicolens — a DICOM viewer: open a scan, a folder, or a hospital CD, and look
 // through it slice by slice.
 
 #include <QGuiApplication>
@@ -56,17 +56,17 @@ int main(int argc, char *argv[]) {
         qputenv("QT_QPA_PLATFORM", "offscreen");
 
     QGuiApplication app(argc, argv);
-    app.setApplicationName("scans");
+    app.setApplicationName("dicolens");
     app.setApplicationVersion("0.1.0");
 
     QStringList open;
     if (const int code = runCli(app.arguments(), open); code >= 0)
         return code;
 
-    // Matches the window to scans.desktop, so the compositor (Wayland app_id)
+    // Matches the window to dicolens.desktop, so the compositor (Wayland app_id)
     // and the launcher pick up the installed icon.
-    app.setDesktopFileName("scans");
-    app.setWindowIcon(QIcon::fromTheme("scans"));
+    app.setDesktopFileName("dicolens");
+    app.setWindowIcon(QIcon::fromTheme("dicolens"));
 
     QQuickStyle::setStyle("Material");
 
@@ -79,8 +79,8 @@ int main(int argc, char *argv[]) {
     PortalFilePicker picker;
     Backend backend(&picker);
 
-    qmlRegisterType<SliceView>("Scans", 1, 0, "SliceView");
-    qmlRegisterUncreatableType<Backend>("Scans", 1, 0, "Backend", "The backend is given to QML as \"backend\"");
+    qmlRegisterType<SliceView>("Dicolens", 1, 0, "SliceView");
+    qmlRegisterUncreatableType<Backend>("Dicolens", 1, 0, "Backend", "The backend is given to QML as \"backend\"");
 
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);

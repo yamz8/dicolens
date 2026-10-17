@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "Das Pixelformat dieses Bildes wird nicht unterstützt",
   "The image data is cut short": "Die Bilddaten sind unvollständig",
   "This file has no image": "Diese Datei enthält kein Bild",
-  "This image is compressed in a way scans can't read": "Dieses Bild ist so komprimiert, dass scans es nicht lesen kann",
   "This RLE image is damaged": "Dieses RLE-Bild ist beschädigt",
   "This JPEG image is damaged": "Dieses JPEG-Bild ist beschädigt",
   "This JPEG image isn't lossless": "Dieses JPEG-Bild ist nicht verlustfrei",
   "This JPEG image's layout isn't supported": "Der Aufbau dieses JPEG-Bildes wird nicht unterstützt",
-  "This file can't be read": "Diese Datei kann nicht gelesen werden"
+  "This file can't be read": "Diese Datei kann nicht gelesen werden",
+  "This image is compressed in a way Dicolens can't read": "Dieses Bild ist so komprimiert, dass Dicolens es nicht lesen kann"
 }

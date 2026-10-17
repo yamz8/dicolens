@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "இந்தப் படத்தின் பிக்சல் வடிவம் ஆதரிக்கப்படவில்லை",
   "The image data is cut short": "படத் தரவு முழுமையாக இல்லை",
   "This file has no image": "இந்தக் கோப்பில் படம் இல்லை",
-  "This image is compressed in a way scans can't read": "scans படிக்க முடியாத முறையில் இந்தப் படம் சுருக்கப்பட்டுள்ளது",
   "This RLE image is damaged": "இந்த RLE படம் சேதமடைந்துள்ளது",
   "This JPEG image is damaged": "இந்த JPEG படம் சேதமடைந்துள்ளது",
   "This JPEG image isn't lossless": "இந்த JPEG படம் இழப்பற்றது அல்ல",
   "This JPEG image's layout isn't supported": "இந்த JPEG படத்தின் அமைப்பு ஆதரிக்கப்படவில்லை",
-  "This file can't be read": "இந்தக் கோப்பைப் படிக்க முடியாது"
+  "This file can't be read": "இந்தக் கோப்பைப் படிக்க முடியாது",
+  "This image is compressed in a way Dicolens can't read": "Dicolens படிக்க முடியாத முறையில் இந்தப் படம் சுருக்கப்பட்டுள்ளது"
 }

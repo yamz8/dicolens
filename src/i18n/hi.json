@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "इस छवि का पिक्सेल फ़ॉर्मैट समर्थित नहीं है",
   "The image data is cut short": "छवि डेटा अधूरा है",
   "This file has no image": "इस फ़ाइल में कोई छवि नहीं है",
-  "This image is compressed in a way scans can't read": "यह छवि ऐसे तरीके से संपीड़ित है जिसे scans नहीं पढ़ सकता",
   "This RLE image is damaged": "यह RLE छवि क्षतिग्रस्त है",
   "This JPEG image is damaged": "यह JPEG छवि क्षतिग्रस्त है",
   "This JPEG image isn't lossless": "यह JPEG छवि लॉसलेस नहीं है",
   "This JPEG image's layout isn't supported": "इस JPEG छवि का लेआउट समर्थित नहीं है",
-  "This file can't be read": "यह फ़ाइल पढ़ी नहीं जा सकती"
+  "This file can't be read": "यह फ़ाइल पढ़ी नहीं जा सकती",
+  "This image is compressed in a way Dicolens can't read": "यह छवि ऐसे तरीके से संपीड़ित है जिसे Dicolens नहीं पढ़ सकता"
 }

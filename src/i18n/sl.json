@@ -159,10 +159,10 @@
   "This image's pixel format isn't supported": "Oblika slikovnih točk te slike ni podprta",
   "The image data is cut short": "Slikovni podatki so nepopolni",
   "This file has no image": "Ta datoteka ne vsebuje slike",
-  "This image is compressed in a way scans can't read": "Ta slika je stisnjena na način, ki ga scans ne zna prebrati",
   "This RLE image is damaged": "Ta slika RLE je poškodovana",
   "This JPEG image is damaged": "Ta slika JPEG je poškodovana",
   "This JPEG image isn't lossless": "Ta slika JPEG ni brez izgub",
   "This JPEG image's layout isn't supported": "Postavitev te slike JPEG ni podprta",
-  "This file can't be read": "Te datoteke ni mogoče prebrati"
+  "This file can't be read": "Te datoteke ni mogoče prebrati",
+  "This image is compressed in a way Dicolens can't read": "Ta slika je stisnjena na način, ki ga Dicolens ne zna prebrati"
 }

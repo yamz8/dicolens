@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "Het pixelformaat van deze afbeelding wordt niet ondersteund",
   "The image data is cut short": "De beelddata is afgekapt",
   "This file has no image": "Dit bestand bevat geen afbeelding",
-  "This image is compressed in a way scans can't read": "Deze afbeelding is gecomprimeerd op een manier die scans niet kan lezen",
   "This RLE image is damaged": "Deze RLE-afbeelding is beschadigd",
   "This JPEG image is damaged": "Deze JPEG-afbeelding is beschadigd",
   "This JPEG image isn't lossless": "Deze JPEG-afbeelding is niet verliesvrij",
   "This JPEG image's layout isn't supported": "De opbouw van deze JPEG-afbeelding wordt niet ondersteund",
-  "This file can't be read": "Dit bestand kan niet worden gelezen"
+  "This file can't be read": "Dit bestand kan niet worden gelezen",
+  "This image is compressed in a way Dicolens can't read": "Deze afbeelding is gecomprimeerd op een manier die Dicolens niet kan lezen"
 }

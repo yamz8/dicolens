@@ -1,7 +1,7 @@
 QT += core gui qml quick quickcontrols2 dbus
 
 CONFIG += c++20 release
-TARGET = scans
+TARGET = dicolens
 TEMPLATE = app
 
 HEADERS += \

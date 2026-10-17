@@ -132,10 +132,10 @@
   "This image's pixel format isn't supported": "この画像のピクセル形式には対応していません",
   "The image data is cut short": "画像データが途中で切れています",
   "This file has no image": "このファイルには画像がありません",
-  "This image is compressed in a way scans can't read": "この画像はscansで読み込めない方式で圧縮されています",
   "This RLE image is damaged": "このRLE画像は破損しています",
   "This JPEG image is damaged": "このJPEG画像は破損しています",
   "This JPEG image isn't lossless": "このJPEG画像はロスレスではありません",
   "This JPEG image's layout isn't supported": "このJPEG画像の構成には対応していません",
-  "This file can't be read": "このファイルを読み込めません"
+  "This file can't be read": "このファイルを読み込めません",
+  "This image is compressed in a way Dicolens can't read": "この画像はDicolensで読み込めない方式で圧縮されています"
 }

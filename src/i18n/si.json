@@ -141,10 +141,10 @@
   "This image's pixel format isn't supported": "මෙම රූපයේ පික්සල ආකෘතියට සහාය නැත",
   "The image data is cut short": "රූප දත්ත අසම්පූර්ණයි",
   "This file has no image": "මෙම ගොනුවේ රූපයක් නැත",
-  "This image is compressed in a way scans can't read": "මෙම රූපය scans හට කියවිය නොහැකි ආකාරයට සම්පීඩිතයි",
   "This RLE image is damaged": "මෙම RLE රූපය හානි වී ඇත",
   "This JPEG image is damaged": "මෙම JPEG රූපය හානි වී ඇත",
   "This JPEG image isn't lossless": "මෙම JPEG රූපය අලාභ රහිත නොවේ",
   "This JPEG image's layout isn't supported": "මෙම JPEG රූපයේ පිරිසැලසුමට සහාය නැත",
-  "This file can't be read": "මෙම ගොනුව කියවිය නොහැක"
+  "This file can't be read": "මෙම ගොනුව කියවිය නොහැක",
+  "This image is compressed in a way Dicolens can't read": "මෙම රූපය Dicolens හට කියවිය නොහැකි ආකාරයට සම්පීඩිතයි"
 }

@@ -150,10 +150,10 @@
   "This image's pixel format isn't supported": "Формат пиксела ове слике није подржан",
   "The image data is cut short": "Подаци слике су непотпуни",
   "This file has no image": "Ова датотека не садржи слику",
-  "This image is compressed in a way scans can't read": "Ова слика је компримована на начин који scans не може да прочита",
   "This RLE image is damaged": "Ова RLE слика је оштећена",
   "This JPEG image is damaged": "Ова JPEG слика је оштећена",
   "This JPEG image isn't lossless": "Ова JPEG слика није без губитака",
   "This JPEG image's layout isn't supported": "Распоред ове JPEG слике није подржан",
-  "This file can't be read": "Ову датотеку није могуће прочитати"
+  "This file can't be read": "Ову датотеку није могуће прочитати",
+  "This image is compressed in a way Dicolens can't read": "Ова слика је компримована на начин који Dicolens не може да прочита"
 }
