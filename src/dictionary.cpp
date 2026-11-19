@@ -143,6 +143,19 @@ const Entry Entries[] = {
     {0x00185100, "CS", "Patient Position"},
     {0x00185101, "CS", "View Position"},
     {0x00186011, "SQ", "Sequence of Ultrasound Regions"},
+    {0x00186012, "US", "Region Spatial Format"},
+    {0x00186014, "US", "Region Data Type"},
+    {0x00186016, "UL", "Region Flags"},
+    {0x00186018, "UL", "Region Location Min X0"},
+    {0x0018601A, "UL", "Region Location Min Y0"},
+    {0x0018601C, "UL", "Region Location Max X1"},
+    {0x0018601E, "UL", "Region Location Max Y1"},
+    {0x00186020, "SL", "Reference Pixel X0"},
+    {0x00186022, "SL", "Reference Pixel Y0"},
+    {0x00186024, "US", "Physical Units X Direction"},
+    {0x00186026, "US", "Physical Units Y Direction"},
+    {0x0018602C, "FD", "Physical Delta X"},
+    {0x0018602E, "FD", "Physical Delta Y"},
     {0x00189346, "SQ", "CTDI Phantom Type Code Sequence"},
     {0x00189345, "FD", "CTDIvol"},
     {0x0020000D, "UI", "Study Instance UID"},
@@ -225,6 +238,57 @@ const Entry Entries[] = {
     {0x00400555, "SQ", "Acquisition Context Sequence"},
     {0x0040A043, "SQ", "Concept Name Code Sequence"},
     {0x0040A730, "SQ", "Content Sequence"},
+    {0x004008EA, "SQ", "Measurement Units Code Sequence"},
+    {0x0040A010, "CS", "Relationship Type"},
+    {0x0040A040, "CS", "Value Type"},
+    {0x0040A120, "DT", "DateTime"},
+    {0x0040A121, "DA", "Date"},
+    {0x0040A122, "TM", "Time"},
+    {0x0040A123, "PN", "Person Name"},
+    {0x0040A160, "UT", "Text Value"},
+    {0x0040A168, "SQ", "Concept Code Sequence"},
+    {0x0040A300, "SQ", "Measured Value Sequence"},
+    {0x0040A30A, "DS", "Numeric Value"},
+    {0x0040A491, "CS", "Completion Flag"},
+    {0x0040A493, "CS", "Verification Flag"},
+    {0x0040A504, "SQ", "Content Template Sequence"},
+    {0x00420010, "ST", "Document Title"},
+    {0x00420011, "OB", "Encapsulated Document"},
+    {0x00420012, "LO", "MIME Type of Encapsulated Document"},
+    {0x00700001, "SQ", "Graphic Annotation Sequence"},
+    {0x00700002, "CS", "Graphic Layer"},
+    {0x00700003, "CS", "Bounding Box Annotation Units"},
+    {0x00700004, "CS", "Anchor Point Annotation Units"},
+    {0x00700005, "CS", "Graphic Annotation Units"},
+    {0x00700006, "ST", "Unformatted Text Value"},
+    {0x00700008, "SQ", "Text Object Sequence"},
+    {0x00700009, "SQ", "Graphic Object Sequence"},
+    {0x00700010, "FL", "Bounding Box Top Left Hand Corner"},
+    {0x00700011, "FL", "Bounding Box Bottom Right Hand Corner"},
+    {0x00700014, "FL", "Anchor Point"},
+    {0x00700015, "CS", "Anchor Point Visibility"},
+    {0x00700020, "US", "Graphic Dimensions"},
+    {0x00700021, "US", "Number of Graphic Points"},
+    {0x00700022, "FL", "Graphic Data"},
+    {0x00700023, "CS", "Graphic Type"},
+    {0x00700024, "CS", "Graphic Filled"},
+    {0x00700060, "SQ", "Graphic Layer Sequence"},
+    {0x00700080, "CS", "Content Label"},
+    {0x00700081, "LO", "Content Description"},
+    {0x00700082, "DA", "Presentation Creation Date"},
+    {0x00700084, "PN", "Content Creator's Name"},
+    {0x60000010, "US", "Overlay Rows"},
+    {0x60000011, "US", "Overlay Columns"},
+    {0x60000015, "IS", "Number of Frames in Overlay"},
+    {0x60000022, "LO", "Overlay Description"},
+    {0x60000040, "CS", "Overlay Type"},
+    {0x60000045, "LO", "Overlay Subtype"},
+    {0x60000050, "SS", "Overlay Origin"},
+    {0x60000051, "US", "Image Frame Origin"},
+    {0x60000100, "US", "Overlay Bits Allocated"},
+    {0x60000102, "US", "Overlay Bit Position"},
+    {0x60001500, "LO", "Overlay Label"},
+    {0x60003000, "OW", "Overlay Data"},
     {0x00540016, "SQ", "Radiopharmaceutical Information Sequence"},
     {0x00540081, "US", "Number of Slices"},
     {0x00540220, "SQ", "View Code Sequence"},
@@ -256,7 +320,14 @@ const QHash<quint32, const Entry *> &table() {
 
 namespace Dictionary {
 
+// Overlay planes repeat in every even group from 6000 to 601E; the table
+// lists group 6000 for them all.
+quint32 base(quint32 tag) {
+    return ((tag >> 16) & 0xFF01) == 0x6000 ? (tag & 0xFF00FFFF) : tag;
+}
+
 QString name(quint32 tag) {
+    tag = base(tag);
     if (const Entry *entry = table().value(tag))
         return QString::fromLatin1(entry->name);
     // Every group's element 0000 is its length; odd groups are private.
@@ -268,6 +339,7 @@ QString name(quint32 tag) {
 }
 
 QByteArray vr(quint32 tag) {
+    tag = base(tag);
     if (const Entry *entry = table().value(tag))
         return entry->vr;
     if ((tag & 0xFFFF) == 0)

@@ -4,12 +4,14 @@
 // with keys and the mouse, drawing the pointer and each key pressed onto the
 // frames. bin/demos builds and runs it; nothing here is part of the app.
 
+#include <QBuffer>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QGuiApplication>
 #include <QPainter>
 #include <QPainterPath>
+#include <QPdfWriter>
 #include <QProcess>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -55,6 +57,28 @@ struct Dataset {
         qToLittleEndian(value, b.data());
         return set(tag, "US", b);
     }
+    Dataset &ul(quint32 tag, quint32 value) {
+        QByteArray b(4, 0);
+        qToLittleEndian(value, b.data());
+        return set(tag, "UL", b);
+    }
+    Dataset &fd(quint32 tag, double value) {
+        QByteArray b(8, 0);
+        quint64 bits;
+        std::memcpy(&bits, &value, 8);
+        qToLittleEndian(bits, b.data());
+        return set(tag, "FD", b);
+    }
+    Dataset &fl(quint32 tag, const std::vector<float> &values) {
+        QByteArray b(int(values.size() * 4), 0);
+        for (size_t i = 0; i < values.size(); ++i) {
+            quint32 bits;
+            std::memcpy(&bits, &values[i], 4);
+            qToLittleEndian(bits, b.data() + i * 4);
+        }
+        return set(tag, "FL", b);
+    }
+    Dataset &seq(quint32 tag, const QList<Dataset> &items);
 };
 
 QByteArray encode(const Dataset &d) {
@@ -78,12 +102,33 @@ QByteArray encode(const Dataset &d) {
     return out;
 }
 
+Dataset &Dataset::seq(quint32 tag, const QList<Dataset> &items) {
+    QByteArray value;
+    for (const auto &item : items) {
+        const QByteArray body = encode(item);
+        char b[8];
+        qToLittleEndian(quint16(0xFFFE), b);
+        qToLittleEndian(quint16(0xE000), b + 2);
+        qToLittleEndian(quint32(body.size()), b + 4);
+        value.append(b, 8).append(body);
+    }
+    elements[tag] = {"SQ", value};
+    return *this;
+}
+
+// A coded concept, as structured reports name things.
+Dataset code(const QString &value, const QString &meaning) {
+    Dataset d;
+    d.text(0x00080100, "SH", value).text(0x00080102, "SH", "DCM").text(0x00080104, "LO", meaning);
+    return d;
+}
+
 QString uid() {
     static int next = 1000;
     return QStringLiteral("2.25.4187392057612%1").arg(next++);
 }
 
-void writeDicom(const QString &path, Dataset d) {
+QString writeDicom(const QString &path, Dataset d) {
     const QString sopClass = QString::fromLatin1(d.elements[0x00080016].second).trimmed().remove(QChar('\0'));
     const QString sop = uid();
     d.text(0x00080018, "UI", sop);
@@ -104,6 +149,7 @@ void writeDicom(const QString &path, Dataset d) {
     if (!file.open(QIODevice::WriteOnly))
         qFatal("can't write %s", qPrintable(path));
     file.write(QByteArray(128, '\0') + "DICM" + encode(group) + metaBytes + encode(d));
+    return sop;
 }
 
 QByteArray words(const std::vector<int> &values) {
@@ -279,10 +325,20 @@ double chest(double x, double y, double s, bool contrast = true) {
 // ---------------------------------------------------------------------------
 // The CD: a chest CT with its scout, a head MR, and an echo loop.
 
-void makeChestCt(const QString &root, std::mt19937 &random) {
+// The chest CT, with a scout, or a year's earlier one without contrast to
+// compare it with. Gives back each axial slice's SOP Instance UID.
+QStringList makeChestCt(const QString &root, std::mt19937 &random, bool prior = false, QString *studyUid = nullptr,
+                        QString *seriesUid = nullptr) {
     const QString study = uid(), axial = uid(), scout = uid(), frame = uid();
+    if (studyUid)
+        *studyUid = study;
+    if (seriesUid)
+        *seriesUid = axial;
+    const QString folder = root + (prior ? "/ST000000" : "/ST000001");
+    QStringList sops;
     const auto base = [&] {
-        return patient(study, "20260314", "CT Chest with contrast", "A1001")
+        return patient(study, prior ? "20250310" : "20260314", prior ? "CT Chest" : "CT Chest with contrast",
+                       prior ? "A0907" : "A1001")
             .text(0x00080016, "UI", "1.2.840.10008.5.1.4.1.1.2")
             .text(0x00080060, "CS", "CT")
             .text(0x00080070, "LO", "Made-up Scanner")
@@ -308,7 +364,7 @@ void makeChestCt(const QString &root, std::mt19937 &random) {
                 double hu = 0;
                 for (double ox : {-0.25, 0.25})
                     for (double oy : {-0.25, 0.25})
-                        hu += chest(x + ox * spacing, y + oy * spacing, s) / 4;
+                        hu += chest(x + ox * spacing, y + oy * spacing, s, !prior) / 4;
                 const double sigma = hu <= -990 ? 1 : hu < -500 ? 7 : 3.5;
                 pixels[r * n + c] = int(std::lround(hu + sigma * noise(random))) + 1024;
             }
@@ -327,8 +383,10 @@ void makeChestCt(const QString &root, std::mt19937 &random) {
             .text(0x00281050, "DS", "40")
             .text(0x00281051, "DS", "400")
             .set(0x7FE00010, "OW", words(pixels));
-        writeDicom(QStringLiteral("%1/ST000001/SE000002/IM%2").arg(root).arg(s + 1, 6, 10, QChar('0')), d);
+        sops << writeDicom(QStringLiteral("%1/SE000002/IM%2").arg(folder).arg(s + 1, 6, 10, QChar('0')), d);
     }
+    if (prior)
+        return sops;
 
     // The scout: the same chest seen from the front, as X-rays add up through it.
     const int cols = 512, rows = 400;
@@ -359,10 +417,156 @@ void makeChestCt(const QString &root, std::mt19937 &random) {
         .text(0x00281051, "DS", "3400")
         .text(0x00281052, "DS", "0")
         .set(0x7FE00010, "OW", words(pixels));
-    writeDicom(root + "/ST000001/SE000001/IM000001", d);
+
+    // An overlay plane over the scout, framing the part the axial series
+    // covers, as scanners mark a scout.
+    const int top = int((0 * 5 + 20) / step), bottom = int((47 * 5 + 20) / step), left = 34, right = 478;
+    QByteArray bits((cols * rows + 15) / 16 * 2, 0);
+    auto set = [&](int r, int c) { const int i = r * cols + c; bits[i / 8] = char(bits[i / 8] | (1 << (i % 8))); };
+    for (int t = 0; t < 2; ++t) {
+        for (int c = left; c <= right; ++c) {
+            set(top + t, c);
+            set(bottom - t, c);
+        }
+        for (int r = top; r <= bottom; ++r) {
+            set(r, left + t);
+            set(r, right - t);
+        }
+    }
+    d.us(0x60000010, rows).us(0x60000011, cols)
+        .text(0x60000022, "LO", "Scan range")
+        .text(0x60000040, "CS", "G")
+        .set(0x60000050, "SS", QByteArray("\x01\x00\x01\x00", 4))
+        .us(0x60000100, 1).us(0x60000102, 0)
+        .set(0x60003000, "OW", bits);
+    writeDicom(folder + "/SE000001/IM000001", d);
+    return sops;
 }
 
-void makeHeadMr(const QString &root, std::mt19937 &random) {
+// Where a point in millimetres from the middle of a 512 pixel, 0.7 mm CT
+// slice is, in a presentation state's pixel units.
+std::vector<float> ctPoint(double x, double y) {
+    return {float(x / 0.7 + 256), float(y / 0.7 + 256)};
+}
+
+// A presentation state saved by someone reading the CT: the descending
+// aorta circled and named, and a line across the heart, on one slice.
+void makeMarks(const QString &root, const QString &study, const QString &series, const QString &sop) {
+    Dataset image;
+    image.text(0x00081150, "UI", "1.2.840.10008.5.1.4.1.1.2").text(0x00081155, "UI", sop);
+    Dataset referenced;
+    referenced.seq(0x00081140, {image}).text(0x0020000E, "UI", series);
+
+    const std::vector<float> centre = ctPoint(22, 42), edge = ctPoint(36, 42);
+    Dataset circle;
+    circle.text(0x00700005, "CS", "PIXEL").us(0x00700020, 2).us(0x00700021, 2)
+        .fl(0x00700022, {centre[0], centre[1], edge[0], edge[1]})
+        .text(0x00700023, "CS", "CIRCLE").text(0x00700024, "CS", "N");
+    std::vector<float> across = ctPoint(-30, -28), to = ctPoint(66, -28);
+    Dataset line;
+    line.text(0x00700005, "CS", "PIXEL").us(0x00700020, 2).us(0x00700021, 2)
+        .fl(0x00700022, {across[0], across[1], to[0], to[1]})
+        .text(0x00700023, "CS", "POLYLINE").text(0x00700024, "CS", "N");
+    const std::vector<float> anchor = ctPoint(30, 52), boxTop = ctPoint(50, 66), boxBottom = ctPoint(110, 76);
+    Dataset note;
+    note.text(0x00700003, "CS", "PIXEL").text(0x00700004, "CS", "PIXEL")
+        .text(0x00700006, "ST", "Descending aorta, 24 mm")
+        .fl(0x00700010, {boxTop[0], boxTop[1]}).fl(0x00700011, {boxBottom[0], boxBottom[1]})
+        .fl(0x00700014, {anchor[0], anchor[1]}).text(0x00700015, "CS", "Y");
+    Dataset annotation;
+    annotation.text(0x00700002, "CS", "READING").seq(0x00700008, {note}).seq(0x00700009, {circle, line});
+    Dataset layer;
+    layer.text(0x00700002, "CS", "READING").text(0x00700062, "IS", "1");
+
+    Dataset d = patient(study, "20260314", "CT Chest with contrast", "A1001");
+    d.text(0x00080016, "UI", "1.2.840.10008.5.1.4.1.1.11.1")
+        .text(0x00080060, "CS", "PR")
+        .text(0x0008103E, "LO", "Reading marks")
+        .text(0x0020000E, "UI", uid())
+        .text(0x00200011, "IS", "90")
+        .text(0x00700080, "CS", "READING")
+        .text(0x00700081, "LO", "Marks from the reading")
+        .seq(0x00081115, {referenced})
+        .seq(0x00700001, {annotation})
+        .seq(0x00700060, {layer});
+    writeDicom(root + "/ST000001/SE000090/PR000001", d);
+}
+
+// The CT's report, as a structured report: findings under headings, a
+// measurement, and the impression.
+void makeStructuredReport(const QString &root, const QString &study) {
+    auto item = [](const QString &type, const QString &name) {
+        Dataset d;
+        d.text(0x0040A010, "CS", "CONTAINS").text(0x0040A040, "CS", type).seq(0x0040A043, {code("1", name)});
+        return d;
+    };
+    auto text = [&](const QString &name, const QString &value) {
+        return item("TEXT", name).text(0x0040A160, "UT", value);
+    };
+    Dataset diameter = item("NUM", "Descending aorta diameter");
+    Dataset measured;
+    measured.text(0x0040A30A, "DS", "24").seq(0x004008EA, {code("mm", "millimeter")});
+    diameter.seq(0x0040A300, {measured});
+    Dataset findings = item("CONTAINER", "Findings");
+    findings.seq(0x0040A730, {
+        text("Lungs", "Clear. No nodules, consolidation, or effusion."),
+        text("Heart", "Normal in size. No pericardial effusion."),
+        text("Mediastinum", "No enlarged lymph nodes."),
+        diameter,
+        text("Bones", "No suspicious lesions."),
+    });
+    Dataset impression = item("CONTAINER", "Impression");
+    impression.seq(0x0040A730, {text("Conclusion", "No acute findings in the chest.")});
+    Dataset history = item("CONTAINER", "Clinical history");
+    history.seq(0x0040A730, {text("Reason for the scan", "Follow-up of a cough, compared with March 2025.")});
+
+    Dataset d = patient(study, "20260314", "CT Chest with contrast", "A1001");
+    d.text(0x00080016, "UI", "1.2.840.10008.5.1.4.1.1.88.33")
+        .text(0x00080023, "DA", "20260315")
+        .text(0x00080060, "CS", "SR")
+        .text(0x0008103E, "LO", "Report")
+        .text(0x0020000E, "UI", uid())
+        .text(0x00200011, "IS", "99")
+        .text(0x0040A040, "CS", "CONTAINER")
+        .seq(0x0040A043, {code("18748-4", "CT Chest Report")})
+        .text(0x0040A491, "CS", "COMPLETE")
+        .text(0x0040A493, "CS", "VERIFIED")
+        .seq(0x0040A730, {history, findings, impression});
+    writeDicom(root + "/ST000001/SE000099/SR000001", d);
+}
+
+// The MR's report, as the PDF a hospital system wraps in DICOM.
+void makePdfReport(const QString &root, const QString &study) {
+    QBuffer buffer;
+    buffer.open(QIODevice::WriteOnly);
+    {
+        QPdfWriter pdf(&buffer);
+        pdf.setTitle("MR Head report");
+        QPainter p(&pdf);
+        QFont font("DejaVu Sans", 12);
+        p.setFont(font);
+        int y = 400;
+        for (const QString &line : {QString("Example Hospital — Radiology"), QString(), QString("MR Head, 2 May 2026"),
+                                    QString(), QString("Findings: normal appearances of the brain."),
+                                    QString("Impression: no abnormality.")}) {
+            p.drawText(400, y, line);
+            y += 300;
+        }
+    }
+    Dataset d = patient(study, "20260502", "MR Head", "A1002");
+    d.text(0x00080016, "UI", "1.2.840.10008.5.1.4.1.1.104.1")
+        .text(0x00080023, "DA", "20260503")
+        .text(0x00080060, "CS", "DOC")
+        .text(0x0008103E, "LO", "Report")
+        .text(0x0020000E, "UI", uid())
+        .text(0x00200011, "IS", "99")
+        .text(0x00420010, "ST", "MR Head report")
+        .text(0x00420012, "LO", "application/pdf")
+        .set(0x00420011, "OB", buffer.data());
+    writeDicom(root + "/ST000002/SE000099/DOC00001", d);
+}
+
+QString makeHeadMr(const QString &root, std::mt19937 &random) {
     const QString study = uid(), series = uid(), frame = uid();
     std::normal_distribution<double> noise(0, 1);
     const int n = 256, slices = 20;
@@ -421,6 +625,7 @@ void makeHeadMr(const QString &root, std::mt19937 &random) {
             .set(0x7FE00010, "OW", words(pixels));
         writeDicom(QStringLiteral("%1/ST000002/SE000003/IM%2").arg(root).arg(slices - s, 6, 10, QChar('0')), d);
     }
+    return study;
 }
 
 void makeEcho(const QString &root, std::mt19937 &random) {
@@ -468,9 +673,16 @@ void makeEcho(const QString &root, std::mt19937 &random) {
         .text(0x00280008, "IS", QString::number(frames))
         .set(0x00280009, "AT", QByteArray("\x18\x00\x63\x10", 4))
         .us(0x00280010, rows).us(0x00280011, cols)
-        .text(0x00280030, "DS", "0.6\\0.6")
         .us(0x00280100, 8).us(0x00280101, 8).us(0x00280102, 7).us(0x00280103, 0)
         .set(0x7FE00010, "OB", pixels);
+    // As ultrasound machines write it: no pixel spacing, but the sector's
+    // area calibrated, 0.06 cm a pixel.
+    Dataset sector;
+    sector.us(0x00186012, 1).us(0x00186014, 1).ul(0x00186016, 2)
+        .ul(0x00186018, 0).ul(0x0018601A, 8).ul(0x0018601C, cols - 1).ul(0x0018601E, rows - 1)
+        .us(0x00186024, 3).us(0x00186026, 3)
+        .fd(0x0018602C, 0.06).fd(0x0018602E, 0.06);
+    d.seq(0x00186011, {sector});
     writeDicom(root + "/ST000003/SE000001/IM000001", d);
 }
 
@@ -681,17 +893,26 @@ int main(int argc, char *argv[]) {
     qputenv("QT_QPA_PLATFORM", "offscreen");
     QGuiApplication app(argc, argv);
     QQuickStyle::setStyle("Material");
+    // --scans <folder> only makes the CD, to open in the app by hand.
+    const bool scansOnly = app.arguments().value(1) == "--scans";
     const QStringList only = app.arguments().mid(2);
     const QString out = QDir(app.arguments().value(1, "docs/demos")).absolutePath();
-    QDir().mkpath(out);
+    if (!scansOnly)
+        QDir().mkpath(out);
 
     QTemporaryDir work;
-    const QString cd = work.filePath("DEMO_CD/DICOM");
+    const QString cd = scansOnly ? QDir(app.arguments().value(2)).absoluteFilePath("DICOM") : work.filePath("DEMO_CD/DICOM");
     std::mt19937 random(2026);
     qInfo() << "Making up the scans";
-    makeChestCt(cd, random);
-    makeHeadMr(cd, random);
+    QString ctStudy, ctSeries;
+    makeChestCt(cd, random, true);
+    const QStringList ctSlices = makeChestCt(cd, random, false, &ctStudy, &ctSeries);
+    makeMarks(cd, ctStudy, ctSeries, ctSlices.value(22));
+    makeStructuredReport(cd, ctStudy);
+    makePdfReport(cd, makeHeadMr(cd, random));
     makeEcho(cd, random);
+    if (scansOnly)
+        return 0;
 
     // The default look, in English, whatever this desktop has.
     write(work.filePath("omarchy/language"), "en\n");
@@ -700,16 +921,23 @@ int main(int argc, char *argv[]) {
     Theme theme(work.filePath("state"));
     Picker picker(work.filePath("DEMO_CD"), work.path());
     Backend backend(&picker);
+    Backend partner(&picker);
+    // The PDF report stays in the window rather than opening a viewer.
+    backend.setUrlOpener([](const QUrl &) { return true; });
 
     qmlRegisterType<SliceView>("Dicolens", 1, 0, "SliceView");
     qmlRegisterUncreatableType<Backend>("Dicolens", 1, 0, "Backend", "The backend is given to QML as \"backend\"");
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);
-    QObject::connect(&translator, &Translator::changed, &backend, [&backend] { backend.retranslate(); });
+    QObject::connect(&translator, &Translator::changed, &backend, [&backend, &partner] {
+        backend.retranslate();
+        partner.retranslate();
+    });
     engine.addImageProvider("thumbnails", new ThumbnailProvider(&backend));
     engine.rootContext()->setContextProperty("translator", &translator);
     engine.rootContext()->setContextProperty("theme", &theme);
     engine.rootContext()->setContextProperty("backend", &backend);
+    engine.rootContext()->setContextProperty("partner", &partner);
     engine.load(QUrl("qrc:/Main.qml"));
     if (engine.rootObjects().isEmpty())
         return 1;
@@ -819,6 +1047,64 @@ int main(int argc, char *argv[]) {
              rec.hold(1300);
              rec.drag(at(-18, 58), at(18, 58), Qt::LeftButton, 900, "Drag");
              rec.hold(1300);
+             rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 500);
+             rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 700);
+         }},
+        {"turn", [&] { showSeries("T2 axial", 12); },
+         [&] {
+             rec.hidePointer();
+             rec.hold(900);
+             rec.key("]  Turn right", Qt::Key_BracketRight, Qt::NoModifier, 1100);
+             rec.key("]  Turn right", Qt::Key_BracketRight, Qt::NoModifier, 1100);
+             rec.key("[  Turn left", Qt::Key_BracketLeft, Qt::NoModifier, 1100);
+             rec.key("X  Flip left to right", Qt::Key_X, Qt::NoModifier, 1300);
+             rec.key("Y  Flip top to bottom", Qt::Key_Y, Qt::NoModifier, 1300);
+             rec.key("R  Reset", Qt::Key_R, Qt::NoModifier, 1200);
+         }},
+        {"marks", [&] { showSeries("Axial", 22); },
+         [&] {
+             rec.hidePointer();
+             rec.hold(2200);
+             rec.key("N  Hide marks", Qt::Key_N, Qt::NoModifier, 1300);
+             rec.key("N  Show them", Qt::Key_N, Qt::NoModifier, 1500);
+             rec.key("←  Scout", Qt::Key_Left, Qt::NoModifier, 2400);
+         }},
+        {"reports", [&] { showSeries("Axial", 22); },
+         [&] {
+             rec.hidePointer();
+             rec.hold(900);
+             rec.key("P  Read the report", Qt::Key_P, Qt::NoModifier, 3200);
+             rec.key("↓", Qt::Key_Down, Qt::NoModifier, 500);
+             rec.key("↓", Qt::Key_Down, Qt::NoModifier, 900);
+             rec.key("→  Next report", Qt::Key_Right, Qt::NoModifier, 2200);
+             rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 1000);
+         }},
+        {"compare", [&] { showSeries("Axial", 22); },
+         [&] {
+             rec.hold(700);
+             rec.key("C  Compare with last year", Qt::Key_C, Qt::NoModifier, 400);
+             partner.waitForSlice(10000);
+             QMetaObject::invokeMethod(findItem(window->contentItem(), "rightView"), "fit");
+             rec.hold(1800);
+             const QPointF left = at(0, 0);
+             rec.wheel(left, 12, 2200, "Wheel: both sides follow");
+             rec.wheel(left, -8, 1500, "Wheel");
+             rec.hidePointer();
+             rec.key("Tab  The other side", Qt::Key_Tab, Qt::NoModifier, 900);
+             rec.key("3  Lung", Qt::Key_3, Qt::NoModifier, 1200);
+             rec.key("Tab", Qt::Key_Tab, Qt::NoModifier, 500);
+             rec.key("3  Lung", Qt::Key_3, Qt::NoModifier, 1500);
+             rec.key("C  Back to one", Qt::Key_C, Qt::NoModifier, 1100);
+         }},
+        {"ultrasound", [&] { showSeries("Apical", -1); },
+         [&] {
+             const auto atPixel = [&](double x, double y) { return view->mapToScene(view->toItem(x, y)); };
+             rec.hold(700);
+             rec.key("M  Measure", Qt::Key_M, Qt::NoModifier, 500);
+             rec.drag(atPixel(140, 62), atPixel(140, 180), Qt::LeftButton, 1500, "Drag");
+             rec.hold(1300);
+             rec.drag(atPixel(110, 120), atPixel(170, 120), Qt::LeftButton, 1000, "Drag");
+             rec.hold(1500);
              rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 500);
              rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 700);
          }},

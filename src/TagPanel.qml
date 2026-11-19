@@ -40,7 +40,7 @@ Rectangle {
             Layout.margins: 12
             Material.roundedScale: theme.radius
             placeholderText: qsTr("Search tags")
-            onTextChanged: backend.tagFilter = text
+            onTextChanged: { backend.tagFilter = text; partner.tagFilter = text }
             Keys.onEscapePressed: panel.leaveSearch()
         }
 
@@ -49,7 +49,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            model: backend.tags
+            model: win.inUse.tags
             boundsBehavior: Flickable.StopAtBounds
             ScrollBar.vertical: ScrollBar {}
 

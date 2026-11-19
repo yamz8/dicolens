@@ -4,12 +4,15 @@
 #include <QCoreApplication>
 #include <QDate>
 #include <QDeadlineTimer>
+#include <QDesktopServices>
+#include <QDir>
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QLocale>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QStandardPaths>
 #include <QTime>
 #include <algorithm>
 #include <cmath>
@@ -143,7 +146,11 @@ Backend::Backend(FilePicker *picker, QObject *parent) : QObject(parent), m_picke
             setSliceIndex(next);
     });
     if (m_picker) {
+        // Both panes share the picker; each answers only what it asked.
         connect(m_picker, &FilePicker::selected, this, [this](FilePicker::Purpose purpose, const QList<QUrl> &urls) {
+            if (!m_asked)
+                return;
+            m_asked = false;
             if (purpose == FilePicker::Purpose::SaveImage) {
                 saveImage(urls.first().toLocalFile());
                 return;
@@ -153,7 +160,12 @@ Backend::Backend(FilePicker *picker, QObject *parent) : QObject(parent), m_picke
                 list << url;
             load(list);
         });
-        connect(m_picker, &FilePicker::failed, this, &Backend::setProblem);
+        connect(m_picker, &FilePicker::failed, this, [this](const QString &message) {
+            if (!m_asked)
+                return;
+            m_asked = false;
+            setProblem(message);
+        });
     }
 }
 
@@ -171,13 +183,17 @@ Backend::~Backend() {
 }
 
 void Backend::open() {
-    if (m_picker)
-        m_picker->choose(FilePicker::Purpose::OpenScan);
+    if (!m_picker)
+        return;
+    m_asked = true;
+    m_picker->choose(FilePicker::Purpose::OpenScan);
 }
 
 void Backend::openFolder() {
-    if (m_picker)
-        m_picker->choose(FilePicker::Purpose::OpenFolder);
+    if (!m_picker)
+        return;
+    m_asked = true;
+    m_picker->choose(FilePicker::Purpose::OpenFolder);
 }
 
 void Backend::load(const QVariantList &urlsOrPaths) {
@@ -259,19 +275,6 @@ void Backend::scanFinished(int generation, const Scan &scan, const QString &focu
         return;
     }
 
-    stop();
-    if (m_job)
-        m_job->cancelled = true;
-    m_job.reset();
-    m_scan = scan;
-    m_seriesWindows.clear();
-    m_seriesFileWindows.clear();
-    {
-        QMutexLocker lock(&m_thumbnailMutex);
-        m_thumbnails.clear();
-    }
-    m_seriesIndex = -1;
-
     int series = 0, slice = 0;
     for (int s = 0; s < m_scan.series.size() && !focusPath.isEmpty(); ++s)
         for (int i = 0; i < m_scan.series[s].slices.size(); ++i)
@@ -281,12 +284,9 @@ void Backend::scanFinished(int generation, const Scan &scan, const QString &focu
                 s = m_scan.series.size();
                 break;
             }
-    emit seriesChanged();
+    showScan(scan, series, slice);
     if (!scan.unreadable.isEmpty())
         setProblem(tr("%n files couldn't be read", nullptr, int(scan.unreadable.size())) + " — " + scan.unreadable.first());
-    selectSeries(series);
-    setSliceIndex(slice);
-    emit opened();
 
     // A thumbnail a series, from its middle slice.
     if (m_thumbnailCancel)
@@ -312,6 +312,101 @@ void Backend::scanFinished(int generation, const Scan &scan, const QString &focu
                                       Qt::QueuedConnection);
         });
     }
+}
+
+void Backend::showScan(const Scan &scan, int series, int slice) {
+    stop();
+    if (m_job)
+        m_job->cancelled = true;
+    m_job.reset();
+    m_scan = scan;
+    m_seriesWindows.clear();
+    m_seriesFileWindows.clear();
+    {
+        QMutexLocker lock(&m_thumbnailMutex);
+        m_thumbnails.clear();
+    }
+    m_seriesIndex = -1;
+    closeReport();
+    emit seriesChanged();
+    emit reportsChanged();
+    selectSeries(series);
+    setSliceIndex(slice);
+    emit opened();
+}
+
+void Backend::share(Backend *other) {
+    if (!other || other == this || other->m_scan.series.isEmpty())
+        return;
+    // Already showing that scan: what it shows stays.
+    auto firstPath = [](const Scan &scan) { return scan.series.isEmpty() ? QString() : scan.series.first().slices.first().path; };
+    if (m_scan.series.size() == other->m_scan.series.size() && firstPath(m_scan) == firstPath(other->m_scan))
+        return;
+    // Drops a scan of its own still being read.
+    ++m_scanGeneration;
+    m_scanning = false;
+    emit scanningChanged();
+    // Beside a series goes the same kind from another study, the closest
+    // in time, to compare with; failing that, the next series.
+    const QList<Series> &all = other->m_scan.series;
+    const Series *shown = other->currentSeries();
+    int pick = (other->m_seriesIndex + 1) % all.size();
+    qint64 nearest = -1;
+    const QDate when = QDate::fromString(shown ? shown->studyDate : QString(), "yyyyMMdd");
+    for (int i = 0; shown && i < all.size(); ++i) {
+        const Series &s = all[i];
+        if (s.studyUid == shown->studyUid || s.modality != shown->modality || s.slices.size() < 2)
+            continue;
+        const QDate date = QDate::fromString(s.studyDate, "yyyyMMdd");
+        const qint64 apart = when.isValid() && date.isValid() ? std::abs(date.daysTo(when)) : 0;
+        if (nearest < 0 || apart < nearest) {
+            nearest = apart;
+            pick = i;
+        }
+    }
+    showScan(other->m_scan, pick, 0);
+}
+
+void Backend::follow(Backend *other) {
+    const Series *mine = currentSeries();
+    const Series *theirs = other ? other->currentSeries() : nullptr;
+    if (!mine || !theirs || mine->slices.isEmpty() || theirs->slices.isEmpty())
+        return;
+    const Slice &at = theirs->slices.value(other->m_sliceIndex);
+
+    // The slice at the same place in the patient, when both series cut
+    // the body the same way; otherwise as far through the series.
+    auto normal = [](const Series &s, double *n) {
+        const double *o = s.orientation;
+        n[0] = o[1] * o[5] - o[2] * o[4];
+        n[1] = o[2] * o[3] - o[0] * o[5];
+        n[2] = o[0] * o[4] - o[1] * o[3];
+    };
+    double a[3], b[3];
+    normal(*mine, a);
+    normal(*theirs, b);
+    const bool parallel = mine->hasOrientation && theirs->hasOrientation
+                          && std::abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) > 0.95;
+    int best = -1;
+    double nearest = 0;
+    if (parallel && at.hasPosition) {
+        const double target = at.position[0] * a[0] + at.position[1] * a[1] + at.position[2] * a[2];
+        for (int i = 0; i < mine->slices.size(); ++i) {
+            const Slice &s = mine->slices[i];
+            if (!s.hasPosition)
+                continue;
+            const double d = std::abs(s.position[0] * a[0] + s.position[1] * a[1] + s.position[2] * a[2] - target);
+            if (best < 0 || d < nearest) {
+                best = i;
+                nearest = d;
+            }
+        }
+    }
+    if (best < 0) {
+        const double fraction = theirs->slices.size() > 1 ? double(other->m_sliceIndex) / (theirs->slices.size() - 1) : 0;
+        best = qRound(fraction * (mine->slices.size() - 1));
+    }
+    setSliceIndex(best);
 }
 
 void Backend::thumbnailDecoded(int generation, int series, const QImage &image) {
@@ -394,7 +489,199 @@ double Backend::pixelAspect() const {
 
 QStringList Backend::edges() const {
     const Series *s = currentSeries();
-    return s ? s->edgeLabels() : QStringList();
+    if (!s)
+        return {};
+    QStringList e = s->edgeLabels();   // Left, right, top, bottom.
+    if (e.size() != 4)
+        return e;
+    // Each clockwise turn brings the left edge to the top.
+    for (int i = 0; i < m_rotation; ++i)
+        e = {e[3], e[2], e[0], e[1]};
+    if (m_flipped)
+        e.swapItemsAt(0, 1);
+    return e;
+}
+
+QTransform Backend::orientation(const QSizeF &size) const {
+    const bool sideways = m_rotation % 2;
+    QTransform t;
+    t.translate((sideways ? size.height() : size.width()) / 2, (sideways ? size.width() : size.height()) / 2);
+    if (m_flipped)
+        t.scale(-1, 1);
+    t.rotate(90 * m_rotation);
+    t.translate(-size.width() / 2, -size.height() / 2);
+    return t;
+}
+
+void Backend::rotate(int quarterTurns) {
+    if (!currentSeries())
+        return;
+    // Turning a flipped picture turns its unflipped self the other way.
+    m_rotation = ((m_rotation + (m_flipped ? -quarterTurns : quarterTurns)) % 4 + 4) % 4;
+    emit orientationChanged();
+}
+
+void Backend::flipHorizontal() {
+    if (!currentSeries())
+        return;
+    m_flipped = !m_flipped;
+    emit orientationChanged();
+}
+
+void Backend::flipVertical() {
+    if (!currentSeries())
+        return;
+    // Top to bottom is left to right, then half a turn.
+    m_flipped = !m_flipped;
+    m_rotation = (m_rotation + 2) % 4;
+    emit orientationChanged();
+}
+
+void Backend::resetOrientation() {
+    if (m_rotation == 0 && !m_flipped)
+        return;
+    m_rotation = 0;
+    m_flipped = false;
+    emit orientationChanged();
+}
+
+void Backend::toggleMarks() {
+    m_marksShown = !m_marksShown;
+    emit marksChanged();
+    if (hasMarks())
+        flash(m_marksShown ? tr("Showing marks") : tr("Hiding marks"));
+    else
+        flash(tr("This image has no marks"));
+}
+
+QImage Backend::overlay() const {
+    const Frame *f = currentFrame();
+    return f ? f->overlay : QImage();
+}
+
+QList<Mark> Backend::marks() const {
+    QList<Mark> out;
+    const Series *s = currentSeries();
+    if (!s || m_scan.marks.isEmpty())
+        return out;
+    const Slice &slice = s->slices.value(m_sliceIndex);
+    if (slice.sop.isEmpty())
+        return out;
+    for (const auto &m : m_scan.marks)
+        if (m.appliesTo(slice.sop, slice.frame))
+            out << m;
+    return out;
+}
+
+bool Backend::hasMarks() const {
+    return !overlay().isNull() || !marks().isEmpty();
+}
+
+QVariantList Backend::reportList() const {
+    QVariantList list;
+    const Series *s = currentSeries();
+    for (const auto &r : m_scan.reports)
+        list << QVariantMap{
+            {"title", r.title.isEmpty() ? tr("Report") : r.title},
+            {"date", localeDate(r.date)},
+            {"pdf", r.kind == Report::Kind::Pdf},
+            {"study", r.studyDescription},
+            {"current", s && s->studyUid == r.studyUid},
+        };
+    return list;
+}
+
+QString Backend::reportTitle() const {
+    if (m_reportIndex < 0 || m_reportIndex >= m_scan.reports.size())
+        return {};
+    const QString title = m_scan.reports[m_reportIndex].title;
+    return title.isEmpty() ? tr("Report") : title;
+}
+
+void Backend::openReport(int index) {
+    selectReport(index, true);
+}
+
+bool Backend::reportIsPdf() const {
+    return m_reportIndex >= 0 && m_reportIndex < m_scan.reports.size()
+           && m_scan.reports[m_reportIndex].kind == Report::Kind::Pdf;
+}
+
+void Backend::selectReport(int index, bool launch) {
+    if (index < 0 || index >= m_scan.reports.size())
+        return;
+    const Report &report = m_scan.reports[index];
+    const DicomFile file = DicomFile::read(report.path);
+    m_reportIndex = index;
+    m_reportLines.clear();
+    if (report.kind == Report::Kind::Structured) {
+        for (const auto &line : Reports::lines(file))
+            m_reportLines << QVariantMap{{"depth", line.depth}, {"heading", line.heading}, {"name", line.name}, {"value", line.value}};
+        if (m_reportLines.isEmpty())
+            m_reportLines << QVariantMap{{"depth", 0}, {"heading", false}, {"name", QString()}, {"value", tr("This report is empty")}};
+    }
+    emit reportChanged();
+    // A PDF waits in the panel until it's asked for, so stepping past one
+    // doesn't launch a viewer.
+    if (report.kind != Report::Kind::Pdf || !launch)
+        return;
+
+    // It opens in the PDF viewer, from a copy in the user's runtime folder,
+    // which only they can read and which is gone at logout.
+    const QByteArray pdf = Reports::pdf(file);
+    if (!pdf.startsWith("%PDF")) {
+        setProblem(tr("This report can't be read"));
+        return;
+    }
+    QString base = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
+    if (base.isEmpty())
+        base = QDir::tempPath();
+    const QString dir = base + "/dicolens";
+    QDir().mkpath(dir);
+    QFile::setPermissions(dir, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+    QString name = report.title.isEmpty() ? QStringLiteral("report") : report.title;
+    name.replace(QRegularExpression("[^\\w\\-]+"), "-");
+    const QString path = QStringLiteral("%1/%2-%3.pdf").arg(dir, name).arg(index + 1);
+    QSaveFile out(path);
+    out.setDirectWriteFallback(false);
+    if (!out.open(QIODevice::WriteOnly) || out.write(pdf) != pdf.size() || !out.commit()) {
+        setProblem(tr("The report couldn't be opened: %1").arg(out.errorString()));
+        return;
+    }
+    const QUrl url = QUrl::fromLocalFile(path);
+    if (!(m_openUrl ? m_openUrl(url) : QDesktopServices::openUrl(url)))
+        setProblem(tr("No app is set to open PDF files"));
+}
+
+void Backend::openStudyReport() {
+    if (m_scan.reports.isEmpty()) {
+        flash(tr("No reports came with these scans"));
+        return;
+    }
+    const Series *s = currentSeries();
+    int index = 0;
+    for (int i = 0; i < m_scan.reports.size(); ++i)
+        if (s && m_scan.reports[i].studyUid == s->studyUid) {
+            index = i;
+            break;
+        }
+    selectReport(index, false);
+}
+
+void Backend::stepReport(int delta) {
+    if (m_reportIndex < 0 || m_scan.reports.isEmpty())
+        return;
+    const int index = std::clamp(m_reportIndex + delta, 0, int(m_scan.reports.size()) - 1);
+    if (index != m_reportIndex)
+        selectReport(index, false);
+}
+
+void Backend::closeReport() {
+    if (m_reportIndex < 0)
+        return;
+    m_reportIndex = -1;
+    m_reportLines.clear();
+    emit reportChanged();
 }
 
 void Backend::selectSeries(int index) {
@@ -418,9 +705,14 @@ void Backend::selectSeries(int index) {
         emit windowChanged();
     }
     m_image = QImage();
+    // A turn suits one series; the next is shown as it was taken.
+    m_rotation = 0;
+    m_flipped = false;
     startDecoding();
     updateInfo();
     emit sliceChanged();
+    emit orientationChanged();
+    emit reportsChanged();
     showSlice();
     updateTags();
 }
@@ -484,6 +776,8 @@ void Backend::startDecoding() {
                     frame.detail = error;
                 } else {
                     frame = decodeFrame(*file, slice.frame, split.get());
+                    if (frame.error.isEmpty() && !frame.isNull())
+                        frame.overlay = Marks::overlay(*file, slice.frame, frame.height, frame.width);
                 }
                 if (!job->cancelled)
                     post(index, frame);
@@ -687,11 +981,14 @@ QString Backend::distance(double x1, double y1, double x2, double y2) const {
     const Series *s = currentSeries();
     if (!s)
         return {};
-    if (s->hasSpacing) {
-        const double dx = (x2 - x1) * s->spacing[1], dy = (y2 - y1) * s->spacing[0];
-        const double mm = std::hypot(dx, dy);
-        return mm >= 100 ? tr("%1 cm").arg(number(mm / 10, 1)) : tr("%1 mm").arg(number(mm, 1));
-    }
+    auto length = [&](double mm) { return mm >= 100 ? tr("%1 cm").arg(number(mm / 10, 1)) : tr("%1 mm").arg(number(mm, 1)); };
+    if (s->hasSpacing)
+        return length(std::hypot((x2 - x1) * s->spacing[1], (y2 - y1) * s->spacing[0]));
+    // Ultrasound calibrates the picture's area, not the whole frame: a
+    // line inside one area has a length; across areas, or outside, none.
+    for (const auto &r : s->regions)
+        if (r.contains(x1, y1) && r.contains(x2, y2))
+            return length(std::hypot((x2 - x1) * r.deltaX, (y2 - y1) * r.deltaY));
     return tr("%1 px").arg(number(std::hypot(x2 - x1, y2 - y1), 0));
 }
 
@@ -701,6 +998,7 @@ void Backend::exportImage() {
         return;
     QString name = s->description.isEmpty() ? s->modality : s->description;
     name.replace(QRegularExpression("[^\\w\\-]+"), "-");
+    m_asked = true;
     m_picker->choose(FilePicker::Purpose::SaveImage,
                      QStringLiteral("%1-%2.png").arg(name.isEmpty() ? QStringLiteral("scan") : name).arg(m_sliceIndex + 1));
 }
@@ -711,7 +1009,10 @@ void Backend::saveImage(const QString &path) {
     // Written beside the target and renamed over it, so a failure never
     // leaves half a file.
     QSaveFile file(path);
-    if (!file.open(QIODevice::WriteOnly) || !trueShape(m_image, pixelAspect()).save(&file, "PNG") || !file.commit()) {
+    if (!file.open(QIODevice::WriteOnly) || ![&] {
+            const QImage image = trueShape(m_image, pixelAspect());
+            return image.transformed(orientation(image.size())).save(&file, "PNG");
+        }() || !file.commit()) {
         setProblem(tr("The image couldn't be saved: %1").arg(file.errorString()));
         return;
     }
@@ -721,7 +1022,8 @@ void Backend::saveImage(const QString &path) {
 void Backend::copyImage() {
     if (m_image.isNull())
         return;
-    QGuiApplication::clipboard()->setImage(trueShape(m_image, pixelAspect()));
+    const QImage image = trueShape(m_image, pixelAspect());
+    QGuiApplication::clipboard()->setImage(image.transformed(orientation(image.size())));
     flash(tr("Copied the image"));
 }
 
@@ -840,6 +1142,9 @@ void Backend::updateTags() {
 
 void Backend::retranslate() {
     updateInfo();
+    emit reportChanged();
+    emit reportsChanged();
+    emit orientationChanged();
     emit seriesChanged();
     emit sliceChanged();
     emit windowChanged();

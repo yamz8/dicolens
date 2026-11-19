@@ -3,11 +3,13 @@
 #include <QColor>
 #include <QPointer>
 #include <QQuickPaintedItem>
+#include <QTransform>
 
 #include "backend.h"
 
 // Draws the shown slice, fitted to the view and then zoomed and panned,
-// with pixels at their true shape, and the ruler over it.
+// with pixels at their true shape, turned and flipped as asked, the marks
+// left on it, and the ruler over it.
 class SliceView : public QQuickPaintedItem {
     Q_OBJECT
     Q_PROPERTY(Backend *source READ backend WRITE setBackend NOTIFY backendChanged)
@@ -41,6 +43,8 @@ public:
 
     // The image's rectangle in the item, for tests and the painter.
     QRectF imageRect() const;
+    // From the image's pixels to the item.
+    QTransform transform() const;
 
 signals:
     void backendChanged();
@@ -49,6 +53,9 @@ signals:
     void rulerChanged();
 
 private:
+    void paintMarks(QPainter *painter, const QTransform &t, const QSizeF &size);
+    void paintLabel(QPainter *painter, QPointF at, const QString &text);
+
     QPointer<Backend> m_backend;
     double m_zoom = 1;
     QPointF m_pan;

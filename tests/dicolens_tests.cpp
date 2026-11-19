@@ -5,6 +5,7 @@
 #include <QTemporaryDir>
 #include <QtEndian>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QLocalServer>
 #include <QLocalSocket>
@@ -19,7 +20,9 @@
 #include "backend.h"
 #include "dicom.h"
 #include "ljpeg.h"
+#include "marks.h"
 #include "pixels.h"
+#include "reports.h"
 #include "sliceview.h"
 #include "study.h"
 #include "theme.h"
@@ -245,6 +248,46 @@ struct Writer {
         return us(Tag::PixelRepresentation, isSigned ? 1 : 0);
     }
     Writer &pixels(const QByteArray &data, const QByteArray &vr = "OW") { return add(Tag::PixelData, vr, data); }
+    // A sequence of defined length, each item another writer's body.
+    Writer &sequence(quint32 tag, const QList<Writer> &items) {
+        QByteArray value;
+        for (const auto &item : items) {
+            u16(value, 0xFFFE);
+            u16(value, 0xE000);
+            u32(value, item.body.size());
+            value += item.body;
+        }
+        body += header(tag, "SQ", value.size()) + value;
+        return *this;
+    }
+    Writer &floats(quint32 tag, const QList<float> &values) {
+        QByteArray value;
+        for (float f : values) {
+            quint32 bits;
+            std::memcpy(&bits, &f, 4);
+            u32(value, bits);
+        }
+        return add(tag, "FL", value);
+    }
+    Writer &fd(quint32 tag, double v) {
+        quint64 bits;
+        std::memcpy(&bits, &v, 8);
+        QByteArray value;
+        u32(value, quint32(bits));
+        u32(value, quint32(bits >> 32));
+        return add(tag, "FD", value);
+    }
+    Writer &ul(quint32 tag, quint32 v) {
+        QByteArray value;
+        u32(value, v);
+        return add(tag, "UL", value);
+    }
+    // A coded concept: what an item of a structured report is about.
+    static Writer code(const QByteArray &value, const QByteArray &meaning) {
+        Writer w;
+        w.add(0x00080100, "SH", value).add(0x00080102, "SH", "DCM").add(Tag::CodeMeaning, "LO", meaning);
+        return w;
+    }
     Writer &encapsulated(const QList<QByteArray> &fragments, const QByteArray &offsetTable = {}) {
         QByteArray out;
         u16(out, 0x7FE0);
@@ -877,6 +920,335 @@ private slots:
         QCOMPARE(backend.windowWidth(), 400.0);
     }
 
+    void readsStructuredReports() {
+        auto item = [](const QByteArray &type, const QByteArray &name) {
+            Writer w;
+            w.add(0x0040A010, "CS", "CONTAINS").add(Tag::ValueType, "CS", type).sequence(Tag::ConceptName, {Writer::code("1", name)});
+            return w;
+        };
+        Writer finding = item("TEXT", "Finding");
+        finding.add(Tag::TextValue, "UT", "No acute abnormality.");
+        Writer diameter = item("NUM", "Diameter");
+        Writer measured;
+        measured.add(Tag::NumericValue, "DS", "12.5").sequence(Tag::MeasurementUnits, {Writer::code("mm", "millimeter")});
+        diameter.sequence(Tag::MeasuredValue, {measured});
+        Writer findings = item("CONTAINER", "Findings");
+        findings.sequence(Tag::ContentSequence, {finding, diameter});
+        Writer impression = item("CODE", "Impression");
+        impression.sequence(Tag::ConceptCode, {Writer::code("2", "Normal")});
+        Writer image = item("IMAGE", "Key image");
+
+        Writer w;
+        w.add(Tag::SopClass, "UI", "1.2.840.10008.5.1.4.1.1.88.33")
+            .add(Tag::ContentDate, "DA", "20260301")
+            .add(Tag::StudyInstance, "UI", "1.2.9")
+            .add(Tag::ValueType, "CS", "CONTAINER")
+            .sequence(Tag::ConceptName, {Writer::code("3", "Imaging Report")})
+            .sequence(Tag::ContentSequence, {findings, impression, image});
+        const DicomFile file = DicomFile::parse(w.file(ExplicitLE));
+        QVERIFY(file.isValid());
+        Report report;
+        QVERIFY(Reports::describe(file, &report));
+        QCOMPARE(report.kind, Report::Kind::Structured);
+        QCOMPARE(report.title, QString("Imaging Report"));
+        QCOMPARE(report.date, QString("20260301"));
+        QCOMPARE(Reports::text(Reports::lines(file)),
+                 QString("Findings\n  Finding: No acute abnormality.\n  Diameter: 12.5 mm\nImpression: Normal"));
+    }
+
+    void scansKeepReportsAndOpenPdfs() {
+        QTemporaryDir dir;
+        Writer image;
+        image.image(2, 2, 16, 12, false).add(Tag::StudyInstance, "UI", "1.2.9").pixels(le16({0, 1, 2, 3}));
+        QVERIFY(write(dir.filePath("IM1"), image.file(ExplicitLE)));
+        // An odd-length PDF, padded to even with a NUL that isn't the PDF's.
+        const QByteArray pdf = "%PDF-1.4\n%%EOF\n";
+        Writer document;
+        document.add(Tag::SopClass, "UI", "1.2.840.10008.5.1.4.1.1.104.1")
+            .add(Tag::StudyInstance, "UI", "1.2.9")
+            .add(Tag::DocumentTitle, "ST", "Radiology report")
+            .add(Tag::DocumentMimeType, "LO", "application/pdf")
+            .add(Tag::EncapsulatedDocument, "OB", pdf + "x");
+        QVERIFY(write(dir.filePath("DOC1"), document.file(ExplicitLE)));
+
+        Backend backend(nullptr);
+        QUrl opened;
+        backend.setUrlOpener([&](const QUrl &url) { opened = url; return true; });
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        QCOMPARE(backend.scan().reports.size(), 1);
+        QCOMPARE(backend.reportList().first().toMap().value("title").toString(), QString("Radiology report"));
+        QVERIFY(backend.reportList().first().toMap().value("current").toBool());
+
+        // P shows it in the panel; it opens in a PDF viewer only when asked.
+        backend.openStudyReport();
+        QCOMPARE(backend.reportIndex(), 0);
+        QVERIFY(backend.reportIsPdf());
+        QVERIFY(opened.isEmpty());
+        backend.openReport(0);
+        QVERIFY(opened.isLocalFile());
+        QFile copy(opened.toLocalFile());
+        QVERIFY(copy.open(QIODevice::ReadOnly));
+        QCOMPARE(copy.readAll(), pdf + "x");
+        QCOMPARE(int(QFileInfo(QFileInfo(copy).absolutePath()).permissions() & (QFile::ReadOther | QFile::ReadGroup)), 0);
+        copy.remove();
+        backend.closeReport();
+        QCOMPARE(backend.reportIndex(), -1);
+    }
+
+    void commandLineReadsReports() {
+        // The app binary sits beside the tests in the build folder.
+        const QString app = QCoreApplication::applicationDirPath() + "/dicolens";
+        QVERIFY2(QFileInfo::exists(app), qPrintable(app));
+        QTemporaryDir dir;
+        Writer finding;
+        finding.add(Tag::ValueType, "CS", "TEXT").sequence(Tag::ConceptName, {Writer::code("1", "Finding")})
+            .add(Tag::TextValue, "UT", "Clear.");
+        Writer sr;
+        sr.add(Tag::SopClass, "UI", "1.2.840.10008.5.1.4.1.1.88.11")
+            .add(Tag::ValueType, "CS", "CONTAINER")
+            .sequence(Tag::ConceptName, {Writer::code("2", "Chest Report")})
+            .sequence(Tag::ContentSequence, {finding});
+        QVERIFY(write(dir.filePath("SR1"), sr.file(ExplicitLE)));
+        Writer pdf;
+        pdf.add(Tag::SopClass, "UI", "1.2.840.10008.5.1.4.1.1.104.1")
+            .add(Tag::StudyDate, "DA", "20990101")
+            .add(Tag::DocumentTitle, "ST", "Letter")
+            .add(Tag::EncapsulatedDocument, "OB", "%PDF-1.4\n%%EOF\n");
+        QVERIFY(write(dir.filePath("DOC1"), pdf.file(ExplicitLE)));
+
+        auto run = [&](const QStringList &args, int *code = nullptr) {
+            QProcess p;
+            QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+            env.insert("QT_QPA_PLATFORM", "offscreen");
+            p.setProcessEnvironment(env);
+            p.start(app, args);
+            p.waitForFinished(20000);
+            if (code)
+                *code = p.exitCode();
+            return QJsonDocument::fromJson(p.readAllStandardOutput()).object();
+        };
+        int code = -1;
+        const QJsonObject first = run({"report", dir.path(), "--json"}, &code);
+        QCOMPARE(code, 0);
+        QCOMPARE(first.value("title").toString(), QString("Chest Report"));
+        QCOMPARE(first.value("content").toArray().first().toObject().value("value").toString(), QString("Clear."));
+
+        run({"report", dir.path(), "--report", "2", "--json"}, &code);
+        QCOMPARE(code, 1);   // A PDF needs somewhere to go.
+        const QJsonObject saved = run({"report", dir.path(), "--report", "2", "--out", dir.filePath("letter.pdf"), "--json"}, &code);
+        QCOMPARE(code, 0);
+        QFile letter(saved.value("saved").toString());
+        QVERIFY(letter.open(QIODevice::ReadOnly));
+        QCOMPARE(letter.readAll(), QByteArray("%PDF-1.4\n%%EOF\n"));
+    }
+
+    void readsOverlayPlanes() {
+        // A 4 by 4 image with an overlay in group 6002 marking its diagonal,
+        // and one starting a row down and a column across in 6000.
+        QTemporaryDir dir;
+        auto bits = [](const QList<int> &set, int size) {
+            QByteArray out((size + 15) / 16 * 2, 0);
+            for (int i : set)
+                out[i / 8] = char(out[i / 8] | (1 << (i % 8)));
+            return out;
+        };
+        Writer w;
+        w.image(4, 4, 16, 12, false)
+            .us(0x60000010, 2).us(0x60000011, 2).add(0x60000050, "SS", QByteArray("\x02\x00\x02\x00", 4))
+            .us(0x60000100, 1).add(0x60003000, "OW", bits({3}, 4))
+            .us(0x60020010, 4).us(0x60020011, 4).add(0x60020050, "SS", QByteArray("\x01\x00\x01\x00", 4))
+            .us(0x60020100, 1).add(0x60023000, "OW", bits({0, 5, 10, 15}, 16))
+            .pixels(le16(QList<int>(16, 0)));
+        QVERIFY(write(dir.filePath("IM1"), w.file(ExplicitLE)));
+        const DicomFile file = DicomFile::read(dir.filePath("IM1"));
+        QCOMPARE(Dictionary::name(0x60023000), QString("Overlay Data"));
+        const QImage mask = Marks::overlay(file, 0, 4, 4);
+        QVERIFY(!mask.isNull());
+        QList<QPoint> set;
+        for (int y = 0; y < 4; ++y)
+            for (int x = 0; x < 4; ++x)
+                if (mask.pixelColor(x, y).alpha())
+                    set << QPoint(x, y);
+        QCOMPARE(set, (QList<QPoint>{{0, 0}, {1, 1}, {2, 2}, {3, 3}}));
+
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        QVERIFY(!backend.overlay().isNull());
+        QVERIFY(backend.hasMarks());
+        backend.toggleMarks();
+        QVERIFY(!backend.marksShown());
+    }
+
+    void readsPresentationStateMarks() {
+        QTemporaryDir dir;
+        for (int i = 1; i <= 2; ++i) {
+            Writer w;
+            w.add(Tag::SopInstance, "UI", "1.2.5." + QByteArray::number(i))
+                .add(Tag::InstanceNumber, "IS", QByteArray::number(i))
+                .image(10, 10, 16, 12, false)
+                .pixels(le16(QList<int>(100, 0)));
+            QVERIFY(write(dir.filePath(QString("IM%1").arg(i)), w.file(ExplicitLE)));
+        }
+        Writer reference;
+        reference.add(0x00081150, "UI", "1.2.840.10008.5.1.4.1.1.2").add(Tag::ReferencedSopInstance, "UI", "1.2.5.2");
+        Writer series;
+        series.add(0x0020000E, "UI", "1.2.3.4").sequence(Tag::ReferencedImage, {reference});
+        Writer line;
+        line.add(Tag::GraphicUnits, "CS", "PIXEL").us(0x00700020, 2).us(0x00700021, 2)
+            .floats(Tag::GraphicData, {1, 1, 8, 8}).add(Tag::GraphicType, "CS", "POLYLINE").add(Tag::GraphicFilled, "CS", "N");
+        Writer circle;
+        circle.add(Tag::GraphicUnits, "CS", "PIXEL").floats(Tag::GraphicData, {5, 5, 7, 5}).add(Tag::GraphicType, "CS", "CIRCLE");
+        Writer note;
+        note.add(Tag::AnchorPointUnits, "CS", "PIXEL").add(Tag::UnformattedText, "ST", "Nodule")
+            .floats(Tag::AnchorPoint, {5, 5}).add(Tag::AnchorPointVisibility, "CS", "Y");
+        Writer annotation;
+        annotation.add(0x00700002, "CS", "LAYER1").sequence(Tag::TextObjects, {note}).sequence(Tag::GraphicObjects, {line, circle});
+        Writer state;
+        state.add(Tag::SopClass, "UI", "1.2.840.10008.5.1.4.1.1.11.1")
+            .add(Tag::Modality, "CS", "PR")
+            .sequence(Tag::ReferencedSeries, {series})
+            .sequence(Tag::GraphicAnnotations, {annotation});
+        QVERIFY(write(dir.filePath("PR1"), state.file(ExplicitLE)));
+
+        const Scan scan = scanFiles(listFiles({dir.path()}, true));
+        QCOMPARE(scan.series.size(), 1);
+        QCOMPARE(scan.reports.size(), 0);
+        QCOMPARE(scan.marks.size(), 3);
+        QCOMPARE(scan.marks[0].kind, Mark::Kind::Polyline);
+        QCOMPARE(scan.marks[0].points, (QList<QPointF>{{1, 1}, {8, 8}}));
+        QCOMPARE(scan.marks[1].kind, Mark::Kind::Circle);
+        QCOMPARE(scan.marks[2].text, QString("Nodule"));
+        QVERIFY(scan.marks[2].anchorLine);
+
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        QCOMPARE(backend.marks().size(), 0);
+        QVERIFY(!backend.hasMarks());
+        backend.step(1);
+        QVERIFY(backend.waitForSlice(5000));
+        QCOMPARE(backend.marks().size(), 3);
+        QVERIFY(backend.hasMarks());
+    }
+
+    void measuresInUltrasoundRegions() {
+        // No pixel spacing: only the region's calibration, 0.01 cm a pixel
+        // across its area from 10,10 to 89,89.
+        QTemporaryDir dir;
+        Writer region;
+        region.us(Tag::RegionSpatialFormat, 1)
+            .ul(Tag::RegionMinX, 10).ul(Tag::RegionMinY, 10).ul(Tag::RegionMaxX, 89).ul(Tag::RegionMaxY, 89)
+            .us(Tag::PhysicalUnitsX, 3).us(Tag::PhysicalUnitsY, 3)
+            .fd(Tag::PhysicalDeltaX, 0.01).fd(Tag::PhysicalDeltaY, 0.01);
+        Writer timeline;
+        timeline.us(Tag::RegionSpatialFormat, 3)
+            .ul(Tag::RegionMinX, 0).ul(Tag::RegionMinY, 90).ul(Tag::RegionMaxX, 99).ul(Tag::RegionMaxY, 99)
+            .us(Tag::PhysicalUnitsX, 4).us(Tag::PhysicalUnitsY, 7)
+            .fd(Tag::PhysicalDeltaX, 0.01).fd(Tag::PhysicalDeltaY, 0.5);
+        Writer w;
+        w.add(Tag::Modality, "CS", "US").image(100, 100, 8, 8, false).sequence(Tag::UltrasoundRegions, {region, timeline})
+            .pixels(QByteArray(100 * 100, 0), "OB");
+        QVERIFY(write(dir.filePath("US1"), w.file(ExplicitLE)));
+
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        QCOMPARE(backend.scan().series.first().regions.size(), 1);
+        QCOMPARE(backend.distance(20, 20, 50, 60), QString("5.0 mm"));
+        QCOMPARE(backend.distance(20, 20, 20, 95), QString("75 px"));
+    }
+
+    void turnsAndFlips() {
+        QTemporaryDir dir;
+        Writer w;
+        w.image(2, 4, 16, 12, false).add(Tag::ImageOrientation, "DS", "1\\0\\0\\0\\1\\0").pixels(le16(QList<int>(8, 0)));
+        QVERIFY(write(dir.filePath("IM1"), w.file(ExplicitLE)));
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        QCOMPARE(backend.edges(), (QStringList{"R", "L", "A", "P"}));
+        backend.rotate(1);
+        QCOMPARE(backend.edges(), (QStringList{"P", "A", "R", "L"}));
+        backend.rotate(-1);
+        backend.flipVertical();
+        QCOMPARE(backend.edges(), (QStringList{"R", "L", "P", "A"}));
+        backend.flipVertical();
+        backend.flipHorizontal();
+        QCOMPARE(backend.edges(), (QStringList{"L", "R", "A", "P"}));
+        // Turning a flipped picture turns what's seen, the same way.
+        backend.rotate(1);
+        QCOMPARE(backend.edges(), (QStringList{"P", "A", "L", "R"}));
+        backend.resetOrientation();
+        QCOMPARE(backend.edges(), (QStringList{"R", "L", "A", "P"}));
+
+        // The view, a quarter turn round: 4 wide and 2 tall becomes 2 by 4,
+        // and points map back to the pixels they came from.
+        SliceView view;
+        view.setSize({400, 400});
+        view.setBackend(&backend);
+        QCOMPARE(view.imageRect().size(), QSizeF(400, 200));
+        backend.rotate(1);
+        QCOMPARE(view.imageRect().size(), QSizeF(200, 400));
+        const QPointF item = view.toItem(0.5, 0.5);
+        QVERIFY(item.x() > 200 && item.y() < 200);   // The top left pixel is now at the top right.
+        const QPointF back = view.toImage(item.x(), item.y());
+        QVERIFY(std::abs(back.x() - 0.5) < 1e-9 && std::abs(back.y() - 0.5) < 1e-9);
+    }
+
+    void comparesSideBySide() {
+        // Two axial series of the same body: the second pane follows the
+        // first by where its slices are, not by their numbers.
+        QTemporaryDir dir;
+        for (int series = 0; series < 2; ++series)
+            for (int i = 0; i < (series ? 10 : 5); ++i) {
+                const double z = series ? i * 2.5 : i * 5.0;
+                Writer w;
+                w.image(2, 2, 16, 12, false)
+                    .add(0x0020000E, "UI", series ? "1.2.3.2" : "1.2.3.1")
+                    .add(Tag::SeriesNumber, "IS", QByteArray::number(series + 1))
+                    .add(Tag::InstanceNumber, "IS", QByteArray::number(i + 1))
+                    .add(Tag::ImagePosition, "DS", "0\\0\\" + QByteArray::number(z))
+                    .add(Tag::ImageOrientation, "DS", "1\\0\\0\\0\\1\\0")
+                    .pixels(le16({0, 1, 2, 3}));
+                QVERIFY(write(dir.filePath(QString("S%1-%2").arg(series).arg(i)), w.file(ExplicitLE)));
+            }
+        Backend left(nullptr), right(nullptr);
+        left.loadPaths({dir.path()});
+        QVERIFY(left.waitForSlice(10000));
+        right.share(&left);
+        QVERIFY(right.waitForSlice(10000));
+        QCOMPARE(right.seriesIndex(), 1);
+        QCOMPARE(right.sliceCount(), 10);
+
+        auto z = [](const Backend &b) { return b.scan().series[b.seriesIndex()].slices[b.sliceIndex()].position[2]; };
+        left.setSliceIndex(3);
+        right.follow(&left);
+        QCOMPARE(z(right), z(left));
+        const int followed = right.sliceIndex();
+        // Sharing the same scan again keeps what it shows.
+        right.share(&left);
+        QCOMPARE(right.sliceIndex(), followed);
+
+        // With an earlier study of the same kind, that's what goes beside.
+        for (int i = 0; i < 3; ++i) {
+            Writer w;
+            w.image(2, 2, 16, 12, false)
+                .add(0x0020000E, "UI", "1.2.3.9")
+                .add(Tag::StudyInstance, "UI", "1.2.8")
+                .add(Tag::StudyDate, "DA", "20200101")
+                .add(Tag::InstanceNumber, "IS", QByteArray::number(i + 1))
+                .pixels(le16({0, 1, 2, 3}));
+            QVERIFY(write(dir.filePath(QString("P%1").arg(i)), w.file(ExplicitLE)));
+        }
+        Backend first(nullptr), beside(nullptr);
+        first.loadPaths({dir.path()});
+        QVERIFY(first.waitForSlice(10000));
+        beside.share(&first);
+        QCOMPARE(beside.scan().series[beside.seriesIndex()].studyUid, QString("1.2.8"));
+    }
+
     void backendSaysWhenNothingIsThere() {
         QTemporaryDir dir;
         QVERIFY(write(dir.filePath("notes.txt"), "not a scan"));
@@ -1081,6 +1453,7 @@ private slots:
         QCoreApplication::installTranslator(&translator);
         Theme theme(dir.path());
         Backend backend(nullptr);
+        Backend partner(nullptr);
         qmlRegisterType<SliceView>("Dicolens", 1, 0, "SliceView");
         qmlRegisterUncreatableType<Backend>("Dicolens", 1, 0, "Backend", "The backend is given to QML as \"backend\"");
 
@@ -1094,6 +1467,7 @@ private slots:
         engine.rootContext()->setContextProperty("translator", &translator);
         engine.rootContext()->setContextProperty("theme", &theme);
         engine.rootContext()->setContextProperty("backend", &backend);
+        engine.rootContext()->setContextProperty("partner", &partner);
         engine.load(QUrl("qrc:/Main.qml"));
         QVERIFY(!engine.rootObjects().isEmpty());
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
@@ -1118,15 +1492,30 @@ private slots:
         QTRY_VERIFY(!help->isVisible());
 
         // A scan opens into the series list, and the arrows move through it.
+        // Two series of three slices, and a structured report.
         QTemporaryDir scans;
-        for (int i = 0; i < 3; ++i) {
-            Writer w;
-            w.image(2, 2, 16, 12, false)
-                .add(Tag::Modality, "CT", "CT")
-                .add(Tag::InstanceNumber, "IS", QByteArray::number(i + 1))
-                .pixels(le16({0, 1, 2, 3}));
-            QVERIFY(write(scans.filePath(QString("IM%1").arg(i)), w.file(ExplicitLE)));
-        }
+        for (int s = 0; s < 2; ++s)
+            for (int i = 0; i < 3; ++i) {
+                Writer w;
+                w.image(2, 2, 16, 12, false)
+                    .add(0x0020000E, "UI", s ? "1.2.3.2" : "1.2.3.1")
+                    .add(Tag::SeriesNumber, "IS", QByteArray::number(s + 1))
+                    .add(Tag::Modality, "CT", "CT")
+                    .add(Tag::InstanceNumber, "IS", QByteArray::number(i + 1))
+                    .add(Tag::ImagePosition, "DS", "0\\0\\" + QByteArray::number(i * 5))
+                    .add(Tag::ImageOrientation, "DS", "1\\0\\0\\0\\1\\0")
+                    .pixels(le16({0, 1, 2, 3}));
+                QVERIFY(write(scans.filePath(QString("IM%1-%2").arg(s).arg(i)), w.file(ExplicitLE)));
+            }
+        Writer text;
+        text.add(Tag::ValueType, "CS", "TEXT").sequence(Tag::ConceptName, {Writer::code("1", "Finding")})
+            .add(Tag::TextValue, "UT", "Nothing to see.");
+        Writer report;
+        report.add(Tag::SopClass, "UI", "1.2.840.10008.5.1.4.1.1.88.11")
+            .add(Tag::ValueType, "CS", "CONTAINER")
+            .sequence(Tag::ConceptName, {Writer::code("2", "CT Report")})
+            .sequence(Tag::ContentSequence, {text});
+        QVERIFY(write(scans.filePath("SR1"), report.file(ExplicitLE)));
         backend.loadPaths({scans.path()});
         QVERIFY(backend.waitForSlice(10000));
         QTRY_VERIFY(!empty->isVisible());
@@ -1138,6 +1527,55 @@ private slots:
         QCOMPARE(backend.sliceIndex(), 1);
         QTest::keyClick(window, Qt::Key_End);
         QCOMPARE(backend.sliceIndex(), 2);
+
+        // ] and X turn and flip the picture; R puts it back.
+        QTest::keyClick(window, ']');
+        QCOMPARE(backend.rotation(), 1);
+        QTest::keyClick(window, 'X');
+        QVERIFY(backend.flipped());
+        QTest::keyClick(window, 'R');
+        QCOMPARE(backend.rotation(), 0);
+        QVERIFY(!backend.flipped());
+        QTest::keyClick(window, Qt::Key_Home);
+
+        // C puts the next series beside this one, following it; Tab and the
+        // arrows then move the other side.
+        auto *right = item(window->contentItem(), "rightPane");
+        QVERIFY(right);
+        QVERIFY(!right->isVisible());
+        QTest::keyClick(window, Qt::Key_End);
+        QTest::keyClick(window, 'C');
+        QTRY_VERIFY(right->isVisible());
+        QCOMPARE(partner.seriesIndex(), 1);
+        QCOMPARE(partner.sliceIndex(), 2);   // Where the first side is.
+        QTest::keyClick(window, Qt::Key_Home);
+        QVERIFY(partner.waitForSlice(10000));
+        QTest::keyClick(window, Qt::Key_End);
+        QCOMPARE(partner.sliceIndex(), 2);
+        QCOMPARE(backend.sliceIndex(), 2);   // Linked: the other side follows.
+        QTest::keyClick(window, Qt::Key_Tab);
+        QTest::keyClick(window, Qt::Key_Home);
+        QCOMPARE(backend.sliceIndex(), 0);
+        QCOMPARE(partner.sliceIndex(), 0);
+        QTest::keyClick(window, 'L');
+        QTest::keyClick(window, Qt::Key_End);
+        QCOMPARE(backend.sliceIndex(), 2);
+        QCOMPARE(partner.sliceIndex(), 0);
+        QTest::keyClick(window, 'C');
+        QTRY_VERIFY(!right->isVisible());
+
+        // P reads the report beside the scans; Esc goes back to them.
+        auto *reportPanel = item(window->contentItem(), "reportPanel");
+        QVERIFY(reportPanel);
+        QTest::keyClick(window, 'P');
+        QTRY_VERIFY(reportPanel->isVisible());
+        QCOMPARE(backend.reportTitle(), QString("CT Report"));
+        QCOMPARE(backend.reportLines().first().toMap().value("value").toString(), QString("Nothing to see."));
+        QTest::keyClick(window, Qt::Key_Down);   // Scrolls the report, not the slices.
+        QCOMPARE(backend.sliceIndex(), 2);
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!reportPanel->isVisible());
+
         QTest::keyClick(window, 'S');
         QTRY_VERIFY(!series->isVisible());
 

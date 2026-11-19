@@ -41,51 +41,117 @@ ApplicationWindow {
     property bool tagsVisible: false
     property bool infoHidden: false
     property bool measuring: false
+    // Side by side: two panes on the same scans, the keys going to one,
+    // the other following it from slice to slice while linked.
+    property bool comparing: false
+    property bool rightActive: false
+    property bool linked: true
+    readonly property var inUse: comparing && rightActive ? partner : backend
+    readonly property var other: inUse === backend ? partner : backend
+    readonly property var inUseView: comparing && rightActive ? rightPane.view : leftPane.view
+    readonly property bool reading: backend.reportIndex >= 0
     // Letter keys go to the tag search while it's being typed in.
     readonly property bool typing: tagPanel.searching
+    readonly property bool keys: !typing && !reading
 
-    onTagsVisibleChanged: backend.tagsWanted = tagsVisible
+    onTagsVisibleChanged: { backend.tagsWanted = tagsVisible; partner.tagsWanted = tagsVisible }
+
+    function compare() {
+        if (!backend.hasImages)
+            return
+        comparing = !comparing
+        if (comparing) {
+            partner.share(backend)
+            if (linked)
+                partner.follow(backend)
+            rightActive = true
+        } else {
+            rightActive = false
+        }
+    }
+
+    // While linked, the pane not in use follows the one that is.
+    Connections {
+        target: backend
+        function onSliceChanged() { if (win.comparing && win.linked && !win.rightActive) partner.follow(backend) }
+        function onOpened() {
+            if (!win.comparing)
+                return
+            partner.share(backend)
+            if (win.linked)
+                partner.follow(backend)
+        }
+    }
+    Connections {
+        target: partner
+        function onSliceChanged() { if (win.comparing && win.linked && win.rightActive) backend.follow(partner) }
+    }
 
     Shortcut { sequence: "?"; enabled: !win.typing; onActivated: win.helpVisible = !win.helpVisible }
     Shortcut { sequence: "Q"; enabled: !win.typing; onActivated: Qt.quit() }
-    Shortcut { sequence: "O"; enabled: !win.typing; onActivated: backend.open() }
-    Shortcut { sequence: "Shift+O"; enabled: !win.typing; onActivated: backend.openFolder() }
-    Shortcut { sequence: "Space"; enabled: !win.typing; onActivated: backend.togglePlay() }
-    Shortcut { sequences: ["Up", "K"]; enabled: !win.typing; onActivated: backend.step(-1) }
-    Shortcut { sequences: ["Down", "J"]; enabled: !win.typing; onActivated: backend.step(1) }
-    Shortcut { sequence: "PgUp"; enabled: !win.typing; onActivated: backend.step(-10) }
-    Shortcut { sequence: "PgDown"; enabled: !win.typing; onActivated: backend.step(10) }
-    Shortcut { sequence: "Home"; enabled: !win.typing; onActivated: backend.sliceIndex = 0 }
-    Shortcut { sequence: "End"; enabled: !win.typing; onActivated: backend.sliceIndex = backend.sliceCount - 1 }
-    Shortcut { sequence: "Left"; enabled: !win.typing; onActivated: backend.stepSeries(-1) }
-    Shortcut { sequence: "Right"; enabled: !win.typing; onActivated: backend.stepSeries(1) }
-    Shortcut { sequence: "1"; enabled: !win.typing; onActivated: backend.preset(1) }
-    Shortcut { sequence: "2"; enabled: !win.typing; onActivated: backend.preset(2) }
-    Shortcut { sequence: "3"; enabled: !win.typing; onActivated: backend.preset(3) }
-    Shortcut { sequence: "4"; enabled: !win.typing; onActivated: backend.preset(4) }
-    Shortcut { sequence: "0"; enabled: !win.typing; onActivated: backend.fileWindow() }
-    Shortcut { sequence: "A"; enabled: !win.typing; onActivated: backend.fullRange() }
-    Shortcut { sequence: "I"; enabled: !win.typing; onActivated: backend.toggleInvert() }
-    Shortcut { sequence: "M"; enabled: !win.typing; onActivated: win.measuring = !win.measuring }
-    Shortcut { sequence: "F"; enabled: !win.typing; onActivated: view.fit() }
-    Shortcut { sequence: "R"; enabled: !win.typing; onActivated: { view.fit(); backend.fileWindow() } }
-    Shortcut { sequence: "S"; enabled: !win.typing; onActivated: win.seriesVisible = !win.seriesVisible }
-    Shortcut { sequence: "T"; enabled: !win.typing; onActivated: win.tagsVisible = !win.tagsVisible }
-    Shortcut { sequence: "H"; enabled: !win.typing; onActivated: win.infoHidden = !win.infoHidden }
-    Shortcut { sequence: "Ctrl+F"; onActivated: { win.tagsVisible = true; tagPanel.focusSearch() } }
-    Shortcut { sequence: "Ctrl+E"; onActivated: backend.exportImage() }
-    Shortcut { sequence: "Ctrl+C"; enabled: !win.typing; onActivated: backend.copyImage() }
-    Shortcut { sequences: [StandardKey.Undo]; enabled: !win.typing; onActivated: backend.undo() }
-    Shortcut { sequences: ["Ctrl+Shift+Z", StandardKey.Redo]; enabled: !win.typing; onActivated: backend.redo() }
+    Shortcut { sequence: "O"; enabled: win.keys; onActivated: backend.open() }
+    Shortcut { sequence: "Shift+O"; enabled: win.keys; onActivated: backend.openFolder() }
+    Shortcut { sequence: "Space"; enabled: win.keys; onActivated: win.inUse.togglePlay() }
+    Shortcut { sequences: ["Up", "K"]; enabled: win.keys; onActivated: win.inUse.step(-1) }
+    Shortcut { sequences: ["Down", "J"]; enabled: win.keys; onActivated: win.inUse.step(1) }
+    Shortcut { sequence: "PgUp"; enabled: win.keys; onActivated: win.inUse.step(-10) }
+    Shortcut { sequence: "PgDown"; enabled: win.keys; onActivated: win.inUse.step(10) }
+    Shortcut { sequence: "Home"; enabled: win.keys; onActivated: win.inUse.sliceIndex = 0 }
+    Shortcut { sequence: "End"; enabled: win.keys; onActivated: win.inUse.sliceIndex = win.inUse.sliceCount - 1 }
+    Shortcut { sequence: "Left"; enabled: win.keys; onActivated: win.inUse.stepSeries(-1) }
+    Shortcut { sequence: "Right"; enabled: win.keys; onActivated: win.inUse.stepSeries(1) }
+    Shortcut { sequence: "1"; enabled: win.keys; onActivated: win.inUse.preset(1) }
+    Shortcut { sequence: "2"; enabled: win.keys; onActivated: win.inUse.preset(2) }
+    Shortcut { sequence: "3"; enabled: win.keys; onActivated: win.inUse.preset(3) }
+    Shortcut { sequence: "4"; enabled: win.keys; onActivated: win.inUse.preset(4) }
+    Shortcut { sequence: "0"; enabled: win.keys; onActivated: win.inUse.fileWindow() }
+    Shortcut { sequence: "A"; enabled: win.keys; onActivated: win.inUse.fullRange() }
+    Shortcut { sequence: "I"; enabled: win.keys; onActivated: win.inUse.toggleInvert() }
+    Shortcut { sequence: "M"; enabled: win.keys; onActivated: win.measuring = !win.measuring }
+    Shortcut { sequence: "F"; enabled: win.keys; onActivated: win.inUseView.fit() }
+    Shortcut { sequence: "R"; enabled: win.keys; onActivated: { win.inUseView.fit(); win.inUse.resetOrientation(); win.inUse.fileWindow() } }
+    Shortcut { sequence: "]"; enabled: win.keys; onActivated: win.inUse.rotate(1) }
+    Shortcut { sequence: "["; enabled: win.keys; onActivated: win.inUse.rotate(-1) }
+    Shortcut { sequence: "X"; enabled: win.keys; onActivated: win.inUse.flipHorizontal() }
+    Shortcut { sequence: "Y"; enabled: win.keys; onActivated: win.inUse.flipVertical() }
+    Shortcut { sequence: "N"; enabled: win.keys; onActivated: { backend.toggleMarks(); if (partner.marksShown !== backend.marksShown) partner.toggleMarks() } }
+    Shortcut { sequence: "C"; enabled: win.keys; onActivated: win.compare() }
+    Shortcut { sequence: "Tab"; enabled: win.keys && win.comparing; onActivated: win.rightActive = !win.rightActive }
+    Shortcut {
+        sequence: "L"
+        enabled: win.keys && win.comparing
+        onActivated: {
+            win.linked = !win.linked
+            if (win.linked) win.other.follow(win.inUse)
+            win.inUse.announce(win.linked ? qsTr("Scrolling together") : qsTr("Scrolling apart"))
+        }
+    }
+    Shortcut { sequence: "P"; enabled: !win.typing; onActivated: win.reading ? backend.closeReport() : backend.openStudyReport() }
+    Shortcut { sequences: ["Left", "Shift+Tab"]; enabled: win.reading; onActivated: backend.stepReport(-1) }
+    Shortcut { sequences: ["Right", "Tab"]; enabled: win.reading; onActivated: backend.stepReport(1) }
+    Shortcut { sequences: ["Up", "K"]; enabled: win.reading; onActivated: reportPanel.scroll(-60) }
+    Shortcut { sequences: ["Down", "J"]; enabled: win.reading; onActivated: reportPanel.scroll(60) }
+    Shortcut { sequence: "PgUp"; enabled: win.reading; onActivated: reportPanel.scroll(-reportPanel.height * 0.8) }
+    Shortcut { sequences: ["PgDown", "Space"]; enabled: win.reading; onActivated: reportPanel.scroll(reportPanel.height * 0.8) }
+    Shortcut { sequences: ["Return", "Enter"]; enabled: win.reading && backend.reportIsPdf; onActivated: backend.openReport(backend.reportIndex) }
+    Shortcut { sequence: "S"; enabled: win.keys; onActivated: win.seriesVisible = !win.seriesVisible }
+    Shortcut { sequence: "T"; enabled: win.keys; onActivated: win.tagsVisible = !win.tagsVisible }
+    Shortcut { sequence: "H"; enabled: win.keys; onActivated: win.infoHidden = !win.infoHidden }
+    Shortcut { sequence: "Ctrl+F"; enabled: !win.reading; onActivated: { win.tagsVisible = true; tagPanel.focusSearch() } }
+    Shortcut { sequence: "Ctrl+E"; onActivated: win.inUse.exportImage() }
+    Shortcut { sequence: "Ctrl+C"; enabled: win.keys; onActivated: win.inUse.copyImage() }
+    Shortcut { sequences: [StandardKey.Undo]; enabled: win.keys; onActivated: win.inUse.undo() }
+    Shortcut { sequences: ["Ctrl+Shift+Z", StandardKey.Redo]; enabled: win.keys; onActivated: win.inUse.redo() }
     Shortcut {
         sequence: "Esc"
         onActivated: {
             if (win.helpVisible) win.helpVisible = false
+            else if (win.reading) backend.closeReport()
             else if (win.typing) tagPanel.leaveSearch()
-            else if (view.rulerVisible) view.clearRuler()
+            else if (win.inUseView.rulerVisible) win.inUseView.clearRuler()
             else if (win.measuring) win.measuring = false
-            else if (backend.playing) backend.stop()
-            else if (backend.problem) backend.dismissProblem()
+            else if (win.inUse.playing) win.inUse.stop()
+            else if (backend.problem || partner.problem) { backend.dismissProblem(); partner.dismissProblem() }
         }
     }
 
@@ -117,99 +183,46 @@ ApplicationWindow {
 
         Item {
             id: viewer
+            objectName: "viewer"
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             anchors.left: seriesList.right
             anchors.right: tagPanel.left
             clip: true
 
-            Rectangle {
-                anchors.fill: parent
-                color: "black"
-                visible: backend.hasImages
-            }
-
-            // The image isn't mirrored; only the layout around it is.
-            SliceView {
-                id: view
-                objectName: "view"
-                anchors.fill: parent
+            // Side by side, the panes split the width; the image in each
+            // isn't mirrored, but which pane is first follows the language.
+            ScanPane {
+                id: leftPane
+                objectName: "leftPane"
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                width: win.comparing ? (parent.width - 2) / 2 : parent.width
                 source: backend
-                accent: theme.accent
-                LayoutMirroring.enabled: false
+                inUse: !win.rightActive
             }
 
-            property string hoverText: ""
-            property point hoverPoint: Qt.point(-1, -1)
-
-            function refreshHover() {
-                if (hoverPoint.x < 0) { hoverText = ""; return }
-                const p = view.toImage(hoverPoint.x, hoverPoint.y)
-                hoverText = backend.valueAt(p.x, p.y)
+            Rectangle {
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.left: leftPane.right
+                width: 2
+                color: win.line
+                visible: win.comparing
             }
 
-            Connections {
-                target: backend
-                function onImageChanged() { viewer.refreshHover() }
-            }
-
-            MouseArea {
-                id: mouse
-                anchors.fill: parent
-                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-                hoverEnabled: true
-                enabled: backend.hasImages
-                cursorShape: win.measuring ? Qt.CrossCursor : drag === "pan" ? Qt.ClosedHandCursor : Qt.ArrowCursor
-                LayoutMirroring.enabled: false
-
-                property string drag: ""
-                property point start
-                property point last
-                property real wheelRest: 0
-
-                onPressed: (event) => {
-                    start = Qt.point(event.x, event.y)
-                    last = start
-                    if (event.button === Qt.MiddleButton || (event.button === Qt.LeftButton && (event.modifiers & Qt.ShiftModifier)))
-                        drag = "pan"
-                    else if (event.button === Qt.RightButton)
-                        drag = "zoom"
-                    else if (win.measuring) {
-                        drag = "ruler"
-                        view.startRuler(event.x, event.y)
-                    } else {
-                        drag = "window"
-                        backend.beginWindowDrag()
-                    }
-                }
-                onPositionChanged: (event) => {
-                    viewer.hoverPoint = Qt.point(event.x, event.y)
-                    if (drag === "pan")
-                        view.pan(event.x - last.x, event.y - last.y)
-                    else if (drag === "zoom")
-                        view.zoomAt(start.x, start.y, Math.pow(1.01, last.y - event.y))
-                    else if (drag === "ruler")
-                        view.moveRuler(event.x, event.y)
-                    else if (drag === "window")
-                        backend.dragWindow(event.x - start.x, event.y - start.y)
-                    last = Qt.point(event.x, event.y)
-                    viewer.refreshHover()
-                }
-                onReleased: drag = ""
-                onExited: { viewer.hoverPoint = Qt.point(-1, -1); viewer.refreshHover() }
-                onDoubleClicked: (event) => { if (event.button === Qt.LeftButton && !win.measuring) view.fit() }
-                onWheel: (event) => {
-                    if (event.modifiers & Qt.ControlModifier) {
-                        view.zoomAt(event.x, event.y, Math.pow(1.0015, event.angleDelta.y))
-                        return
-                    }
-                    // Touchpads send small steps; a slice for every notch's worth.
-                    wheelRest += event.angleDelta.y
-                    while (Math.abs(wheelRest) >= 120) {
-                        backend.step(wheelRest > 0 ? -1 : 1)
-                        wheelRest -= wheelRest > 0 ? 120 : -120
-                    }
-                }
+            ScanPane {
+                id: rightPane
+                objectName: "rightPane"
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.right: parent.right
+                width: (parent.width - 2) / 2
+                visible: win.comparing
+                source: partner
+                second: true
+                inUse: win.rightActive
             }
 
             DropArea {
@@ -245,78 +258,11 @@ ApplicationWindow {
                 }
             }
 
-            Label {
-                anchors.centerIn: parent
-                width: Math.min(parent.width - 80, 520)
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.Wrap
-                visible: backend.hasImages && backend.frameError !== ""
-                text: backend.frameError
-                color: "#ff8a80"  // On the black canvas.
-                font.pixelSize: 15
-            }
-
-            BusyIndicator {
-                anchors.centerIn: parent
-                width: 48
-                height: 48
-                running: backend.hasImages && !backend.frameReady && backend.frameError === "" && view.width > 0
-                visible: running && backend.imageWidth === 0
-            }
-
-            InfoOverlay {
+            ReportPanel {
+                id: reportPanel
+                objectName: "reportPanel"
                 anchors.fill: parent
-                anchors.margins: 16
-                visible: backend.hasImages && !win.infoHidden
-                hoverText: viewer.hoverText
-                zoom: view.zoom
-                measuring: win.measuring
-            }
-
-            // Where in the series the shown slice is, and how much of it
-            // is decoded. Click or drag to go anywhere in it.
-            Item {
-                id: scrubber
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                height: 14
-                visible: backend.sliceCount > 1
-                LayoutMirroring.enabled: false
-                LayoutMirroring.childrenInherit: true
-
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    height: scrubArea.containsMouse || scrubArea.pressed ? 6 : 3
-                    color: "#1f1f24"
-                    Rectangle {
-                        width: parent.width * backend.decodedCount / Math.max(1, backend.sliceCount)
-                        height: parent.height
-                        color: "#34343c"
-                    }
-                    Rectangle {
-                        x: parent.width * backend.sliceIndex / backend.sliceCount
-                        width: Math.max(3, parent.width / backend.sliceCount)
-                        height: parent.height
-                        color: theme.accent
-                    }
-                }
-                MouseArea {
-                    id: scrubArea
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    function seek(x) { backend.sliceIndex = Math.floor(Math.max(0, Math.min(0.9999, x / width)) * backend.sliceCount) }
-                    onPressed: (event) => seek(event.x)
-                    onPositionChanged: (event) => { if (pressed) seek(event.x) }
-                }
-            }
-
-            Notice {
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 48
+                visible: win.reading
             }
         }
 
@@ -330,7 +276,7 @@ ApplicationWindow {
             radius: Math.min(4, theme.radius)
             color: win.mix(theme.background, win.error, 0.16)
             border.color: win.mix(theme.background, win.error, 0.5)
-            visible: backend.problem !== ""
+            visible: backend.problem !== "" || partner.problem !== ""
             RowLayout {
                 id: problemRow
                 anchors.fill: parent
@@ -340,14 +286,14 @@ ApplicationWindow {
                 Label {
                     Layout.fillWidth: true
                     Layout.maximumWidth: 640
-                    text: backend.problem
+                    text: backend.problem || partner.problem
                     color: win.text
                     wrapMode: Text.Wrap
                 }
                 ToolButton {
                     text: "✕"
                     Material.roundedScale: theme.radius
-                    onClicked: backend.dismissProblem()
+                    onClicked: { backend.dismissProblem(); partner.dismissProblem() }
                 }
             }
         }

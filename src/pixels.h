@@ -42,6 +42,7 @@ struct Frame {
     QImage color;
     QString error;                // English; translated where it's shown.
     QString detail;               // Untranslated specifics, such as what ffmpeg said.
+    QImage overlay;               // The file's overlay planes, as an alpha mask.
     double windowCenter = 0;      // The window the file suggests, or the full range.
     double windowWidth = 0;
     bool hasPadding = false;      // A stored value marking pixels outside the scan.

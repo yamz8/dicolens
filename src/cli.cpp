@@ -11,6 +11,7 @@
 #include <QTextStream>
 
 #include "pixels.h"
+#include "reports.h"
 #include "study.h"
 
 namespace {
@@ -26,6 +27,9 @@ const char *Usage = R"(Usage:
                                               or as the file says; series and slice count from 1
   dicolens export <file | folder> <folder> --all [--series <n>] [same options]
                                               Save every slice of a series, 0001.png onwards
+  dicolens report <file | folder> [--report <n>] [--out <file.pdf>] [--json]
+                                              Read a report that came with the scans: a
+                                              structured report as text, or a PDF saved with --out
   dicolens skill install                      Install the agent skill to ~/.claude/skills/dicolens
   dicolens --help | --version
 
@@ -91,6 +95,17 @@ QJsonObject seriesJson(const Series &s, int index) {
     };
 }
 
+QJsonObject reportJson(const Report &r, int index) {
+    return {
+        {"index", index},
+        {"kind", r.kind == Report::Kind::Pdf ? "pdf" : "structured"},
+        {"title", r.title},
+        {"date", DicomFile::formatDate(r.date)},
+        {"study", QJsonObject{{"uid", r.studyUid}, {"description", r.studyDescription},
+                              {"date", DicomFile::formatDate(r.studyDate)}}},
+    };
+}
+
 int info(QStringList args) {
     const bool json = flag(args, "--json");
     if (args.isEmpty())
@@ -103,10 +118,15 @@ int info(QStringList args) {
         QJsonArray series;
         for (int i = 0; i < scan.series.size(); ++i)
             series << seriesJson(scan.series[i], i + 1);
+        QJsonArray reports;
+        for (int i = 0; i < scan.reports.size(); ++i)
+            reports << reportJson(scan.reports[i], i + 1);
         out() << QJsonDocument(QJsonObject{{"files", scan.files},
                                            {"skipped", scan.skipped},
                                            {"unreadable", QJsonArray::fromStringList(scan.unreadable)},
-                                           {"series", series}})
+                                           {"series", series},
+                                           {"reports", reports},
+                                           {"annotations", int(scan.marks.size())}})
                      .toJson(QJsonDocument::Indented);
     } else {
         QString study;
@@ -123,6 +143,15 @@ int info(QStringList args) {
                          .arg(s.columns)
                          .arg(s.rows)
                          .arg(canDecode(s.transferSyntax) ? "" : "  (can't decode " + s.transferSyntax + ")");
+        }
+        if (!scan.reports.isEmpty())
+            out() << "\nReports\n";
+        for (int i = 0; i < scan.reports.size(); ++i) {
+            const Report &r = scan.reports[i];
+            out() << QStringLiteral("  %1. %2 %3  %4\n")
+                         .arg(i + 1)
+                         .arg(r.kind == Report::Kind::Pdf ? "PDF" : "SR", r.title.isEmpty() ? "(no title)" : r.title,
+                              DicomFile::formatDate(r.date));
         }
         out() << "\n" << scan.files << (scan.files == 1 ? " DICOM file" : " DICOM files") << " read, " << scan.skipped
               << (scan.skipped == 1 ? " other file" : " other files") << " skipped\n";
@@ -285,6 +314,55 @@ int exportImages(QStringList args) {
     return 0;
 }
 
+int report(QStringList args) {
+    const bool json = flag(args, "--json");
+    const QString number = option(args, "--report"), output = option(args, "--out");
+    if (args.isEmpty())
+        return fail("report needs a file or folder", json);
+    for (const auto &path : args)
+        if (!QFileInfo::exists(path))
+            return fail(QStringLiteral("%1 doesn't exist").arg(path), json);
+    const Scan scan = scanPaths(args);
+    if (scan.reports.isEmpty())
+        return fail("no reports were found there", json);
+    const int index = number.isEmpty() ? 1 : number.toInt();
+    if (index < 1 || index > scan.reports.size())
+        return fail(QStringLiteral("there are %1 reports; --report counts from 1").arg(scan.reports.size()), json);
+    const Report &r = scan.reports[index - 1];
+    const DicomFile file = DicomFile::read(r.path);
+    QJsonObject result = reportJson(r, index);
+
+    if (r.kind == Report::Kind::Pdf) {
+        if (output.isEmpty())
+            return fail("this report is a PDF; save it with --out report.pdf", json);
+        const QByteArray pdf = Reports::pdf(file);
+        QSaveFile saved(output);
+        saved.setDirectWriteFallback(false);
+        if (!saved.open(QIODevice::WriteOnly) || saved.write(pdf) != pdf.size() || !saved.commit())
+            return fail(QStringLiteral("%1 couldn't be saved: %2").arg(output, saved.errorString()), json);
+        result["saved"] = QFileInfo(output).absoluteFilePath();
+        if (json)
+            out() << QJsonDocument(result).toJson(QJsonDocument::Indented);
+        else
+            out() << "Saved " << output << "\n";
+        out().flush();
+        return 0;
+    }
+
+    const QList<ReportLine> lines = Reports::lines(file);
+    if (json) {
+        QJsonArray content;
+        for (const auto &line : lines)
+            content << QJsonObject{{"depth", line.depth}, {"heading", line.heading}, {"name", line.name}, {"value", line.value}};
+        result["content"] = content;
+        out() << QJsonDocument(result).toJson(QJsonDocument::Indented);
+    } else {
+        out() << r.title << "\n\n" << Reports::text(lines) << "\n";
+    }
+    out().flush();
+    return 0;
+}
+
 int skill(QStringList args) {
     const bool json = flag(args, "--json");
     if (args != QStringList{"install"})
@@ -326,6 +404,8 @@ int runCli(const QStringList &arguments, QStringList &open) {
         return tags(args.mid(1));
     if (command == "export")
         return exportImages(args.mid(1));
+    if (command == "report")
+        return report(args.mid(1));
     if (command == "skill")
         return skill(args.mid(1));
     if (command == "open")

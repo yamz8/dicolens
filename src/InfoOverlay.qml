@@ -7,6 +7,7 @@ import QtQuick.Layouts
 Item {
     id: overlay
 
+    property var source
     property string hoverText
     property real zoom: 1
     property bool measuring: false
@@ -33,22 +34,22 @@ Item {
         anchors.top: parent.top
         anchors.left: parent.left
         spacing: 2
-        Line { text: backend.info.patient || ""; font.bold: true; font.pixelSize: 15 }
-        Line { text: backend.info.patientDetails || ""; color: win.canvasDim }
-        Line { text: backend.info.study || "" }
-        Line { text: backend.info.date || ""; color: win.canvasDim }
+        Line { text: overlay.source.info.patient || ""; font.bold: true; font.pixelSize: 15 }
+        Line { text: overlay.source.info.patientDetails || ""; color: win.canvasDim }
+        Line { text: overlay.source.info.study || "" }
+        Line { text: overlay.source.info.date || ""; color: win.canvasDim }
     }
 
     ColumnLayout {
         anchors.top: parent.top
         anchors.right: parent.right
         spacing: 2
-        Line { alignRight: true; text: backend.info.institution || ""; color: win.canvasDim }
-        Line { alignRight: true; text: backend.info.series || ""; font.bold: true }
-        Line { alignRight: true; text: [backend.info.modality, backend.info.size].filter(x => x).join("  ·  ") }
+        Line { alignRight: true; text: overlay.source.info.institution || ""; color: win.canvasDim }
+        Line { alignRight: true; text: overlay.source.info.series || ""; font.bold: true }
+        Line { alignRight: true; text: [overlay.source.info.modality, overlay.source.info.size].filter(x => x).join("  ·  ") }
         Line {
             alignRight: true
-            text: (backend.playing ? "▶  " : "") + qsTr("Image %1 of %2").arg(overlay.n(backend.sliceIndex + 1, 0)).arg(overlay.n(backend.sliceCount, 0))
+            text: (overlay.source.playing ? "▶  " : "") + qsTr("Image %1 of %2").arg(overlay.n(overlay.source.sliceIndex + 1, 0)).arg(overlay.n(overlay.source.sliceCount, 0))
             color: theme.accent
             font.bold: true
         }
@@ -65,9 +66,9 @@ Item {
         }
         Line { text: overlay.hoverText; font.family: "monospace" }
         Line {
-            text: backend.color ? "" : qsTr("W %1  L %2").arg(overlay.n(backend.windowWidth, 0)).arg(overlay.n(backend.windowCenter, 0))
-                  + (backend.windowName ? "  ·  " + backend.windowName : "")
-                  + (backend.inverted ? "  ·  " + qsTr("Inverted") : "")
+            text: overlay.source.color ? "" : qsTr("W %1  L %2").arg(overlay.n(overlay.source.windowWidth, 0)).arg(overlay.n(overlay.source.windowCenter, 0))
+                  + (overlay.source.windowName ? "  ·  " + overlay.source.windowName : "")
+                  + (overlay.source.inverted ? "  ·  " + qsTr("Inverted") : "")
         }
         Line { text: Math.abs(overlay.zoom - 1) > 0.01 ? qsTr("Zoom %1%").arg(overlay.n(overlay.zoom * 100, 0)) : ""; color: win.canvasDim }
     }
@@ -77,7 +78,7 @@ Item {
         anchors.right: parent.right
         anchors.bottomMargin: 6
         spacing: 2
-        Line { alignRight: true; text: backend.info.geometry || ""; color: win.canvasDim }
+        Line { alignRight: true; text: overlay.source.info.geometry || ""; color: win.canvasDim }
     }
 
     // Directions belong to the image, which isn't mirrored.
@@ -85,10 +86,10 @@ Item {
         anchors.fill: parent
         LayoutMirroring.enabled: false
         LayoutMirroring.childrenInherit: true
-        visible: backend.edges.length === 4
-        Line { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: backend.edges[0] || ""; color: theme.accent; font.bold: true }
-        Line { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: backend.edges[1] || ""; color: theme.accent; font.bold: true }
-        Line { anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: backend.edges[2] || ""; color: theme.accent; font.bold: true }
-        Line { anchors.bottom: parent.bottom; anchors.bottomMargin: 6; anchors.horizontalCenter: parent.horizontalCenter; text: backend.edges[3] || ""; color: theme.accent; font.bold: true }
+        visible: overlay.source.edges.length === 4
+        Line { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: overlay.source.edges[0] || ""; color: theme.accent; font.bold: true }
+        Line { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: overlay.source.edges[1] || ""; color: theme.accent; font.bold: true }
+        Line { anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: overlay.source.edges[2] || ""; color: theme.accent; font.bold: true }
+        Line { anchors.bottom: parent.bottom; anchors.bottomMargin: 6; anchors.horizontalCenter: parent.horizontalCenter; text: overlay.source.edges[3] || ""; color: theme.accent; font.bold: true }
     }
 }

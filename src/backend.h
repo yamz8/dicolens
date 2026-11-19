@@ -7,9 +7,11 @@
 #include <QPointF>
 #include <QThreadPool>
 #include <QTimer>
+#include <QTransform>
 #include <QUrl>
 #include <QVariant>
 #include <atomic>
+#include <functional>
 #include <memory>
 
 #include "filepicker.h"
@@ -48,7 +50,16 @@ class Backend : public QObject {
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
     Q_PROPERTY(bool playing READ playing NOTIFY playingChanged)
     Q_PROPERTY(QVariantMap info READ info NOTIFY sliceChanged)
-    Q_PROPERTY(QStringList edges READ edges NOTIFY sliceChanged)
+    Q_PROPERTY(QStringList edges READ edges NOTIFY orientationChanged)
+    Q_PROPERTY(int rotation READ rotation NOTIFY orientationChanged)
+    Q_PROPERTY(bool flipped READ flipped NOTIFY orientationChanged)
+    Q_PROPERTY(bool marksShown READ marksShown NOTIFY marksChanged)
+    Q_PROPERTY(bool hasMarks READ hasMarks NOTIFY imageChanged)
+    Q_PROPERTY(QVariantList reports READ reportList NOTIFY reportsChanged)
+    Q_PROPERTY(int reportIndex READ reportIndex NOTIFY reportChanged)
+    Q_PROPERTY(QString reportTitle READ reportTitle NOTIFY reportChanged)
+    Q_PROPERTY(bool reportIsPdf READ reportIsPdf NOTIFY reportChanged)
+    Q_PROPERTY(QVariantList reportLines READ reportLines NOTIFY reportChanged)
     Q_PROPERTY(bool tagsWanted READ tagsWanted WRITE setTagsWanted NOTIFY tagsChanged)
     Q_PROPERTY(QString tagFilter READ tagFilter WRITE setTagFilter NOTIFY tagsChanged)
     Q_PROPERTY(QVariantList tags READ tags NOTIFY tagsChanged)
@@ -84,6 +95,24 @@ public:
     bool playing() const { return m_play.isActive(); }
     QVariantMap info() const { return m_info; }
     QStringList edges() const;
+    // Quarter turns clockwise, after a flip left to right when flipped.
+    int rotation() const { return m_rotation; }
+    bool flipped() const { return m_flipped; }
+    // From the image's pixels to the picture as turned, for one of size.
+    QTransform orientation(const QSizeF &size) const;
+    bool marksShown() const { return m_marksShown; }
+    bool hasMarks() const;
+    // What was left on the shown slice: overlay bits as an alpha mask the
+    // size of the image, and presentation states' outlines and notes.
+    QImage overlay() const;
+    QList<Mark> marks() const;
+    QVariantList reportList() const;
+    int reportIndex() const { return m_reportIndex; }
+    QString reportTitle() const;
+    bool reportIsPdf() const;
+    QVariantList reportLines() const { return m_reportLines; }
+    // Where a PDF report is opened; tests catch it rather than launch a viewer.
+    void setUrlOpener(std::function<bool(const QUrl &)> opener) { m_openUrl = std::move(opener); }
     bool tagsWanted() const { return m_tagsWanted; }
     void setTagsWanted(bool wanted);
     QString tagFilter() const { return m_tagFilter; }
@@ -114,6 +143,21 @@ public:
     Q_INVOKABLE void undo();
     Q_INVOKABLE void redo();
     Q_INVOKABLE void togglePlay();
+    Q_INVOKABLE void rotate(int quarterTurns);
+    Q_INVOKABLE void flipHorizontal();
+    Q_INVOKABLE void flipVertical();
+    Q_INVOKABLE void resetOrientation();
+    Q_INVOKABLE void toggleMarks();
+    Q_INVOKABLE void openReport(int index);
+    Q_INVOKABLE void openStudyReport();
+    Q_INVOKABLE void stepReport(int delta);
+    Q_INVOKABLE void closeReport();
+
+    // Side by side: shows the scan another backend has open, from the same
+    // kind of series in another study or else the next series, and follows
+    // it from slice to slice.
+    Q_INVOKABLE void share(Backend *other);
+    Q_INVOKABLE void follow(Backend *other);
     Q_INVOKABLE void stop();
 
     Q_INVOKABLE QString valueAt(double x, double y) const;
@@ -121,6 +165,8 @@ public:
     Q_INVOKABLE void exportImage();
     Q_INVOKABLE void copyImage();
     Q_INVOKABLE void dismissProblem();
+    // A word from the window about what it did, such as linking the panes.
+    Q_INVOKABLE void announce(const QString &notice) { flash(notice); }
 
     // Remakes the text made in C++ after a language switch.
     void retranslate();
@@ -143,6 +189,10 @@ signals:
     void historyChanged();
     void playingChanged();
     void tagsChanged();
+    void orientationChanged();
+    void marksChanged();
+    void reportChanged();
+    void reportsChanged();
 
 private:
     struct WindowState {
@@ -153,6 +203,8 @@ private:
     };
 
     void scanFinished(int generation, const Scan &scan, const QString &focusPath);
+    void showScan(const Scan &scan, int series, int slice);
+    void selectReport(int index, bool launch);
     void startDecoding();
     void frameDecoded(int generation, int index, const Frame &frame);
     void thumbnailDecoded(int generation, int series, const QImage &image);
@@ -169,6 +221,7 @@ private:
     const Frame *currentFrame() const;
 
     FilePicker *m_picker;
+    bool m_asked = false;   // Waiting on the picker for this backend.
     QThreadPool m_pool;
     QThreadPool m_thumbnailPool;
     int m_scanGeneration = 0;
@@ -210,6 +263,13 @@ private:
 
     QTimer m_play;
     QVariantMap m_info;
+
+    int m_rotation = 0;
+    bool m_flipped = false;
+    bool m_marksShown = true;
+    int m_reportIndex = -1;
+    QVariantList m_reportLines;
+    std::function<bool(const QUrl &)> m_openUrl;
 
     bool m_tagsWanted = false;
     QString m_tagFilter;

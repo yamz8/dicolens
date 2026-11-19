@@ -64,7 +64,16 @@ QStringList listFiles(const QStringList &paths, bool recursive) {
 void addFile(Scan &scan, const DicomFile &file) {
     const int rows = file.integer(Tag::Rows), columns = file.integer(Tag::Columns);
     if (!file.hasPixelData() || rows <= 0 || columns <= 0) {
-        ++scan.skipped;
+        Report report;
+        if (Reports::describe(file, &report)) {
+            ++scan.files;
+            scan.reports << report;
+        } else if (Marks::isPresentationState(file)) {
+            ++scan.files;
+            scan.marks += Marks::read(file);
+        } else {
+            ++scan.skipped;
+        }
         return;
     }
     ++scan.files;
@@ -124,6 +133,28 @@ void addFile(Scan &scan, const DicomFile &file) {
             s.frameRate = cine;
         else if (const double ms = file.number(Tag::FrameTime); ms > 0)
             s.frameRate = 1000.0 / ms;
+        // Only areas measured in centimetres (units 3) both ways give a
+        // length; others are time, velocity, or not calibrated at all.
+        if (const DicomElement *regions = file.element(Tag::UltrasoundRegions))
+            for (const auto &item : regions->items) {
+                auto value = [&](quint32 tag) {
+                    for (const auto &e : item)
+                        if (e.tag == tag)
+                            return file.numbers(&e).value(0, -1);
+                    return -1.0;
+                };
+                if (value(Tag::PhysicalUnitsX) != 3 || value(Tag::PhysicalUnitsY) != 3)
+                    continue;
+                Region r;
+                r.x0 = int(value(Tag::RegionMinX));
+                r.y0 = int(value(Tag::RegionMinY));
+                r.x1 = int(value(Tag::RegionMaxX));
+                r.y1 = int(value(Tag::RegionMaxY));
+                r.deltaX = std::abs(value(Tag::PhysicalDeltaX)) * 10;
+                r.deltaY = std::abs(value(Tag::PhysicalDeltaY)) * 10;
+                if (r.deltaX > 0 && r.deltaY > 0 && r.x1 >= r.x0 && r.y1 >= r.y0)
+                    s.regions << r;
+            }
         scan.series.append(s);
         it = scan.series.end() - 1;
     }
@@ -133,6 +164,7 @@ void addFile(Scan &scan, const DicomFile &file) {
     for (int frame = 0; frame < frames; ++frame) {
         Slice slice;
         slice.path = file.path();
+        slice.sop = file.first(Tag::SopInstance);
         slice.frame = frame;
         slice.instance = instance;
         const auto position = file.numbers(file.find(Tag::ImagePosition, frame));
@@ -198,6 +230,10 @@ void sortScan(Scan &scan) {
         if (okA && okB && na != nb)
             return na < nb;
         return a.description < b.description;
+    });
+    std::stable_sort(scan.reports.begin(), scan.reports.end(), [](const Report &a, const Report &b) {
+        const QString ka = a.studyDate + a.studyTime + a.studyUid, kb = b.studyDate + b.studyTime + b.studyUid;
+        return ka != kb ? ka < kb : a.date < b.date;
     });
 }
 

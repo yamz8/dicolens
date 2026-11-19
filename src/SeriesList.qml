@@ -4,7 +4,7 @@ import QtQuick.Controls.Material
 import QtQuick.Layouts
 
 // Every series found, grouped under its study, with a thumbnail of its
-// middle slice.
+// middle slice, and after them the reports that came with them.
 Rectangle {
     id: panel
     color: win.panel
@@ -23,16 +23,95 @@ Rectangle {
         anchors.rightMargin: 1
         clip: true
         model: backend.series
-        currentIndex: backend.seriesIndex
+        currentIndex: win.inUse.seriesIndex
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar {}
         onCurrentIndexChanged: positionViewAtIndex(currentIndex, ListView.Contain)
+
+        footer: ColumnLayout {
+            width: list.width
+            spacing: 0
+            visible: backend.reports.length > 0
+
+            Label {
+                text: qsTr("Reports")
+                color: win.text
+                font.bold: true
+                Layout.leftMargin: 14
+                Layout.topMargin: 22
+                Layout.bottomMargin: 6
+            }
+            Repeater {
+                model: backend.reports
+                delegate: Rectangle {
+                    id: reportRow
+                    required property var modelData
+                    required property int index
+                    readonly property bool current: index === backend.reportIndex
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: reportColumn.implicitHeight + 16
+                    color: current ? win.selected : reportHover.hovered ? win.hover : "transparent"
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        width: 3
+                        height: parent.height
+                        color: theme.accent
+                        visible: reportRow.current
+                    }
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.leftMargin: 14
+                        anchors.rightMargin: 12
+                        spacing: 12
+                        Rectangle {
+                            Layout.preferredWidth: 60
+                            Layout.preferredHeight: 28
+                            radius: Math.min(4, theme.radius)
+                            color: "transparent"
+                            border.color: reportRow.current ? theme.accent : win.line
+                            Label {
+                                anchors.centerIn: parent
+                                // Kinds of file, kept as they are in every language.
+                                text: reportRow.modelData.pdf ? "PDF" : "SR"
+                                color: win.muted
+                                font.pixelSize: 12
+                                font.bold: true
+                            }
+                        }
+                        ColumnLayout {
+                            id: reportColumn
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Label {
+                                text: reportRow.modelData.title
+                                color: reportRow.current ? win.text : win.secondary
+                                font.bold: reportRow.current
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                            Label {
+                                text: [reportRow.modelData.study, reportRow.modelData.date].filter(x => x).map(x => "\u2068" + x + "\u2069").join("  ·  ")
+                                color: win.muted
+                                font.pixelSize: 12
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                                visible: text !== ""
+                            }
+                        }
+                    }
+                    HoverHandler { id: reportHover }
+                    TapHandler { onTapped: backend.openReport(reportRow.index) }
+                }
+            }
+            Item { Layout.preferredHeight: 14 }
+        }
 
         delegate: Item {
             id: row
             required property var modelData
             required property int index
-            readonly property bool current: index === backend.seriesIndex
+            readonly property bool current: index === win.inUse.seriesIndex
             width: list.width
             height: column.implicitHeight
 
@@ -137,7 +216,7 @@ Rectangle {
                     }
 
                     HoverHandler { id: hover }
-                    TapHandler { onTapped: backend.seriesIndex = row.index }
+                    TapHandler { onTapped: win.inUse.seriesIndex = row.index }
                 }
             }
         }

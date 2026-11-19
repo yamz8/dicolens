@@ -23,9 +23,15 @@ Rectangle {
                         ["I", qsTr("Invert")], ["Ctrl+Z", qsTr("Undo a window change")], ["Ctrl+Shift+Z", qsTr("Redo")]]],
         [qsTr("View"), [[qsTr("Ctrl+wheel"), qsTr("Zoom about the pointer")], [qsTr("Right-drag"), qsTr("Zoom")],
                         [qsTr("Middle-drag"), qsTr("Move the image (or Shift+drag)")], ["F", qsTr("Fit to the window")],
+                        ["] [", qsTr("Turn right / left")], ["X Y", qsTr("Flip left to right / top to bottom")],
                         ["R", qsTr("Reset the view and window")], ["M", qsTr("Measure: drag a ruler")],
+                        ["N", qsTr("Show or hide marks left on the image")],
                         ["S", qsTr("Show or hide the series")], ["T", qsTr("Show or hide the tags")],
                         ["Ctrl+F", qsTr("Search the tags")], ["H", qsTr("Hide or show the patient's details")]]],
+        [qsTr("Compare and read"), [["C", qsTr("Two series side by side")], ["Tab", qsTr("The other side")],
+                                    ["L", qsTr("Scroll the sides together or apart")],
+                                    ["P", qsTr("Read the reports that came with the scans")],
+                                    ["← →", qsTr("Other reports, while reading")]]],
     ]
 
     Flickable {
@@ -36,51 +42,63 @@ Rectangle {
         contentHeight: grid.implicitHeight + 60
         clip: true
 
-        GridLayout {
+        RowLayout {
             id: grid
             readonly property int count: help.width > 1100 ? 2 : 1
-            readonly property real columnWidth: (help.width - 64 - (count - 1) * columnSpacing) / count
+            readonly property real columnWidth: (help.width - 64 - (count - 1) * spacing) / count
             x: 32
             y: 40
             width: help.width - 64
-            columns: count
-            columnSpacing: 48
-            rowSpacing: 28
+            spacing: 48
 
+            // Two columns put the long View group beside all the others.
             Repeater {
-                model: help.groups
+                model: grid.count === 2 ? [[0, 2, 4], [1, 3]] : [[0, 1, 2, 3, 4]]
                 delegate: ColumnLayout {
+                    id: column
                     required property var modelData
                     Layout.alignment: Qt.AlignTop
                     Layout.preferredWidth: grid.columnWidth
                     Layout.maximumWidth: grid.columnWidth
-                    spacing: 7
-                    Label {
-                        text: modelData[0]
-                        color: theme.accent
-                        font.bold: true
-                        font.pixelSize: 16
-                        Layout.bottomMargin: 4
-                    }
+                    spacing: 28
+
                     Repeater {
-                        model: modelData[1]
-                        delegate: RowLayout {
+                        model: column.modelData
+                        delegate: ColumnLayout {
+                            id: section
                             required property var modelData
-                            spacing: 14
+                            readonly property var group: help.groups[modelData]
+                            Layout.alignment: Qt.AlignTop
+                            Layout.fillWidth: true
+                            spacing: 7
                             Label {
-                                text: modelData[0]
-                                color: win.text
-                                font.family: "monospace"
+                                text: section.group[0]
+                                color: theme.accent
                                 font.bold: true
-                                Layout.preferredWidth: 150
-                                Layout.alignment: Qt.AlignTop
-                                wrapMode: Text.Wrap
+                                font.pixelSize: 16
+                                Layout.bottomMargin: 4
                             }
-                            Label {
-                                text: modelData[1]
-                                color: win.secondary
-                                wrapMode: Text.Wrap
-                                Layout.fillWidth: true
+                            Repeater {
+                                model: section.group[1]
+                                delegate: RowLayout {
+                                    required property var modelData
+                                    spacing: 14
+                                    Label {
+                                        text: modelData[0]
+                                        color: win.text
+                                        font.family: "monospace"
+                                        font.bold: true
+                                        Layout.preferredWidth: 150
+                                        Layout.alignment: Qt.AlignTop
+                                        wrapMode: Text.Wrap
+                                    }
+                                    Label {
+                                        text: modelData[1]
+                                        color: win.secondary
+                                        wrapMode: Text.Wrap
+                                        Layout.fillWidth: true
+                                    }
+                                }
                             }
                         }
                     }
