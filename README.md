@@ -16,9 +16,13 @@ JPEG 2000 and HTJ2K, and MPEG/H.264/HEVC video, the last few through
 `ffmpeg`; grey images of 1 to 32 bits, signed or not, and RGB, YBR, and
 palette colour; enhanced multi-frame files, whose spacing, position, and
 rescale come frame by frame. It shows the values under the pointer (in
-Hounsfield units on CT), measures in millimetres, labels the patient
-directions at the image's edges, plays multi-frame series as loops, and lists
-every tag.
+Hounsfield units on CT), measures in millimetres (on ultrasound too, from the
+scanner's calibration), labels the patient directions at the image's edges,
+turns and flips the picture, plays multi-frame series as loops, and lists
+every tag. It shows the marks left on the images (overlay planes and saved
+annotations), reads the reports that came with them (structured reports and
+PDFs), and puts two series side by side, this year's beside last year's,
+scrolling together.
 
 Dicolens is for looking at your own scans. It's not for diagnosis.
 
@@ -76,6 +80,49 @@ range, `I` inverts, and `Ctrl+Z` undoes any of it.
 The value under the pointer shows at the bottom left, in Hounsfield units on a
 CT. `M` turns on the ruler, which measures in millimetres from the file's pixel
 spacing.
+
+### Measure on ultrasound
+
+![Rulers across the left ventricle of an echocardiogram, in millimetres](docs/demos/ultrasound.gif)
+
+Ultrasound files rarely give a pixel spacing; they calibrate the picture's
+area instead. The ruler uses that, so it measures in millimetres on an echo
+too, as long as the line stays inside the calibrated area.
+
+### Turn and flip
+
+![A head MR turned right, right again, left, flipped left to right and top to bottom, and reset](docs/demos/turn.gif)
+
+`]` and `[` turn the picture a quarter turn, `X` flips it left to right and `Y`
+top to bottom, and the patient directions at the edges turn with it. `R` puts
+it back. Saving and copying keep the turn.
+
+### See the marks left on it
+
+![A CT slice with the descending aorta circled and named, and a line across the heart; N hides and shows them, and the scout shows its scan range](docs/demos/marks.gif)
+
+What someone marked on the images shows over them in the accent colour: the
+outlines, lines, and notes saved as presentation states beside the images,
+and the overlay planes inside the files themselves. `N` hides and shows them.
+
+### Read the reports
+
+![The CT's structured report opening beside the scans with P, scrolled, then the next report, a PDF](docs/demos/reports.gif)
+
+A CD often carries the radiologist's report. They're listed under the series,
+and `P` opens the one for the study shown: a structured report as its
+findings, a PDF in your PDF viewer. `←` `→` go to the other reports, and `Esc`
+back to the scans.
+
+### Compare side by side
+
+![This year's chest CT beside last year's, scrolling together, then both in the lung window](docs/demos/compare.gif)
+
+`C` puts a second series beside the one shown: the same kind of scan from
+another study, the nearest in time, or else the next series. The sides scroll
+together, matched by where each slice is in the body; `L` lets them go apart.
+`Tab` (or a click) chooses the side the keys work on, and `←` `→` change its
+series.
 
 ### Switch series, and play a loop
 
@@ -136,7 +183,14 @@ that way. Scans stay on black, as they are read.
 | `Ctrl`+wheel, right-drag | Zoom (about the pointer) |
 | Middle-drag, `Shift`+drag | Move the image |
 | `F` / `R` | Fit / reset the view and window |
+| `]` / `[` | Turn right / left |
+| `X` / `Y` | Flip left to right / top to bottom |
 | `M` | Measure: drag a ruler (`Esc` clears it) |
+| `N` | Show or hide marks left on the image |
+| `C` | Two series side by side |
+| `Tab` | The other side |
+| `L` | Scroll the sides together or apart |
+| `P` | Read the reports that came with the scans (`←` `→` for others) |
 | `S` / `T` | Show or hide the series / the tags |
 | `Ctrl+F` | Search the tags |
 | `H` | Hide or show the patient's details |
@@ -154,6 +208,8 @@ dicolens info <file|folder>...                    # series, patient, study
 dicolens tags <file>                              # every tag, sequences nested
 dicolens export <file|folder> out.png --series 2 --slice 40 --window 40,400
 dicolens export <file|folder> frames/ --all       # a whole series, 0001.png on
+dicolens report <file|folder> --report 1          # a structured report as text
+dicolens report <file|folder> --out report.pdf    # or a PDF report, saved
 dicolens skill install                            # teach Claude Code to use these
 ```
 
