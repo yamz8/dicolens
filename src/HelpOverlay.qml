@@ -5,7 +5,7 @@ import QtQuick.Layouts
 // Every shortcut, grouped. The README lists the same ones.
 Rectangle {
     id: help
-    color: "#f40e0e10"
+    color: Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.98)
 
     MouseArea { anchors.fill: parent; onClicked: win.helpVisible = false }
 
@@ -78,7 +78,7 @@ Rectangle {
                             }
                             Label {
                                 text: modelData[1]
-                                color: "#b8b8c0"
+                                color: win.secondary
                                 wrapMode: Text.Wrap
                                 Layout.fillWidth: true
                             }

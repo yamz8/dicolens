@@ -6,7 +6,7 @@ Rectangle {
     width: label.implicitWidth + 32
     height: label.implicitHeight + 18
     radius: Math.min(4, theme.radius)
-    color: "#e8202027"
+    color: win.panel
     border.color: win.line
     opacity: backend.notice !== "" ? 1 : 0
     visible: opacity > 0

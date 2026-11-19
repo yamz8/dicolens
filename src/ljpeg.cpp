@@ -1,5 +1,7 @@
 #include "ljpeg.h"
 
+#include <QCoreApplication>
+
 #include <array>
 
 namespace {
@@ -111,7 +113,7 @@ bool decodeLosslessJpeg(const QByteArray &stream, LosslessJpeg &out, QString *er
     const auto *data = reinterpret_cast<const uchar *>(stream.constData());
     const int size = stream.size();
     if (size < 4 || data[0] != 0xFF || data[1] != 0xD8)
-        return fail("This JPEG image is damaged");
+        return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image is damaged"));
 
     Huffman tables[4];
     int restartInterval = 0;
@@ -139,7 +141,7 @@ bool decodeLosslessJpeg(const QByteArray &stream, LosslessJpeg &out, QString *er
         const uchar *segment = data + pos + 4;
         const int segmentSize = length - 2;
         if (length < 2 || pos + 2 + length > size)
-            return fail("This JPEG image is damaged");
+            return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image is damaged"));
 
         if (marker == 0xC4) {
             int i = 0;
@@ -149,7 +151,7 @@ bool decodeLosslessJpeg(const QByteArray &stream, LosslessJpeg &out, QString *er
                 for (int k = 0; k < 16; ++k)
                     total += segment[i + 1 + k];
                 if (id > 3 || i + 17 + total > segmentSize)
-                    return fail("This JPEG image is damaged");
+                    return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image is damaged"));
                 tables[id].build(segment + i + 1, segment + i + 17, total);
                 i += 17 + total;
             }
@@ -159,7 +161,7 @@ bool decodeLosslessJpeg(const QByteArray &stream, LosslessJpeg &out, QString *er
             if (marker != 0xC3) {
                 if (notLossless)
                     *notLossless = true;
-                return fail("This JPEG image isn't lossless");
+                return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image isn't lossless"));
             }
             out.precision = segment[0];
             out.height = u16(segment + 1);
@@ -167,20 +169,20 @@ bool decodeLosslessJpeg(const QByteArray &stream, LosslessJpeg &out, QString *er
             out.components = segment[5];
             if (out.components < 1 || out.components > 4 || out.precision < 2 || out.precision > 16 ||
                 out.width <= 0 || out.height <= 0)
-                return fail("This JPEG image is damaged");
+                return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image is damaged"));
             for (int c = 0; c < out.components; ++c) {
                 componentIds[c] = segment[6 + 3 * c];
                 // Lossless images in DICOM aren't subsampled.
                 if (segment[7 + 3 * c] != 0x11)
-                    return fail("This JPEG image's layout isn't supported");
+                    return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image's layout isn't supported"));
             }
             frameSeen = true;
         } else if (marker == 0xDA) {
             if (!frameSeen)
-                return fail("This JPEG image is damaged");
+                return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image is damaged"));
             const int count = segment[0];
             if (count != out.components)
-                return fail("This JPEG image's layout isn't supported");
+                return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image's layout isn't supported"));
             int tableFor[4];
             for (int s = 0; s < count; ++s) {
                 const int id = segment[1 + 2 * s];
@@ -188,15 +190,15 @@ bool decodeLosslessJpeg(const QByteArray &stream, LosslessJpeg &out, QString *er
                 while (c < out.components && componentIds[c] != id)
                     ++c;
                 if (c != s)
-                    return fail("This JPEG image's layout isn't supported");
+                    return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image's layout isn't supported"));
                 tableFor[s] = segment[2 + 2 * s] >> 4;
                 if (tableFor[s] > 3 || !tables[tableFor[s]].defined)
-                    return fail("This JPEG image is damaged");
+                    return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image is damaged"));
             }
             const int predictor = segment[1 + 2 * count];
             const int pointTransform = segment[3 + 2 * count] & 0x0F;
             if (predictor < 1 || predictor > 7)
-                return fail("This JPEG image is damaged");
+                return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image is damaged"));
 
             const int width = out.width, height = out.height, n = out.components;
             const int bits = out.precision - pointTransform;
@@ -217,7 +219,7 @@ bool decodeLosslessJpeg(const QByteArray &stream, LosslessJpeg &out, QString *er
                     for (int c = 0; c < n; ++c) {
                         const int symbol = decodeSymbol(reader, tables[tableFor[c]]);
                         if (symbol < 0 || symbol > 16)
-                            return fail("This JPEG image is damaged");
+                            return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image is damaged"));
                         int diff = 0;
                         if (symbol == 16) {
                             diff = 32768;
@@ -260,5 +262,5 @@ bool decodeLosslessJpeg(const QByteArray &stream, LosslessJpeg &out, QString *er
         }
         pos += 2 + length;
     }
-    return fail("This JPEG image is damaged");
+    return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image is damaged"));
 }

@@ -2,6 +2,7 @@
 
 #include "ljpeg.h"
 
+#include <QCoreApplication>
 #include <QFile>
 #include <QProcess>
 #include <QStandardPaths>
@@ -64,7 +65,7 @@ Frame applyPalette(const Frame &indices, const DicomFile &file) {
     }
     for (int c = 0; c < 3; ++c)
         if (descriptors[c].size() < 3 || tables[c].isEmpty())
-            return failed("This palette colour image has no palette");
+            return failed(QT_TRANSLATE_NOOP("dicolens", "This palette colour image has no palette"));
 
     Frame out;
     out.width = indices.width;
@@ -154,7 +155,7 @@ int codestreamPrecision(const QByteArray &codestream, const QString &demuxer, bo
 
 Frame runFfmpeg(const QByteArray &codestream, const QString &demuxer, const ImageFormat &format) {
     if (ffmpeg().isEmpty())
-        return failed("ffmpeg isn't installed, and this image needs it");
+        return failed(QT_TRANSLATE_NOOP("dicolens", "ffmpeg isn't installed, and this image needs it"));
 
     QStringList arguments{"-v", "error", "-threads", "1"};
     if (!demuxer.isEmpty())
@@ -170,17 +171,17 @@ Frame runFfmpeg(const QByteArray &codestream, const QString &demuxer, const Imag
     QProcess process;
     process.start(ffmpeg(), arguments);
     if (!process.waitForStarted(10000))
-        return failed("ffmpeg couldn't be started", process.errorString());
+        return failed(QT_TRANSLATE_NOOP("dicolens", "ffmpeg couldn't be started"), process.errorString());
     process.write(codestream);
     process.closeWriteChannel();
     if (!process.waitForFinished(60000)) {
         process.kill();
         process.waitForFinished(1000);
-        return failed("ffmpeg took too long to decode this image");
+        return failed(QT_TRANSLATE_NOOP("dicolens", "ffmpeg took too long to decode this image"));
     }
     const QByteArray output = process.readAllStandardOutput();
     if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0 || output.isEmpty())
-        return failed("ffmpeg couldn't decode this image", QString::fromUtf8(process.readAllStandardError()).trimmed());
+        return failed(QT_TRANSLATE_NOOP("dicolens", "ffmpeg couldn't decode this image"), QString::fromUtf8(process.readAllStandardError()).trimmed());
 
     const qint64 pixels = qint64(format.rows) * format.columns;
     Frame frame;
@@ -188,7 +189,7 @@ Frame runFfmpeg(const QByteArray &codestream, const QString &demuxer, const Imag
     frame.height = format.rows;
     if (format.samples > 1) {
         if (output.size() < pixels * 3)
-            return failed("The decoded image is smaller than its header says");
+            return failed(QT_TRANSLATE_NOOP("dicolens", "The decoded image is smaller than its header says"));
         frame.color = QImage(frame.width, frame.height, QImage::Format_RGB888);
         for (int y = 0; y < frame.height; ++y)
             std::memcpy(frame.color.scanLine(y), output.constData() + qint64(y) * frame.width * 3, frame.width * 3);
@@ -201,7 +202,7 @@ Frame runFfmpeg(const QByteArray &codestream, const QString &demuxer, const Imag
     else if (output.size() == pixels * 2)
         bytes = 2;
     else
-        return failed("The decoded image is a different size than its header says");
+        return failed(QT_TRANSLATE_NOOP("dicolens", "The decoded image is a different size than its header says"));
 
     // ffmpeg widens samples to its output's depth: a 12-bit codestream
     // comes back in 16 bits, shifted up (JPEG 2000) or with its top bits
@@ -237,7 +238,7 @@ Frame decodeLossless(const QByteArray &codestream, const ImageFormat &format) {
     if (!decodeLosslessJpeg(codestream, jpeg, &error, &notLossless))
         return notLossless ? runFfmpeg(codestream, Jpeg, format) : failed(error);
     if (jpeg.width != format.columns || jpeg.height != format.rows || jpeg.components != format.samples)
-        return failed("The decoded image is a different size than its header says");
+        return failed(QT_TRANSLATE_NOOP("dicolens", "The decoded image is a different size than its header says"));
     const qint64 pixels = qint64(jpeg.width) * jpeg.height;
     const quint16 *samples = jpeg.samples.constData();
     if (jpeg.components == 1)
@@ -384,9 +385,9 @@ QImage render(const Frame &frame, double center, double width, bool invert) {
 Frame convertNative(const uchar *data, qint64 size, const ImageFormat &f) {
     const qint64 pixels = qint64(f.rows) * f.columns;
     if (pixels <= 0)
-        return failed("This file has no image size");
+        return failed(QT_TRANSLATE_NOOP("dicolens", "This file has no image size"));
     if (f.bitsAllocated != 8 && f.bitsAllocated != 16 && !(f.bitsAllocated == 32 && f.samples == 1))
-        return failed("This image's pixel format isn't supported", QStringLiteral("%1-bit").arg(f.bitsAllocated));
+        return failed(QT_TRANSLATE_NOOP("dicolens", "This image's pixel format isn't supported"), QStringLiteral("%1-bit").arg(f.bitsAllocated));
 
     const int bytes = f.bitsAllocated / 8;
     Frame frame;
@@ -398,7 +399,7 @@ Frame convertNative(const uchar *data, qint64 size, const ImageFormat &f) {
         // to start at zero, and scaled down only when their range needs it,
         // with the rescale adjusted so the values shown stay the same.
         if (size < pixels * 4)
-            return failed("The image data is cut short");
+            return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
         QVector<qint64> values(pixels);
         qint64 lo = LLONG_MAX, hi = LLONG_MIN;
         const int bits = std::clamp(f.bitsStored, 1, 32);
@@ -424,7 +425,7 @@ Frame convertNative(const uchar *data, qint64 size, const ImageFormat &f) {
 
     if (f.samples == 1) {
         if (size < pixels * bytes)
-            return failed("The image data is cut short");
+            return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
         const int bits = std::clamp(f.bitsStored, 1, f.bitsAllocated);
         const int shift = std::max(0, f.highBit + 1 - bits);
         const quint32 mask = bits >= 32 ? 0xFFFFFFFF : (1u << bits) - 1;
@@ -446,13 +447,13 @@ Frame convertNative(const uchar *data, qint64 size, const ImageFormat &f) {
     }
 
     if (f.samples != 3)
-        return failed("This image's pixel format isn't supported", QStringLiteral("%1 samples").arg(f.samples));
+        return failed(QT_TRANSLATE_NOOP("dicolens", "This image's pixel format isn't supported"), QStringLiteral("%1 samples").arg(f.samples));
 
     frame.color = QImage(f.columns, f.rows, QImage::Format_RGB888);
     if (f.photometric == "YBR_FULL_422" || f.photometric == "YBR_PARTIAL_422") {
         // Two pixels share their colour: Y1 Y2 Cb Cr.
         if (bytes != 1 || size < pixels * 2)
-            return failed("The image data is cut short");
+            return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
         for (int y = 0; y < f.rows; ++y) {
             uchar *line = frame.color.scanLine(y);
             for (int x = 0; x < f.columns; x += 2) {
@@ -465,7 +466,7 @@ Frame convertNative(const uchar *data, qint64 size, const ImageFormat &f) {
         return frame;
     }
     if (size < pixels * 3 * bytes)
-        return failed("The image data is cut short");
+        return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
     const bool ybr = f.photometric.startsWith("YBR");
     const int down = std::max(0, std::clamp(f.bitsStored, 8, 16) - 8);
     auto sample = [&](qint64 pixel, int s) -> int {
@@ -495,14 +496,14 @@ QByteArray decodeRle(const QByteArray &data, const ImageFormat &f, QString *erro
     const int bytes = f.bitsAllocated / 8;
     if (data.size() < 64 || bytes < 1) {
         if (error)
-            *error = "The image data is cut short";
+            *error = QT_TRANSLATE_NOOP("dicolens", "The image data is cut short");
         return {};
     }
     const auto *p = reinterpret_cast<const uchar *>(data.constData());
     const quint32 count = qFromLittleEndian<quint32>(p);
     if (count != quint32(f.samples * bytes) || count > 15) {
         if (error)
-            *error = "This RLE image is damaged";
+            *error = QT_TRANSLATE_NOOP("dicolens", "This RLE image is damaged");
         return {};
     }
     // Rebuilt as planar, little-endian samples for convertNative.
@@ -545,12 +546,12 @@ bool canDecode(const QString &uid) {
 
 Frame decodeFrame(const DicomFile &file, int frameIndex, const QList<QByteArray> *split) {
     if (!file.hasPixelData())
-        return failed("This file has no image");
+        return failed(QT_TRANSLATE_NOOP("dicolens", "This file has no image"));
     ImageFormat f = ImageFormat::from(file, frameIndex);
     if (f.rows <= 0 || f.columns <= 0)
-        return failed("This file has no image size");
+        return failed(QT_TRANSLATE_NOOP("dicolens", "This file has no image size"));
     if (frameIndex < 0 || frameIndex >= f.frames)
-        return failed("The image data is cut short");
+        return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
     const QString uid = f.transferSyntax;
     const bool palette = f.photometric == "PALETTE COLOR";
 
@@ -562,7 +563,7 @@ Frame decodeFrame(const DicomFile &file, int frameIndex, const QList<QByteArray>
         const qint64 firstBit = qint64(frameIndex) * pixels;
         const QByteArray packed = file.readPixels(firstBit / 8, (firstBit % 8 + pixels + 7) / 8);
         if (packed.size() * 8 < firstBit % 8 + pixels)
-            return failed("The image data is cut short");
+            return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
         QByteArray bytes(pixels, 0);
         for (qint64 i = 0; i < pixels; ++i) {
             const qint64 bit = firstBit % 8 + i;
@@ -579,7 +580,7 @@ Frame decodeFrame(const DicomFile &file, int frameIndex, const QList<QByteArray>
         const qint64 frameBytes = subsampled ? pixels * 2 : pixels * f.samples * std::max(1, f.bitsAllocated / 8);
         const qint64 offset = qint64(frameIndex) * frameBytes;
         if (offset + frameBytes > file.pixelLength())
-            return failed("The image data is cut short");
+            return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
         const QByteArray data = file.readPixels(offset, frameBytes);
         // Big-endian files store 8-bit pixels as bytes, which need no swap.
         ImageFormat native = f;
@@ -590,7 +591,7 @@ Frame decodeFrame(const DicomFile &file, int frameIndex, const QList<QByteArray>
         const QList<QByteArray> frames = split ? *split
             : DicomFile::splitFrames(file.readPixels(0, file.pixelLength()), f.frames);
         if (frameIndex >= frames.size() || frames[frameIndex].isEmpty())
-            return failed("The image data is cut short");
+            return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
         const QByteArray &codestream = frames[frameIndex];
         if (isRle(uid)) {
             QString error;
@@ -610,7 +611,7 @@ Frame decodeFrame(const DicomFile &file, int frameIndex, const QList<QByteArray>
             frame = runFfmpeg(codestream, demuxer, f);
         } else {
             QString name = Dictionary::transferSyntaxName(uid);
-            return failed("This image is compressed in a way Dicolens can't read", name.isEmpty() ? uid : name);
+            return failed(QT_TRANSLATE_NOOP("dicolens", "This image is compressed in a way Dicolens can't read"), name.isEmpty() ? uid : name);
         }
     }
     if (frame.error.isEmpty() && palette)
@@ -647,7 +648,7 @@ QList<Frame> decodeVideo(const DicomFile &file, int maxFrames) {
     for (const auto &fragment : DicomFile::splitFrames(span, 1))
         stream += fragment;
     if (ffmpeg().isEmpty())
-        return {failed("ffmpeg isn't installed, and this image needs it")};
+        return {failed(QT_TRANSLATE_NOOP("dicolens", "ffmpeg isn't installed, and this image needs it"))};
 
     QProcess process;
     QStringList arguments{"-v", "error", "-i", "-"};
@@ -655,18 +656,18 @@ QList<Frame> decodeVideo(const DicomFile &file, int maxFrames) {
         arguments << "-frames:v" << QString::number(maxFrames);
     process.start(ffmpeg(), arguments + QStringList{"-f", "rawvideo", "-pix_fmt", "rgb24", "-"});
     if (!process.waitForStarted(10000))
-        return {failed("ffmpeg couldn't be started", process.errorString())};
+        return {failed(QT_TRANSLATE_NOOP("dicolens", "ffmpeg couldn't be started"), process.errorString())};
     process.write(stream);
     process.closeWriteChannel();
     if (!process.waitForFinished(300000)) {
         process.kill();
         process.waitForFinished(1000);
-        return {failed("ffmpeg took too long to decode this image")};
+        return {failed(QT_TRANSLATE_NOOP("dicolens", "ffmpeg took too long to decode this image"))};
     }
     const QByteArray output = process.readAllStandardOutput();
     const qint64 frameBytes = qint64(f.rows) * f.columns * 3;
     if (process.exitCode() != 0 || frameBytes <= 0 || output.size() < frameBytes)
-        return {failed("ffmpeg couldn't decode this image", QString::fromUtf8(process.readAllStandardError()).trimmed())};
+        return {failed(QT_TRANSLATE_NOOP("dicolens", "ffmpeg couldn't decode this image"), QString::fromUtf8(process.readAllStandardError()).trimmed())};
 
     QList<Frame> frames;
     for (qint64 offset = 0; offset + frameBytes <= output.size(); offset += frameBytes) {

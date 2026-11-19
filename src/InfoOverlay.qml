@@ -13,18 +13,20 @@ Item {
 
     function n(value, decimals) {
         // Reads the language so the numbers re-render when it changes.
-        return translator.language, Number(value).toLocaleString(Qt.locale(), 'f', decimals)
+        const language = translator.language
+        return language ? Number(value).toLocaleString(Qt.locale(), 'f', decimals) : ""
     }
 
     component Line: Label {
-        color: win.text
+        property bool alignRight: false
+        color: win.canvasText
         style: Text.Outline
         styleColor: "#b0000000"
         font.pixelSize: 13
         visible: text !== ""
         elide: Text.ElideRight
         Layout.maximumWidth: overlay.width * 0.45
-        Layout.alignment: parent && parent.alignRight ? Qt.AlignRight : Qt.AlignLeft
+        Layout.alignment: alignRight ? Qt.AlignRight : Qt.AlignLeft
     }
 
     ColumnLayout {
@@ -32,20 +34,20 @@ Item {
         anchors.left: parent.left
         spacing: 2
         Line { text: backend.info.patient || ""; font.bold: true; font.pixelSize: 15 }
-        Line { text: backend.info.patientDetails || ""; color: "#c8c8d0" }
+        Line { text: backend.info.patientDetails || ""; color: win.canvasDim }
         Line { text: backend.info.study || "" }
-        Line { text: backend.info.date || ""; color: "#c8c8d0" }
+        Line { text: backend.info.date || ""; color: win.canvasDim }
     }
 
     ColumnLayout {
-        readonly property bool alignRight: true
         anchors.top: parent.top
         anchors.right: parent.right
         spacing: 2
-        Line { text: backend.info.institution || ""; color: "#c8c8d0" }
-        Line { text: backend.info.series || ""; font.bold: true }
-        Line { text: [backend.info.modality, backend.info.size].filter(x => x).join("  ·  ") }
+        Line { alignRight: true; text: backend.info.institution || ""; color: win.canvasDim }
+        Line { alignRight: true; text: backend.info.series || ""; font.bold: true }
+        Line { alignRight: true; text: [backend.info.modality, backend.info.size].filter(x => x).join("  ·  ") }
         Line {
+            alignRight: true
             text: (backend.playing ? "▶  " : "") + qsTr("Image %1 of %2").arg(overlay.n(backend.sliceIndex + 1, 0)).arg(overlay.n(backend.sliceCount, 0))
             color: theme.accent
             font.bold: true
@@ -67,16 +69,15 @@ Item {
                   + (backend.windowName ? "  ·  " + backend.windowName : "")
                   + (backend.inverted ? "  ·  " + qsTr("Inverted") : "")
         }
-        Line { text: Math.abs(overlay.zoom - 1) > 0.01 ? qsTr("Zoom %1%").arg(overlay.n(overlay.zoom * 100, 0)) : ""; color: "#c8c8d0" }
+        Line { text: Math.abs(overlay.zoom - 1) > 0.01 ? qsTr("Zoom %1%").arg(overlay.n(overlay.zoom * 100, 0)) : ""; color: win.canvasDim }
     }
 
     ColumnLayout {
-        readonly property bool alignRight: true
         anchors.bottom: parent.bottom
         anchors.right: parent.right
         anchors.bottomMargin: 6
         spacing: 2
-        Line { text: backend.info.geometry || ""; color: "#c8c8d0" }
+        Line { alignRight: true; text: backend.info.geometry || ""; color: win.canvasDim }
     }
 
     // Directions belong to the image, which isn't mirrored.

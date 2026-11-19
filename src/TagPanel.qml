@@ -78,7 +78,7 @@ Rectangle {
                     Label {
                         text: row.modelData.item ? row.modelData.name
                               : (row.modelData.name || qsTr("Unknown")) + "  " + row.modelData.vr
-                        color: row.modelData.item ? theme.accent : row.modelData.name ? "#c8c8d0" : win.muted
+                        color: row.modelData.item ? theme.accent : row.modelData.name ? win.secondary : win.muted
                         font.pixelSize: 12
                         font.bold: row.modelData.item
                         elide: Text.ElideRight

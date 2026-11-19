@@ -68,7 +68,7 @@ Rectangle {
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 76
-                    color: row.current ? "#202027" : hover.hovered ? "#1a1a1f" : "transparent"
+                    color: row.current ? win.selected : hover.hovered ? win.hover : "transparent"
 
                     Rectangle {
                         anchors.left: parent.left
@@ -113,7 +113,7 @@ Rectangle {
                             spacing: 2
                             Label {
                                 text: row.modelData.title
-                                color: row.current ? win.text : "#c8c8d0"
+                                color: row.current ? win.text : win.secondary
                                 font.bold: row.current
                                 elide: Text.ElideRight
                                 maximumLineCount: 2
@@ -121,8 +121,7 @@ Rectangle {
                                 Layout.fillWidth: true
                             }
                             Label {
-                                text: (translator.language, [row.modelData.modality,
-                                       qsTr("%n images", "", row.modelData.count)].filter(x => x).join("  ·  "))
+                                text: [row.modelData.modality, qsTr("%n images", "", row.modelData.count)].filter(x => x).join("  ·  ")
                                 color: win.muted
                                 font.pixelSize: 12
                                 Layout.fillWidth: true
@@ -130,7 +129,7 @@ Rectangle {
                             }
                             Label {
                                 text: qsTr("Can't be decoded")
-                                color: "#ff8a80"
+                                color: win.error
                                 font.pixelSize: 12
                                 visible: !row.modelData.decodable
                             }

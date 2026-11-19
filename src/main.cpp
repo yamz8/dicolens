@@ -3,41 +3,23 @@
 
 #include <QGuiApplication>
 #include <QIcon>
+#include <QKeySequence>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
-#include <QQuickImageProvider>
 #include <QQuickStyle>
+#include <QQuickWindow>
+#include <QTimer>
 #include <QUrl>
 
 #include "backend.h"
 #include "cli.h"
 #include "portalfilepicker.h"
 #include "sliceview.h"
+#include "thumbnails.h"
 #include "theme.h"
 #include "translator.h"
 
 namespace {
-
-// Series thumbnails, as image://thumbnails/<series>/<version>.
-class ThumbnailProvider : public QQuickImageProvider {
-public:
-    explicit ThumbnailProvider(Backend *backend) : QQuickImageProvider(Image), m_backend(backend) {}
-
-    QImage requestImage(const QString &id, QSize *size, const QSize &) override {
-        QImage image = m_backend->thumbnail(id.section('/', 0, 0).toInt());
-        // Until it's decoded, a transparent pixel stands in.
-        if (image.isNull()) {
-            image = QImage(1, 1, QImage::Format_ARGB32);
-            image.fill(Qt::transparent);
-        }
-        if (size)
-            *size = image.size();
-        return image;
-    }
-
-private:
-    Backend *m_backend;
-};
 
 bool isCommand(int argc, char *argv[]) {
     if (argc < 2)
@@ -64,9 +46,10 @@ int main(int argc, char *argv[]) {
         return code;
 
     // Matches the window to dicolens.desktop, so the compositor (Wayland app_id)
-    // and the launcher pick up the installed icon.
+    // and the launcher pick up the installed icon. The compiled-in copy covers
+    // a run from build/, and needs qt6-svg's icon engine.
     app.setDesktopFileName("dicolens");
-    app.setWindowIcon(QIcon::fromTheme("dicolens"));
+    app.setWindowIcon(QIcon::fromTheme("dicolens", QIcon(":/dicolens.svg")));
 
     QQuickStyle::setStyle("Material");
 
@@ -96,6 +79,35 @@ int main(int argc, char *argv[]) {
 
     if (!open.isEmpty())
         backend.loadPaths(open);
+
+    // `omarchy agent look app` runs the app offscreen with these set, to see
+    // the window without a display: size it to OMARCHY_LOOK_SIZE when given,
+    // press the keys in OMARCHY_LOOK_KEYS through the window's Shortcuts,
+    // save it once it has settled, and quit.
+    if (const QString shot = qEnvironmentVariable("OMARCHY_LOOK_SCREENSHOT"); !shot.isEmpty()) {
+        const QStringList size = qEnvironmentVariable("OMARCHY_LOOK_SIZE").split('x');
+        if (auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst()); window && size.size() == 2)
+            window->resize(size[0].toInt(), size[1].toInt());
+        const QStringList keys = qEnvironmentVariable("OMARCHY_LOOK_KEYS").split(' ', Qt::SkipEmptyParts);
+        for (int i = 0; i < keys.size(); ++i) {
+            QTimer::singleShot(800 + i * 300, &app, [&engine, key = QKeySequence(keys[i])] {
+                for (QObject *shortcut : engine.rootObjects().constFirst()->findChildren<QObject *>()) {
+                    if (qstrcmp(shortcut->metaObject()->className(), "QQuickShortcut") == 0
+                        && shortcut->property("enabled").toBool()
+                        && QKeySequence(shortcut->property("sequence").toString()) == key) {
+                        QMetaObject::invokeMethod(shortcut, "activated");
+                        break;
+                    }
+                }
+            });
+        }
+        const int delay = qEnvironmentVariableIsSet("OMARCHY_LOOK_DELAY_MS") ? qEnvironmentVariableIntValue("OMARCHY_LOOK_DELAY_MS") : 1500;
+        QTimer::singleShot(800 + keys.size() * 300 + delay, &app, [&engine, shot] {
+            if (auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().constFirst()))
+                window->grabWindow().save(shot);
+            QCoreApplication::quit();
+        });
+    }
 
     return app.exec();
 }

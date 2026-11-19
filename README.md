@@ -76,14 +76,18 @@ dicolens skill install                            # teach Claude Code to use the
 
 ## Building
 
-Dicolens is C++ and Qt Quick, built with `qmake6`. Everything it needs comes
+Dicolens is C++ and Qt Quick, built with CMake. Everything it needs comes
 with Omarchy.
 
 ```sh
-bin/build      # build/dicolens
-bin/test       # the tests, offscreen
-bin/install    # package and install, so it's in the app launcher
+bin/build                                 # build/dicolens
+bin/test                                  # the tests, offscreen
+cmake --install build --prefix ~/.local   # try it in the app launcher
 ```
+
+The package's recipe lives in
+[omarchy-pkgs](https://github.com/omacom/omarchy-pkgs), which is also where CI
+reads the dependencies from.
 
 ## License
 

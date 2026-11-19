@@ -63,7 +63,10 @@ struct DecodeJob {
 
 namespace {
 
-QString tr(const char *text, int n = -1) { return QCoreApplication::translate("dicolens", text, nullptr, n); }
+// Qt's own tr() signature, so a counted string reads the same here as in a class.
+QString tr(const char *text, const char *disambiguation = nullptr, int n = -1) {
+    return QCoreApplication::translate("dicolens", text, disambiguation, n);
+}
 
 struct Preset {
     const char *name;
@@ -95,10 +98,10 @@ QString age(const QString &value) {
     if (!ok)
         return value;
     switch (value.back().toUpper().unicode()) {
-    case 'Y': return tr("%n years old", n);
-    case 'M': return tr("%n months old", n);
-    case 'W': return tr("%n weeks old", n);
-    case 'D': return tr("%n days old", n);
+    case 'Y': return tr("%n years old", nullptr, n);
+    case 'M': return tr("%n months old", nullptr, n);
+    case 'W': return tr("%n weeks old", nullptr, n);
+    case 'D': return tr("%n days old", nullptr, n);
     }
     return value;
 }
@@ -475,7 +478,7 @@ void Backend::startDecoding() {
                 const auto file = job->open(slice.path, split, &error);
                 Frame frame;
                 if (!file->isValid()) {
-                    frame.error = "This file can't be read";
+                    frame.error = QT_TRANSLATE_NOOP("dicolens", "This file can't be read");
                     frame.detail = error;
                 } else {
                     frame = decodeFrame(*file, slice.frame, split.get());

@@ -36,7 +36,10 @@ QString trimmed(QString value) {
     return value;
 }
 
-QString tr(const char *text, int n = -1) { return QCoreApplication::translate("dicolens", text, nullptr, n); }
+// Qt's own tr() signature, so a counted string reads the same here as in a class.
+QString tr(const char *text, const char *disambiguation = nullptr, int n = -1) {
+    return QCoreApplication::translate("dicolens", text, disambiguation, n);
+}
 
 QByteArray inflate(const uchar *data, qint64 size) {
     z_stream stream{};
@@ -104,13 +107,13 @@ DicomFile DicomFile::parse(const uchar *data, qint64 size, QString *error) {
     if (size >= 132 && std::memcmp(data + 128, "DICM", 4) == 0)
         pos = 132;
     else if (size < 8)
-        return fail("Not a DICOM file");
+        return fail(QT_TRANSLATE_NOOP("dicolens", "Not a DICOM file"));
 
     // Files from before Part 10 have no preamble and start straight into
     // the data set, usually at group 0008; anything else isn't DICOM.
     const quint16 firstGroup = u16(data + pos, true);
     if (pos == 0 && firstGroup != 0x0002 && firstGroup != 0x0008)
-        return fail("Not a DICOM file");
+        return fail(QT_TRANSLATE_NOOP("dicolens", "Not a DICOM file"));
 
     // The file meta group is always explicit VR little endian.
     QList<DicomElement> meta;
@@ -122,11 +125,11 @@ DicomFile DicomFile::parse(const uchar *data, qint64 size, QString *error) {
         const QByteArray vr(reinterpret_cast<const char *>(data + pos + 4), 2);
         const qint64 header = longVr(vr) ? 12 : 8;
         if (pos + header > size)
-            return fail("The file is cut short");
+            return fail(QT_TRANSLATE_NOOP("dicolens", "The file is cut short"));
         const quint32 length = longVr(vr) ? u32(data + pos + 8, true) : u16(data + pos + 6, true);
         const qint64 end = pos + header + length;
         if (length == Undefined || end > size)
-            return fail("The file is cut short");
+            return fail(QT_TRANSLATE_NOOP("dicolens", "The file is cut short"));
         if (!file.parseDataSet(data, size, pos, end, true, true, meta, 0, error))
             return {};
     }
@@ -152,7 +155,7 @@ DicomFile DicomFile::parse(const uchar *data, qint64 size, QString *error) {
     if (file.m_transferSyntax == "1.2.840.10008.1.2.1.99") {
         file.m_inflated = inflate(data + pos, size - pos);
         if (file.m_inflated.isEmpty())
-            return fail("This deflated file is damaged");
+            return fail(QT_TRANSLATE_NOOP("dicolens", "This deflated file is damaged"));
         body = reinterpret_cast<const uchar *>(file.m_inflated.constData());
         bodySize = file.m_inflated.size();
         pos = 0;
@@ -180,12 +183,12 @@ bool DicomFile::parseDataSet(const uchar *data, qint64 size, qint64 &pos, qint64
         return false;
     };
     if (depth > 32)
-        return fail("Sequences nest too deeply");
+        return fail(QT_TRANSLATE_NOOP("dicolens", "Sequences nest too deeply"));
     end = qMin(end, size);
 
     while (pos < end) {
         if (pos + 8 > end)
-            return fail("The file is cut short");
+            return fail(QT_TRANSLATE_NOOP("dicolens", "The file is cut short"));
         const quint16 group = u16(data + pos, littleEndian);
         const quint16 number = u16(data + pos + 2, littleEndian);
         const quint32 tag = quint32(group) << 16 | number;
@@ -207,7 +210,7 @@ bool DicomFile::parseDataSet(const uchar *data, qint64 size, qint64 &pos, qint64
             element.vr = QByteArray(reinterpret_cast<const char *>(data + pos + 4), 2);
             if (longVr(element.vr)) {
                 if (pos + 12 > end)
-                    return fail("The file is cut short");
+                    return fail(QT_TRANSLATE_NOOP("dicolens", "The file is cut short"));
                 length = u32(data + pos + 8, littleEndian);
                 pos += 12;
             } else {
@@ -265,7 +268,7 @@ bool DicomFile::parseDataSet(const uchar *data, qint64 size, qint64 &pos, qint64
                 if (itemTag == Tag::SequenceEnd)
                     break;
                 if (itemTag != Tag::Item)
-                    return fail("A sequence is damaged");
+                    return fail(QT_TRANSLATE_NOOP("dicolens", "A sequence is damaged"));
                 QList<DicomElement> item;
                 if (itemLength == Undefined) {
                     if (!parseDataSet(data, size, pos, sequenceEnd, itemsExplicit, littleEndian, item, depth + 1, error))
@@ -273,7 +276,7 @@ bool DicomFile::parseDataSet(const uchar *data, qint64 size, qint64 &pos, qint64
                 } else {
                     const qint64 itemEnd = pos + itemLength;
                     if (itemEnd > sequenceEnd)
-                        return fail("The file is cut short");
+                        return fail(QT_TRANSLATE_NOOP("dicolens", "The file is cut short"));
                     if (!parseDataSet(data, size, pos, itemEnd, itemsExplicit, littleEndian, item, depth + 1, error))
                         return false;
                     pos = itemEnd;
@@ -288,7 +291,7 @@ bool DicomFile::parseDataSet(const uchar *data, qint64 size, qint64 &pos, qint64
 
         if (pos + length > end) {
             out.append(element);
-            return fail("The file is cut short");
+            return fail(QT_TRANSLATE_NOOP("dicolens", "The file is cut short"));
         }
         element.value = QByteArray(reinterpret_cast<const char *>(data + pos), length);
         pos += length;
@@ -474,10 +477,10 @@ QString DicomFile::formatTime(const QString &value) {
 
 QString DicomFile::display(const DicomElement &e) const {
     if (e.vr == "SQ" || !e.items.isEmpty())
-        return tr("%n items", e.items.size());
+        return tr("%n items", nullptr, e.items.size());
     if (e.tag == Tag::PixelData) {
         return m_encapsulated ? tr("Compressed image data, %1").arg(Dictionary::transferSyntaxName(m_transferSyntax))
-                              : tr("Image data, %n bytes", int(qMin<qint64>(m_pixelLength, INT_MAX)));
+                              : tr("Image data, %n bytes", nullptr, int(qMin<qint64>(m_pixelLength, INT_MAX)));
     }
 
     static const QList<QByteArray> numeric{"US", "SS", "UL", "SL", "FL", "FD"};
@@ -502,7 +505,7 @@ QString DicomFile::display(const DicomElement &e) const {
             return {};
         if (e.value.size() <= 12)
             return QString::fromLatin1(e.value.toHex(' '));
-        return tr("%n bytes", int(e.value.size()));
+        return tr("%n bytes", nullptr, int(e.value.size()));
     }
 
     QStringList values = decode(e.value).split('\\');

@@ -12,16 +12,29 @@ ApplicationWindow {
     minimumHeight: 480
     visible: true
     title: backend.hasImages && !win.infoHidden && backend.info.patient ? backend.info.patient + " — Dicolens" : "Dicolens"
-    color: "#0e0e10"
+    color: theme.background
 
-    Material.theme: Material.Dark
+    Material.theme: theme.light ? Material.Light : Material.Dark
     Material.accent: theme.accent
-    Material.roundedScale: theme.radius
+    Material.background: theme.background
+    Material.foreground: theme.foreground
 
-    readonly property color text: "#e8e8ec"
-    readonly property color muted: "#8a8a94"
-    readonly property color panel: "#141417"
-    readonly property color line: "#26262c"
+    // The window's shades, mixed from the theme so they read on light
+    // themes as well as dark ones.
+    function mix(base, over, amount) { return Qt.tint(base, Qt.rgba(over.r, over.g, over.b, amount)) }
+    readonly property color text: theme.foreground
+    readonly property color secondary: mix(theme.foreground, theme.background, 0.2)
+    readonly property color muted: mix(theme.foreground, theme.background, 0.45)
+    readonly property color panel: mix(theme.background, theme.foreground, 0.03)
+    readonly property color hover: mix(theme.background, theme.foreground, 0.06)
+    readonly property color selected: mix(theme.background, theme.foreground, 0.1)
+    readonly property color line: mix(theme.background, theme.foreground, 0.12)
+    readonly property color error: theme.colors.red
+
+    // Scans are read on black, whatever the theme, as every radiology viewer
+    // shows them, so what's drawn over the image keeps light colors of its own.
+    readonly property color canvasText: "#e8e8ec"
+    readonly property color canvasDim: "#c8c8d0"
 
     property bool helpVisible: false
     property bool seriesVisible: true
@@ -33,40 +46,39 @@ ApplicationWindow {
 
     onTagsVisibleChanged: backend.tagsWanted = tagsVisible
 
-    Shortcut { sequence: "?"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.helpVisible = !win.helpVisible }
-    Shortcut { sequence: "Q"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: Qt.quit() }
-    Shortcut { sequence: "O"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.open() }
-    Shortcut { sequence: "Shift+O"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.openFolder() }
-    Shortcut { sequence: "Space"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.togglePlay() }
-    Shortcut { sequences: ["Up", "K"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.step(-1) }
-    Shortcut { sequences: ["Down", "J"]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.step(1) }
-    Shortcut { sequence: "PgUp"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.step(-10) }
-    Shortcut { sequence: "PgDown"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.step(10) }
-    Shortcut { sequence: "Home"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.sliceIndex = 0 }
-    Shortcut { sequence: "End"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.sliceIndex = backend.sliceCount - 1 }
-    Shortcut { sequence: "Left"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.stepSeries(-1) }
-    Shortcut { sequence: "Right"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.stepSeries(1) }
-    Shortcut { sequence: "1"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.preset(1) }
-    Shortcut { sequence: "2"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.preset(2) }
-    Shortcut { sequence: "3"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.preset(3) }
-    Shortcut { sequence: "4"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.preset(4) }
-    Shortcut { sequence: "0"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.fileWindow() }
-    Shortcut { sequence: "A"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.fullRange() }
-    Shortcut { sequence: "I"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.toggleInvert() }
-    Shortcut { sequence: "M"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.measuring = !win.measuring }
-    Shortcut { sequence: "F"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: view.fit() }
-    Shortcut { sequence: "R"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: { view.fit(); backend.fileWindow() } }
-    Shortcut { sequence: "S"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.seriesVisible = !win.seriesVisible }
-    Shortcut { sequence: "T"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.tagsVisible = !win.tagsVisible }
-    Shortcut { sequence: "H"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: win.infoHidden = !win.infoHidden }
-    Shortcut { sequence: "Ctrl+F"; context: Qt.ApplicationShortcut; onActivated: { win.tagsVisible = true; tagPanel.focusSearch() } }
-    Shortcut { sequence: "Ctrl+E"; context: Qt.ApplicationShortcut; onActivated: backend.exportImage() }
-    Shortcut { sequence: "Ctrl+C"; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.copyImage() }
-    Shortcut { sequences: [StandardKey.Undo]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.undo() }
-    Shortcut { sequences: ["Ctrl+Shift+Z", StandardKey.Redo]; context: Qt.ApplicationShortcut; enabled: !win.typing; onActivated: backend.redo() }
+    Shortcut { sequence: "?"; enabled: !win.typing; onActivated: win.helpVisible = !win.helpVisible }
+    Shortcut { sequence: "Q"; enabled: !win.typing; onActivated: Qt.quit() }
+    Shortcut { sequence: "O"; enabled: !win.typing; onActivated: backend.open() }
+    Shortcut { sequence: "Shift+O"; enabled: !win.typing; onActivated: backend.openFolder() }
+    Shortcut { sequence: "Space"; enabled: !win.typing; onActivated: backend.togglePlay() }
+    Shortcut { sequences: ["Up", "K"]; enabled: !win.typing; onActivated: backend.step(-1) }
+    Shortcut { sequences: ["Down", "J"]; enabled: !win.typing; onActivated: backend.step(1) }
+    Shortcut { sequence: "PgUp"; enabled: !win.typing; onActivated: backend.step(-10) }
+    Shortcut { sequence: "PgDown"; enabled: !win.typing; onActivated: backend.step(10) }
+    Shortcut { sequence: "Home"; enabled: !win.typing; onActivated: backend.sliceIndex = 0 }
+    Shortcut { sequence: "End"; enabled: !win.typing; onActivated: backend.sliceIndex = backend.sliceCount - 1 }
+    Shortcut { sequence: "Left"; enabled: !win.typing; onActivated: backend.stepSeries(-1) }
+    Shortcut { sequence: "Right"; enabled: !win.typing; onActivated: backend.stepSeries(1) }
+    Shortcut { sequence: "1"; enabled: !win.typing; onActivated: backend.preset(1) }
+    Shortcut { sequence: "2"; enabled: !win.typing; onActivated: backend.preset(2) }
+    Shortcut { sequence: "3"; enabled: !win.typing; onActivated: backend.preset(3) }
+    Shortcut { sequence: "4"; enabled: !win.typing; onActivated: backend.preset(4) }
+    Shortcut { sequence: "0"; enabled: !win.typing; onActivated: backend.fileWindow() }
+    Shortcut { sequence: "A"; enabled: !win.typing; onActivated: backend.fullRange() }
+    Shortcut { sequence: "I"; enabled: !win.typing; onActivated: backend.toggleInvert() }
+    Shortcut { sequence: "M"; enabled: !win.typing; onActivated: win.measuring = !win.measuring }
+    Shortcut { sequence: "F"; enabled: !win.typing; onActivated: view.fit() }
+    Shortcut { sequence: "R"; enabled: !win.typing; onActivated: { view.fit(); backend.fileWindow() } }
+    Shortcut { sequence: "S"; enabled: !win.typing; onActivated: win.seriesVisible = !win.seriesVisible }
+    Shortcut { sequence: "T"; enabled: !win.typing; onActivated: win.tagsVisible = !win.tagsVisible }
+    Shortcut { sequence: "H"; enabled: !win.typing; onActivated: win.infoHidden = !win.infoHidden }
+    Shortcut { sequence: "Ctrl+F"; onActivated: { win.tagsVisible = true; tagPanel.focusSearch() } }
+    Shortcut { sequence: "Ctrl+E"; onActivated: backend.exportImage() }
+    Shortcut { sequence: "Ctrl+C"; enabled: !win.typing; onActivated: backend.copyImage() }
+    Shortcut { sequences: [StandardKey.Undo]; enabled: !win.typing; onActivated: backend.undo() }
+    Shortcut { sequences: ["Ctrl+Shift+Z", StandardKey.Redo]; enabled: !win.typing; onActivated: backend.redo() }
     Shortcut {
         sequence: "Esc"
-        context: Qt.ApplicationShortcut
         onActivated: {
             if (win.helpVisible) win.helpVisible = false
             else if (win.typing) tagPanel.leaveSearch()
@@ -86,6 +98,7 @@ ApplicationWindow {
 
         SeriesList {
             id: seriesList
+            objectName: "seriesList"
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             anchors.left: parent.left
@@ -109,6 +122,12 @@ ApplicationWindow {
             anchors.left: seriesList.right
             anchors.right: tagPanel.left
             clip: true
+
+            Rectangle {
+                anchors.fill: parent
+                color: "black"
+                visible: backend.hasImages
+            }
 
             // The image isn't mirrored; only the layout around it is.
             SliceView {
@@ -198,6 +217,7 @@ ApplicationWindow {
             }
 
             EmptyState {
+                objectName: "emptyState"
                 anchors.centerIn: parent
                 visible: !backend.hasImages && !backend.scanning
             }
@@ -231,7 +251,7 @@ ApplicationWindow {
                 wrapMode: Text.Wrap
                 visible: backend.hasImages && backend.frameError !== ""
                 text: backend.frameError
-                color: "#ff8a80"
+                color: "#ff8a80"  // On the black canvas.
                 font.pixelSize: 15
             }
 
@@ -307,8 +327,8 @@ ApplicationWindow {
             width: Math.min(parent.width - 40, problemRow.implicitWidth + 32)
             height: problemRow.implicitHeight + 20
             radius: Math.min(4, theme.radius)
-            color: "#3a1d1f"
-            border.color: "#6b2c30"
+            color: win.mix(theme.background, win.error, 0.16)
+            border.color: win.mix(theme.background, win.error, 0.5)
             visible: backend.problem !== ""
             RowLayout {
                 id: problemRow
@@ -320,11 +340,12 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Layout.maximumWidth: 640
                     text: backend.problem
-                    color: "#ffd6d6"
+                    color: win.text
                     wrapMode: Text.Wrap
                 }
                 ToolButton {
                     text: "✕"
+                    Material.roundedScale: theme.radius
                     onClicked: backend.dismissProblem()
                 }
             }
@@ -332,6 +353,7 @@ ApplicationWindow {
     }
 
     HelpOverlay {
+        objectName: "help"
         anchors.fill: parent
         visible: win.helpVisible
     }
