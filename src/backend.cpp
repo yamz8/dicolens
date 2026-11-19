@@ -31,6 +31,8 @@
 // files already parsed, so a cine loop is read from disk once.
 struct DecodeJob {
     int generation = 0;
+    // Read by every worker at once, so only ever through const access:
+    // a non-const one would detach the shared list from several threads.
     QList<Slice> slices;
     bool video = false;
     QMutex mutex;
@@ -981,10 +983,10 @@ void Backend::startDecoding() {
         // A video is one stream; ffmpeg decodes it whole.
         m_pool.start([job, post] {
             QString error;
-            const DicomFile file = DicomFile::read(job->slices.first().path, &error);
+            const DicomFile file = DicomFile::read(std::as_const(job->slices).first().path, &error);
             const QList<Frame> frames = decodeVideo(file);
             for (int i = 0; i < job->slices.size() && !job->cancelled; ++i)
-                post(i, frames.value(std::min<int>(job->slices[i].frame, frames.size() - 1)));
+                post(i, frames.value(std::min<int>(std::as_const(job->slices)[i].frame, frames.size() - 1)));
         });
         return;
     }
@@ -996,7 +998,7 @@ void Backend::startDecoding() {
                 const int index = job->claim();
                 if (index < 0)
                     return;
-                const Slice slice = job->slices[index];
+                const Slice slice = std::as_const(job->slices)[index];
                 QString error;
                 std::shared_ptr<QList<QByteArray>> split;
                 const auto file = job->open(slice.path, split, &error);
