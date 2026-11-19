@@ -17,8 +17,9 @@ JPEG 2000 and HTJ2K, and MPEG/H.264/HEVC video, the last few through
 palette colour; enhanced multi-frame files, whose spacing, position, and
 rescale come frame by frame. It shows the values under the pointer (in
 Hounsfield units on CT, and SUVs on PET), measures lengths, areas with their
-values, and angles (on ultrasound too, from the scanner's calibration), cuts a
-CT or MR the other two ways and into MIP and MinIP slabs, labels the patient directions at the image's edges,
+values, angles, and Cobb angles (on ultrasound too, from the scanner's
+calibration), cuts a CT or MR the other two ways, or at any angle, and into
+MIP and MinIP slabs, labels the patient directions at the image's edges,
 turns and flips the picture, plays multi-frame series as loops, and lists
 every tag. It shows the marks left on the images (overlay planes and saved
 annotations), reads the reports that came with them (structured reports and
@@ -79,13 +80,16 @@ range, `I` inverts, and `Ctrl+Z` undoes any of it.
 
 ### Read values and measure
 
-![The value under the pointer in Hounsfield units over lung, the aorta and bone, then rulers across the heart and a vertebra, an area around the aorta with its mean and range, and an angle](docs/demos/measure.gif)
+![The value under the pointer in Hounsfield units over lung, the aorta and bone, then rulers across the heart and a vertebra, an area in the aorta with its mean and range, an angle, and a Cobb angle between two lines](docs/demos/measure.gif)
 
 The value under the pointer shows at the bottom left, in Hounsfield units on a
 CT. `M` draws rulers, which measure in millimetres from the file's pixel
 spacing. `E` draws an ellipse and gives its area and the mean, spread, and
 range of the values in it, which on a CT tells fluid from fat or tissue.
 `Shift+M` measures an angle: drag one arm, then click where the other ends.
+`Shift+C` measures a Cobb angle, the curve of a spine: drag a line along the
+end plate of the vertebra at one end of the curve, then along the other, and
+it gives the angle between them, whichever way each was drawn.
 Measurements stay on their slice; `Delete` removes the last one, and
 `Shift+Delete` all of the slice's.
 
@@ -97,6 +101,18 @@ Measurements stay on their slice; `Delete` removes the last one, and
 was scanned, through the same point. Side by side, a dashed line on each side
 shows where the other side's picture cuts it. It takes a stack of evenly
 spaced, parallel slices, which most CT and MR series are.
+
+### Cut it at any angle
+
+![Side by side with a coronal plane of the same CT, a click on the aorta puts both through it, dragging the dashed line turns the coronal plane to an oblique one, and Ctrl and the arrows tilt the axial slice](docs/demos/oblique.gif)
+
+A click on the picture marks where the planes meet, with a small cross, and
+the other planes go through it, whichever way they're shown; side by side,
+the other side moves there too. Dragging the dashed line turns the other
+side's plane about that point, to follow a vessel or a bone that runs at an
+angle. `Ctrl` and the arrows tilt the plane in view, 5° a press, up and down
+or left and right. A tilted plane is still shown the usual way up, the head
+at the top and the patient's right on the left. `V` straightens it again.
 
 ### Slabs: MIP and MinIP
 
@@ -235,8 +251,11 @@ that way. Scans stay on black, as they are read.
 | `]` / `[` | Turn right / left |
 | `X` / `Y` | Flip left to right / top to bottom |
 | `M` / `E` / `Shift+M` | Measure a length / an area and its values / an angle |
+| `Shift+C` | Measure a Cobb angle, between two lines |
 | `Delete` / `Shift+Delete` | Remove the last measurement / the slice's |
 | `V` | Cut the series another way: coronal, sagittal, as scanned |
+| `Ctrl`+arrows | Tilt the cut |
+| Click / drag the line | Where the planes meet / turn the other side's plane |
 | `B` / `Shift+B` | Slabs: MIP, MinIP, average / their thickness |
 | `G` | Colour scales, for PET |
 | `N` | Show or hide marks left on the image |
