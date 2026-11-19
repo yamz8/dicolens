@@ -21,7 +21,7 @@ VolumeView::VolumeView(QQuickItem *parent) : QQuickPaintedItem(parent) {
     m_settle.setSingleShot(true);
     m_settle.setInterval(160);
     connect(&m_settle, &QTimer::timeout, this, [this] {
-        if (spinning())
+        if (m_spin.isActive())
             return;
         m_quickWanted = false;
         m_dirty = true;
@@ -34,6 +34,27 @@ VolumeView::VolumeView(QQuickItem *parent) : QQuickPaintedItem(parent) {
         emit viewChanged();
         request(true);
     });
+}
+
+void VolumeView::itemChange(ItemChange change, const ItemChangeData &data) {
+    QQuickPaintedItem::itemChange(change, data);
+    if (change != ItemSceneChange)
+        return;
+    disconnect(m_windowActive);
+    if (data.window)
+        m_windowActive = connect(data.window, &QWindow::activeChanged, this, &VolumeView::followWindow);
+}
+
+void VolumeView::followWindow() {
+    const bool active = window() && window()->isActive();
+    if (!active && m_spin.isActive()) {
+        m_spin.stop();
+        m_spinPaused = true;
+        m_settle.start();   // A fine picture to leave it on.
+    } else if (active && m_spinPaused) {
+        m_spinPaused = false;
+        m_spin.start();
+    }
 }
 
 VolumeView::~VolumeView() {
@@ -362,9 +383,10 @@ void VolumeView::toggleSpin() {
 }
 
 void VolumeView::stopSpin() {
-    if (!m_spin.isActive())
+    if (!spinning())
         return;
     m_spin.stop();
+    m_spinPaused = false;
     emit spinningChanged();
     m_settle.start();
 }

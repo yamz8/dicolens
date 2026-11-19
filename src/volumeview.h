@@ -53,7 +53,7 @@ public:
     double cut() const { return m_view.cut; }
     double zoom() const { return m_view.zoom; }
     QStringList edges() const;
-    bool spinning() const { return m_spin.isActive(); }
+    bool spinning() const { return m_spin.isActive() || m_spinPaused; }
 
     // Dragging turns it, by pixels across and down.
     Q_INVOKABLE void turn(double dx, double dy);
@@ -98,6 +98,7 @@ signals:
 
 protected:
     void geometryChange(const QRectF &newGeometry, const QRectF &oldGeometry) override;
+    void itemChange(ItemChange change, const ItemChangeData &data) override;
 
 private:
     // Packs the series once it's all read, if it isn't packed already.
@@ -126,6 +127,11 @@ private:
     std::shared_ptr<std::atomic<bool>> m_cancel;
     QTimer m_settle;
     QTimer m_spin;
+    // A spin pauses while the window is in the background, rather than
+    // drawing a picture nobody sees on every core 25 times a second.
+    bool m_spinPaused = false;
+    QMetaObject::Connection m_windowActive;
+    void followWindow();
     QThreadPool m_pool;
     int m_generation = 0;
 };

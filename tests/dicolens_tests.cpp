@@ -2480,6 +2480,23 @@ private slots:
         QVERIFY(volume->lookName() != look);
         QTest::keyClick(window, Qt::Key_Space);
         QVERIFY(volume->spinning());
+        // It stops turning while another window is in front, and goes on
+        // once this one is again.
+        {
+            QWindow other;
+            other.resize(100, 100);
+            other.show();
+            other.requestActivate();
+            QTRY_VERIFY(!window->isActive());
+            const double right = volume->view().right[0];
+            QTest::qWait(200);
+            QCOMPARE(volume->view().right[0], right);
+            QVERIFY(volume->spinning());
+        }
+        window->requestActivate();
+        QTRY_VERIFY(window->isActive());
+        const double turned = volume->view().right[0];
+        QTRY_VERIFY(volume->view().right[0] != turned);
         QTest::keyClick(window, Qt::Key_Escape);
         QVERIFY(!volume->spinning());
         QTest::keyClick(window, 'D');
