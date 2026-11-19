@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtQml/qqmlregistration.h>
 #include <QColor>
 #include <QHash>
 #include <QPointer>
@@ -14,6 +15,7 @@
 // left on it, and the ruler over it.
 class SliceView : public QQuickPaintedItem {
     Q_OBJECT
+    QML_ELEMENT
     Q_PROPERTY(Backend *source READ backend WRITE setBackend NOTIFY backendChanged)
     Q_PROPERTY(double zoom READ zoom NOTIFY viewChanged)
     Q_PROPERTY(QColor accent READ accent WRITE setAccent NOTIFY accentChanged)

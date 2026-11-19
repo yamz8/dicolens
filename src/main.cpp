@@ -16,6 +16,7 @@
 #include "cli.h"
 #include "portalfilepicker.h"
 #include "sliceview.h"
+#include "qmlmodule.h"
 #include "volumeview.h"
 #include "thumbnails.h"
 #include "theme.h"
@@ -71,9 +72,9 @@ int main(int argc, char *argv[]) {
     Backend coronal(&picker);
     Backend sagittal(&picker);
 
-    qmlRegisterType<SliceView>("Dicolens", 1, 0, "SliceView");
-    qmlRegisterType<VolumeView>("Dicolens", 1, 0, "VolumeView");
-    qmlRegisterUncreatableType<Backend>("Dicolens", 1, 0, "Backend", "The backend is given to QML as \"backend\"");
+
+    keepQmlModule();
+
 
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtQml/qqmlregistration.h>
 #include <QColor>
 #include <QImage>
 #include <QPointer>
@@ -18,6 +19,7 @@
 // is. Drawn on a worker, quickly while it moves and finely once it stops.
 class VolumeView : public QQuickPaintedItem {
     Q_OBJECT
+    QML_ELEMENT
     Q_PROPERTY(Backend *source READ backend WRITE setBackend NOTIFY backendChanged)
     Q_PROPERTY(QColor accent READ accent WRITE setAccent NOTIFY accentChanged)
     // Only a shown view reads the volume and draws.

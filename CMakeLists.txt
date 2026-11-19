@@ -21,6 +21,12 @@ target_include_directories(dicolens_core PUBLIC src)
 target_link_libraries(dicolens_core PUBLIC
   Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::DBus ZLIB::ZLIB)
 target_compile_options(dicolens_core PUBLIC -Wall -Wextra)
+# The views and the backend are the Dicolens QML module, declared with
+# QML_ELEMENT, so the build writes a description of their types that qmllint
+# reads (through .qmllint.ini) to check the QML that uses them.
+qt_policy(SET QTP0001 NEW)
+qt_add_qml_module(dicolens_core URI Dicolens VERSION 1.0 NO_PLUGIN
+  OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Dicolens)
 
 add_executable(dicolens src/main.cpp src/resources.qrc)
 target_link_libraries(dicolens PRIVATE dicolens_core)

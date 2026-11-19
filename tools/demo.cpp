@@ -32,6 +32,7 @@
 #include "backend.h"
 #include "filepicker.h"
 #include "sliceview.h"
+#include "qmlmodule.h"
 #include "volumeview.h"
 #include "measurestore.h"
 #include "theme.h"
@@ -1074,9 +1075,8 @@ int main(int argc, char *argv[]) {
     // The PDF report stays in the window rather than opening a viewer.
     backend.setUrlOpener([](const QUrl &) { return true; });
 
-    qmlRegisterType<SliceView>("Dicolens", 1, 0, "SliceView");
-    qmlRegisterType<VolumeView>("Dicolens", 1, 0, "VolumeView");
-    qmlRegisterUncreatableType<Backend>("Dicolens", 1, 0, "Backend", "The backend is given to QML as \"backend\"");
+    keepQmlModule();
+
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);
     QObject::connect(&translator, &Translator::changed, &backend, [&backend, &partner] {

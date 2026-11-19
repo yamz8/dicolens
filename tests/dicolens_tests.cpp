@@ -27,6 +27,7 @@
 #include "reformat.h"
 #include "reports.h"
 #include "sliceview.h"
+#include "qmlmodule.h"
 #include "volumeview.h"
 #include "measurestore.h"
 #include "study.h"
@@ -2399,9 +2400,8 @@ private slots:
         Backend partner(nullptr);
         Backend coronal(nullptr);
         Backend sagittal(nullptr);
-        qmlRegisterType<SliceView>("Dicolens", 1, 0, "SliceView");
-        qmlRegisterType<VolumeView>("Dicolens", 1, 0, "VolumeView");
-        qmlRegisterUncreatableType<Backend>("Dicolens", 1, 0, "Backend", "The backend is given to QML as \"backend\"");
+
+        keepQmlModule();
 
         QQmlApplicationEngine engine;
         QStringList warnings;

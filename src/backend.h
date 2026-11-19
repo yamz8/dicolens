@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QtQml/qqmlregistration.h>
 #include <QHash>
 #include <QImage>
 #include <QMutex>
@@ -28,6 +29,8 @@ struct DecodeJob;
 // window, decoding in the background nearest the shown slice first.
 class Backend : public QObject {
     Q_OBJECT
+    QML_ELEMENT
+    QML_UNCREATABLE("The backend is given to QML as \"backend\"")
     Q_PROPERTY(bool hasImages READ hasImages NOTIFY seriesChanged)
     Q_PROPERTY(bool scanning READ scanning NOTIFY scanningChanged)
     Q_PROPERTY(int scanDone READ scanDone NOTIFY scanProgress)
