@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
 
     QGuiApplication app(argc, argv);
     app.setApplicationName("dicolens");
-    app.setApplicationVersion("0.2.1");
+    app.setApplicationVersion("0.3.0");
 
     QStringList open;
     if (const int code = runCli(app.arguments(), open); code >= 0)
@@ -61,6 +61,8 @@ int main(int argc, char *argv[]) {
     Theme theme;
     PortalFilePicker picker;
     Backend backend(&picker);
+    // The second pane, side by side, showing the same scans.
+    Backend partner(&picker);
 
     qmlRegisterType<SliceView>("Dicolens", 1, 0, "SliceView");
     qmlRegisterUncreatableType<Backend>("Dicolens", 1, 0, "Backend", "The backend is given to QML as \"backend\"");
@@ -68,11 +70,15 @@ int main(int argc, char *argv[]) {
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);
     // Strings made in C++ are translated when made, so remake them too.
-    QObject::connect(&translator, &Translator::changed, &backend, [&backend] { backend.retranslate(); });
+    QObject::connect(&translator, &Translator::changed, &backend, [&backend, &partner] {
+        backend.retranslate();
+        partner.retranslate();
+    });
     engine.addImageProvider("thumbnails", new ThumbnailProvider(&backend));
     engine.rootContext()->setContextProperty("translator", &translator);
     engine.rootContext()->setContextProperty("theme", &theme);
     engine.rootContext()->setContextProperty("backend", &backend);
+    engine.rootContext()->setContextProperty("partner", &partner);
     engine.load(QUrl("qrc:/Main.qml"));
     if (engine.rootObjects().isEmpty())
         return 1;
