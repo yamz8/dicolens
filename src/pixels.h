@@ -73,3 +73,7 @@ bool canDecode(const QString &transferSyntax);
 // For tests and the decoder alike.
 QByteArray decodeRle(const QByteArray &data, const ImageFormat &format, QString *error);
 Frame convertNative(const uchar *data, qint64 size, const ImageFormat &format);
+
+// A grey level, 0 to 255, in a colour scale: 1 hot iron, 2 the usual PET
+// one, anything else a rainbow.
+QRgb colorScale(int map, int grey);

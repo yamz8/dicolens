@@ -681,3 +681,26 @@ QList<Frame> decodeVideo(const DicomFile &file, int maxFrames) {
     }
     return frames;
 }
+
+// Colour scales for grey values: hot iron, rainbow, and the usual PET one.
+QRgb colorScale(int map, int g) {
+    const double t = g / 255.0;
+    auto mix = [](const QList<QPair<double, QColor>> &stops, double t) {
+        for (int i = 1; i < stops.size(); ++i)
+            if (t <= stops[i].first) {
+                const double f = (t - stops[i - 1].first) / (stops[i].first - stops[i - 1].first);
+                const QColor &a = stops[i - 1].second, &b = stops[i].second;
+                return qRgb(qRound(a.red() + (b.red() - a.red()) * f), qRound(a.green() + (b.green() - a.green()) * f),
+                            qRound(a.blue() + (b.blue() - a.blue()) * f));
+            }
+        return stops.last().second.rgb();
+    };
+    static const QList<QPair<double, QColor>> hot{{0, Qt::black}, {0.4, QColor(200, 0, 0)}, {0.75, QColor(255, 200, 0)}, {1, Qt::white}};
+    static const QList<QPair<double, QColor>> rainbow{
+        {0, QColor(0, 0, 80)}, {0.2, QColor(0, 0, 255)}, {0.4, QColor(0, 255, 255)}, {0.6, QColor(0, 255, 0)},
+        {0.8, QColor(255, 255, 0)}, {1, QColor(255, 0, 0)}};
+    static const QList<QPair<double, QColor>> pet{
+        {0, Qt::black}, {0.2, QColor(0, 0, 160)}, {0.4, QColor(120, 0, 180)}, {0.6, QColor(230, 0, 60)},
+        {0.8, QColor(255, 170, 0)}, {1, Qt::white}};
+    return mix(map == 1 ? hot : map == 2 ? pet : rainbow, t);
+}

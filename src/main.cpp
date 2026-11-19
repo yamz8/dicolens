@@ -16,6 +16,7 @@
 #include "cli.h"
 #include "portalfilepicker.h"
 #include "sliceview.h"
+#include "volumeview.h"
 #include "thumbnails.h"
 #include "theme.h"
 #include "translator.h"
@@ -66,22 +67,30 @@ int main(int argc, char *argv[]) {
     Backend backend(&picker);
     // The second pane, side by side, showing the same scans.
     Backend partner(&picker);
+    // Four views: the series cut the other two ways beside it, and in 3D.
+    Backend coronal(&picker);
+    Backend sagittal(&picker);
 
     qmlRegisterType<SliceView>("Dicolens", 1, 0, "SliceView");
+    qmlRegisterType<VolumeView>("Dicolens", 1, 0, "VolumeView");
     qmlRegisterUncreatableType<Backend>("Dicolens", 1, 0, "Backend", "The backend is given to QML as \"backend\"");
 
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);
     // Strings made in C++ are translated when made, so remake them too.
-    QObject::connect(&translator, &Translator::changed, &backend, [&backend, &partner] {
+    QObject::connect(&translator, &Translator::changed, &backend, [&backend, &partner, &coronal, &sagittal] {
         backend.retranslate();
         partner.retranslate();
+        coronal.retranslate();
+        sagittal.retranslate();
     });
     engine.addImageProvider("thumbnails", new ThumbnailProvider(&backend));
     engine.rootContext()->setContextProperty("translator", &translator);
     engine.rootContext()->setContextProperty("theme", &theme);
     engine.rootContext()->setContextProperty("backend", &backend);
     engine.rootContext()->setContextProperty("partner", &partner);
+    engine.rootContext()->setContextProperty("coronal", &coronal);
+    engine.rootContext()->setContextProperty("sagittal", &sagittal);
     engine.load(QUrl("qrc:/Main.qml"));
     if (engine.rootObjects().isEmpty())
         return 1;

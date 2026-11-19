@@ -27,6 +27,8 @@
 #include "reformat.h"
 #include "reports.h"
 #include "sliceview.h"
+#include "volumeview.h"
+#include "measurestore.h"
 #include "study.h"
 #include "theme.h"
 #include "thumbnails.h"
@@ -370,6 +372,39 @@ bool writeVolume(const QString &folder, const QByteArray &series = "1.2.9.1") {
     return true;
 }
 
+// A series of n × n slices, each spacing mm a pixel and step mm apart from
+// the feet up, in a study and frame of reference, with each pixel's stored
+// value from at(column, row, slice).
+bool writeSeries(const QString &folder, const QByteArray &modality, const QByteArray &series, const QByteArray &frame,
+                 int n, int slices, double spacing, double step, const std::function<int(int, int, int)> &at,
+                 double origin = 0) {
+    for (int k = 0; k < slices; ++k) {
+        QList<int> values;
+        for (int j = 0; j < n; ++j)
+            for (int i = 0; i < n; ++i)
+                values << at(i, j, k);
+        const QByteArray mm = QByteArray::number(spacing);
+        Writer w;
+        w.add(Tag::SopClass, "UI", "1.2.840.10008.5.1.4.1.1.2")
+            .add(0x00080018, "UI", series + "." + QByteArray::number(k + 1))
+            .add(Tag::Modality, "CS", modality)
+            .add(0x0020000D, "UI", "1.2.77")
+            .add(0x00200052, "UI", frame)
+            .image(n, n, 16, 16, false)
+            .add(0x0020000E, "UI", series)
+            .add(Tag::InstanceNumber, "IS", QByteArray::number(k + 1))
+            .add(Tag::ImagePosition, "DS", QByteArray::number(origin) + "\\" + QByteArray::number(origin) + "\\" + QByteArray::number(k * step))
+            .add(Tag::ImageOrientation, "DS", "1\\0\\0\\0\\1\\0")
+            .add(Tag::PixelSpacing, "DS", mm + "\\" + mm);
+        if (modality == "CT")
+            w.add(0x00281052, "DS", "-1024").add(0x00281053, "DS", "1");
+        w.pixels(le16(values));
+        if (!write(QStringLiteral("%1/%2-%3").arg(folder, QString::fromLatin1(series)).arg(k), w.file(ExplicitLE)))
+            return false;
+    }
+    return true;
+}
+
 // A picker that answers at once with a path the test gave it.
 class FakePicker : public FilePicker {
 public:
@@ -507,9 +542,21 @@ QByteArray losslessJpeg(const QVector<quint16> &samples, int width, int height, 
 
 class DicolensTests : public QObject {
     Q_OBJECT
+    QTemporaryDir m_data;
 
 private slots:
-    void initTestCase() { QQuickStyle::setStyle("Material"); }
+    void initTestCase() {
+        QQuickStyle::setStyle("Material");
+        // Measurements are kept in a folder of the tests' own, never the user's.
+        QVERIFY(m_data.isValid());
+        MeasureStore::instance().setFolder(m_data.filePath("measurements"));
+    }
+
+    // Each test measures from nothing.
+    void init() {
+        static int test = 0;
+        MeasureStore::instance().setFolder(m_data.filePath(QStringLiteral("measurements-%1").arg(++test)));
+    }
 
     void parsesExplicitLittleEndian() {
         Writer w;
@@ -1490,6 +1537,298 @@ private slots:
         QCOMPARE(single.notice(), QString("This series can't be cut another way"));
     }
 
+    void rendersAVolumeIn3d() {
+        // A bone ball, 8 mm across, in the middle of 24 mm of air.
+        Volume volume;
+        volume.valid = true;
+        for (int a = 0; a < 3; ++a)
+            volume.size[a] = 24;
+        QVector<Frame> slices;
+        for (int k = 0; k < 24; ++k) {
+            Frame f;
+            f.width = f.height = 24;
+            f.intercept = -1024;
+            for (int j = 0; j < 24; ++j)
+                for (int i = 0; i < 24; ++i)
+                    f.mono << quint16(std::hypot(i - 11.5, j - 11.5, k - 11.5) < 4 ? 1024 + 900 : 24);
+            slices << f;
+        }
+        const VoxelGrid grid = packVolume(volume, slices);
+        QVERIFY(grid.valid);
+        QVERIFY(std::abs(grid.low + 1000) < 1e-6);
+        QVERIFY(std::abs(grid.high - 900) < 1e-6);
+        QVERIFY(std::abs(grid.center[0] - 11.5) < 1e-9 && std::abs(grid.center[2] - 11.5) < 1e-9);
+        double value;
+        const double middle[3] = {11.5, 11.5, 11.5}, outside[3] = {30, 0, 0};
+        QVERIFY(sampleGrid(grid, middle, value));
+        QVERIFY(std::abs(value - 900) < 1);
+        QVERIFY(!sampleGrid(grid, outside, value));
+
+        // From the front, bone in the middle and nothing round it.
+        View3D view;
+        const QSize size(64, 64);
+        QImage picture = renderVolume(grid, view, size);
+        QCOMPARE(picture.size(), size);
+        QVERIFY(qGray(picture.pixel(32, 32)) > 120);
+        QCOMPARE(picture.pixel(2, 2), qRgb(0, 0, 0));
+        // Lit from the front, the middle of the ball is brighter than its edge.
+        QVERIFY(qGray(picture.pixel(32, 32)) > qGray(picture.pixel(32 + 9, 32)));
+        // A MIP through it, in grey through a window.
+        view.look = Look::Mip;
+        view.center = 0;
+        view.width = 1800;
+        picture = renderVolume(grid, view, size);
+        QVERIFY(qGray(picture.pixel(32, 32)) > 240);
+        QVERIFY(qGray(picture.pixel(10, 32)) < 140);
+        // Cut away past the ball, nothing's left in front of the back.
+        view.look = Look::Bone;
+        view.cut = grid.radius + 6;
+        QCOMPARE(renderVolume(grid, view, size).pixel(32, 32), qRgb(0, 0, 0));
+        view.cut = 0;
+
+        // A click on it finds the ball's front, toward the viewer (-y).
+        double point[3];
+        QVERIFY(pickVolume(grid, view, size, QPointF(32, 32), point));
+        QVERIFY2(std::abs(point[1] - 7.5) < 1.5, qPrintable(QString::number(point[1])));
+        QVERIFY(std::abs(point[0] - 11.5) < 1 && std::abs(point[2] - 11.5) < 1);
+        QVERIFY(!pickVolume(grid, view, size, QPointF(1, 1), point));
+        // And the centre is shown in the middle, wherever it's turned.
+        QPointF at = projectPoint(grid, view, size, grid.center);
+        QVERIFY(std::abs(at.x() - 32) < 1e-6 && std::abs(at.y() - 32) < 1e-6);
+        // The patient's left is on the right, and the head is up.
+        const double left[3] = {21.5, 11.5, 11.5}, head[3] = {11.5, 11.5, 21.5};
+        QVERIFY(projectPoint(grid, view, size, left).x() > 32);
+        QVERIFY(projectPoint(grid, view, size, head).y() < 32);
+
+        // Turning keeps the view square, and a quarter turn shows the side.
+        view.turn(M_PI / 2, 0);
+        const double *r = view.right, *u = view.up, *t = view.toward;
+        QVERIFY(std::abs(r[0] * u[0] + r[1] * u[1] + r[2] * u[2]) < 1e-9);
+        QVERIFY(std::abs(r[0] * t[0] + r[1] * t[1] + r[2] * t[2]) < 1e-9);
+        QVERIFY(std::abs(std::abs(view.toward[0]) - 1) < 1e-9);
+        view.face(4);
+        QCOMPARE(view.toward[2], 1.0);
+
+        // Half the voxels each way, fitted the same.
+        const VoxelGrid half = halve(grid);
+        QVERIFY(half.valid);
+        QCOMPARE(half.volume.size[0], 12);
+        QCOMPARE(half.volume.spacing[2], 2.0);
+        QCOMPARE(half.radius, grid.radius);
+        QVERIFY(std::abs(half.volume.origin[0] - 0.5) < 1e-9);
+        view.face(0);
+        QVERIFY(qGray(renderVolume(half, view, size).pixel(32, 32)) > 120);
+
+        // A colour slice can't be packed.
+        slices[3].color = QImage(24, 24, QImage::Format_RGB32);
+        QVERIFY(!packVolume(volume, slices).valid);
+    }
+
+    void showsTheSeriesIn3d() {
+        QTemporaryDir dir;
+        QVERIFY(writeSeries(dir.path(), "CT", "1.2.77.1", "1.2.77.100", 16, 16, 1, 1,
+                            [](int i, int j, int k) { return std::hypot(i - 7.5, j - 7.5, k - 7.5) < 4 ? 1024 + 900 : 24; }));
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        VolumeView view;
+        view.setSize({200, 200});
+        view.setBackend(&backend);
+        view.setActive(true);
+        QVERIFY(view.waitForPicture(10000));
+        QVERIFY(view.ready());
+        QCOMPARE(view.status(), QString());
+        QCOMPARE(view.lookName(), QString("Bone"));
+        QCOMPARE(view.edges(), (QStringList{"R", "L", "H", "F"}));
+        QImage picture = view.picture();
+        QVERIFY(!picture.isNull());
+        QVERIFY(qGray(picture.pixel(picture.width() / 2, picture.height() / 2)) > 120);
+        // Looks in turn, a MIP following the window.
+        for (const char *name : {"Vessels", "Skin", "Lungs", "MIP", "Bone"}) {
+            view.nextLook();
+            QCOMPARE(view.lookName(), QString(name));
+        }
+        // A click on the ball sets where the planes meet, in its front.
+        const QVariantList point = view.pointAt(100, 100);
+        QCOMPARE(point.size(), 4);
+        QCOMPARE(point[3].toString(), QString("1.2.77.100"));
+        QVERIFY(backend.goThrough(point));
+        QVERIFY(backend.crossingShown());
+        QVERIFY(std::abs(point[1].toDouble() - 3.5) < 1.5);
+        // Cut in from the front, and turned to the side and back.
+        view.cutDeeper(5);
+        QCOMPARE(view.cut(), 5.0);
+        view.setCut(-3);
+        QCOMPARE(view.cut(), 0.0);
+        view.nextFace();
+        QCOMPARE(view.edges(), (QStringList{"A", "P", "H", "F"}));
+        view.reset();
+        QCOMPARE(view.edges(), (QStringList{"R", "L", "H", "F"}));
+        view.toggleSpin();
+        QVERIFY(view.spinning());
+        view.stopSpin();
+        QVERIFY(!view.spinning());
+        QVERIFY(view.waitForPicture(10000));
+
+        // A single picture can't be shown in 3D.
+        QTemporaryDir flat;
+        QVERIFY(writeSeries(flat.path(), "CT", "1.2.77.2", "1.2.77.100", 4, 1, 1, 1, [](int, int, int) { return 0; }));
+        Backend other(nullptr);
+        other.loadPaths({flat.path()});
+        QVERIFY(other.waitForSlice(10000));
+        view.setBackend(&other);
+        QCOMPARE(view.status(), QString("This series can't be shown in 3D"));
+        QVERIFY(!view.busy());
+    }
+
+    void fusesAPetOverItsCt() {
+        QTemporaryDir dir;
+        // A CT, brighter to the right, and a PET at half its resolution, lined up,
+        // with a hot spot at (12, 12, 6) mm, less hot round it.
+        QVERIFY(writeSeries(dir.path(), "CT", "1.2.77.10", "1.2.77.200", 16, 8, 1.5, 1.5,
+                            [](int i, int, int) { return 1024 + 10 * i; }, 0));
+        QVERIFY(writeSeries(dir.path(), "PT", "1.2.77.11", "1.2.77.200", 8, 4, 3, 3,
+                            [](int i, int j, int k) {
+                                const int away = std::abs(i - 4) + std::abs(j - 4) + std::abs(k - 2);
+                                return away == 0 ? 1000 : away == 1 ? 500 : 20;
+                            }));
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        int ct = -1, pet = -1;
+        for (int i = 0; i < backend.scan().series.size(); ++i)
+            (backend.scan().series[i].modality == "CT" ? ct : pet) = i;
+        QVERIFY(ct >= 0 && pet >= 0);
+
+        // From the PET, it goes over the CT, which is shown.
+        backend.selectSeries(pet);
+        QVERIFY(backend.waitForSlice(10000));
+        QSignalSpy fusion(&backend, &Backend::fusionChanged);
+        backend.toggleFusion();
+        QCOMPARE(backend.seriesIndex(), ct);
+        QVERIFY(backend.fused());
+        QTRY_VERIFY_WITH_TIMEOUT(backend.fusionGrid() != nullptr, 10000);
+        QCOMPARE(backend.fusionName(), QString("PET over CT  ·  50%"));
+        backend.setSliceIndex(4);   // 6 mm up, the hot spot's.
+        QVERIFY(backend.waitForSlice(10000));
+        // Colour over the hot spot, grey elsewhere.
+        const QImage image = backend.image();
+        const QRgb hot = image.pixel(8, 8), warm = image.pixel(9, 8), cold = image.pixel(1, 14);
+        QVERIFY2(qRed(hot) > qRed(cold) + 60, qPrintable(QString::number(hot, 16)));
+        QVERIFY2(qRed(warm) > qBlue(warm) + 40, qPrintable(QString::number(warm, 16)));
+        QCOMPARE(qRed(cold), qBlue(cold));
+        QVERIFY2(backend.valueAt(8.5, 8.5).contains("PET 1,000") || backend.valueAt(8.5, 8.5).contains("PET 1000"),
+                 qPrintable(backend.valueAt(8.5, 8.5)));
+        // In every plane of the CT, here a coronal one.
+        backend.setPlane(1);
+        QVERIFY(backend.waitForSlice(10000));
+        bool coloured = false;
+        const QImage coronalImage = backend.image();
+        for (int y = 0; y < coronalImage.height(); ++y)
+            for (int x = 0; x < coronalImage.width(); ++x)
+                coloured = coloured || qRed(coronalImage.pixel(x, y)) > qBlue(coronalImage.pixel(x, y)) + 40;
+        QVERIFY(coloured);
+        backend.setPlane(0);
+        // Stronger, then off.
+        backend.nextFusionOpacity();
+        QCOMPARE(backend.fusionName(), QString("PET over CT  ·  70%"));
+        backend.toggleFusion();
+        QVERIFY(!backend.fused());
+        QCOMPARE(backend.fusionName(), QString());
+        QCOMPARE(backend.notice(), QString("PET off"));
+        QVERIFY(fusion.count() >= 3);
+
+        // Another series drops the PET; one with none to fuse says so.
+        backend.toggleFusion();
+        QVERIFY(backend.fused());
+        backend.selectSeries(pet);
+        QVERIFY(!backend.fused());
+        QTemporaryDir lone;
+        QVERIFY(writeSeries(lone.path(), "CT", "1.2.77.12", "1.2.77.300", 4, 3, 1, 1, [](int, int, int) { return 0; }));
+        Backend alone(nullptr);
+        alone.loadPaths({lone.path()});
+        QVERIFY(alone.waitForSlice(10000));
+        alone.toggleFusion();
+        QVERIFY(!alone.fused());
+        QCOMPARE(alone.notice(), QString("There's no PET taken with this series to put over it"));
+    }
+
+    void mirrorsTheSeriesInFourViews() {
+        QTemporaryDir dir;
+        QVERIFY(writeVolume(dir.path()));
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        QTRY_COMPARE_WITH_TIMEOUT(backend.decodedCount(), 5, 10000);
+        backend.preset(3);
+
+        // The coronal view reads nothing itself: the slices come from the first.
+        Backend coronal(nullptr);
+        coronal.mirror(&backend, 1);
+        QCOMPARE(coronal.seriesIndex(), backend.seriesIndex());
+        QCOMPARE(coronal.decodedCount(), 5);
+        QCOMPARE(coronal.plane(), 1);
+        QVERIFY(coronal.waitForSlice(10000));
+        QCOMPARE(coronal.planeName(), QString("Coronal"));
+        QCOMPARE(coronal.windowName(), QString("Lung"));
+        // A window set on one is taken by the other.
+        coronal.preset(4);
+        backend.matchWindow(&coronal);
+        QCOMPARE(backend.windowName(), QString("Bone"));
+        // Where the planes meet is shared by a click.
+        QVERIFY(backend.goThrough(backend.pointAt(1, 2)));
+        QVERIFY(coronal.goThrough(backend.pointAt(1, 2)));
+        QCOMPARE(coronal.sliceIndex(), 2);
+        // Stopped, it's on its own.
+        coronal.mirror(nullptr, 0);
+        backend.preset(1);
+        QCOMPARE(coronal.windowName(), QString("Bone"));
+    }
+
+    void keepsMeasurementsWithTheSeries() {
+        QTemporaryDir dir;
+        QVERIFY(writeVolume(dir.path()));
+        {
+            Backend backend(nullptr);
+            backend.loadPaths({dir.path()});
+            QVERIFY(backend.waitForSlice(10000));
+            backend.setSliceIndex(3);
+            SliceView view;
+            view.setSize({400, 300});
+            view.setBackend(&backend);
+            view.setTool(1);
+            const QPointF a = view.toItem(0, 0), b = view.toItem(3, 0);
+            view.press(a.x(), a.y());
+            view.drag(b.x(), b.y());
+            view.release(b.x(), b.y());
+            QCOMPARE(view.measureCount(), 1);
+            // Another view of the series shows it too.
+            SliceView other;
+            other.setSize({400, 300});
+            other.setBackend(&backend);
+            QCOMPARE(other.measureCount(), 1);
+        }
+        // Saved beside nothing of the user's: in the measurements folder.
+        const QDir folder(MeasureStore::instance().folder());
+        QCOMPARE(folder.entryList({"*.json"}, QDir::Files).size(), 1);
+
+        // Opened again, it's back on its slice, and only there.
+        MeasureStore::instance().setFolder(folder.path());
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        SliceView view;
+        view.setSize({400, 300});
+        view.setBackend(&backend);
+        QCOMPARE(view.measureCount(), 0);
+        backend.setSliceIndex(3);
+        QCOMPARE(view.measureCount(), 1);
+        QCOMPARE(view.measureTexts(), QStringList{"3.0 mm"});
+        // Removed, the file goes too.
+        QVERIFY(view.removeLast());
+        QCOMPARE(folder.entryList({"*.json"}, QDir::Files).size(), 0);
+    }
+
     void measuresAreasAndAngles() {
         QTemporaryDir dir;
         for (int k = 0; k < 2; ++k) {
@@ -1954,7 +2293,10 @@ private slots:
         Theme theme(dir.path());
         Backend backend(nullptr);
         Backend partner(nullptr);
+        Backend coronal(nullptr);
+        Backend sagittal(nullptr);
         qmlRegisterType<SliceView>("Dicolens", 1, 0, "SliceView");
+        qmlRegisterType<VolumeView>("Dicolens", 1, 0, "VolumeView");
         qmlRegisterUncreatableType<Backend>("Dicolens", 1, 0, "Backend", "The backend is given to QML as \"backend\"");
 
         QQmlApplicationEngine engine;
@@ -1968,6 +2310,8 @@ private slots:
         engine.rootContext()->setContextProperty("theme", &theme);
         engine.rootContext()->setContextProperty("backend", &backend);
         engine.rootContext()->setContextProperty("partner", &partner);
+        engine.rootContext()->setContextProperty("coronal", &coronal);
+        engine.rootContext()->setContextProperty("sagittal", &sagittal);
         engine.load(QUrl("qrc:/Main.qml"));
         QVERIFY(!engine.rootObjects().isEmpty());
         auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
@@ -2117,6 +2461,57 @@ private slots:
         QCOMPARE(partner.sliceIndex(), 0);
         QTest::keyClick(window, 'C');
         QTRY_VERIFY(!right->isVisible());
+
+        // D shows the series in 3D, where the keys turn it and cut into it
+        // rather than move through slices; D again goes back to slices.
+        auto *leftPane = item(window->contentItem(), "leftPane");
+        auto *volume = qobject_cast<VolumeView *>(item(window->contentItem(), "view3d"));
+        QVERIFY(leftPane && volume);
+        QVERIFY(!volume->isVisible());
+        QTest::keyClick(window, 'D');
+        QTRY_VERIFY(volume->isVisible());
+        QVERIFY(leftPane->property("threeD").toBool());
+        QTRY_VERIFY_WITH_TIMEOUT(volume->ready(), 10000);
+        QTest::keyClick(window, Qt::Key_Down);
+        QVERIFY(volume->cut() > 0);
+        QCOMPARE(backend.sliceIndex(), 2);
+        const QString look = volume->lookName();
+        QTest::keyClick(window, 'B');
+        QVERIFY(volume->lookName() != look);
+        QTest::keyClick(window, Qt::Key_Space);
+        QVERIFY(volume->spinning());
+        QTest::keyClick(window, Qt::Key_Escape);
+        QVERIFY(!volume->spinning());
+        QTest::keyClick(window, 'D');
+        QTRY_VERIFY(!volume->isVisible());
+
+        // Shift+V shows four views: as scanned, cut the other two ways, and
+        // in 3D. Tab takes the keys from one to the next.
+        auto *coronalPane = item(window->contentItem(), "coronalPane");
+        auto *volumePane = item(window->contentItem(), "volumePane");
+        QVERIFY(coronalPane && volumePane);
+        QTest::keyClick(window, 'V', Qt::ShiftModifier);
+        QTRY_VERIFY(coronalPane->isVisible());
+        QVERIFY(volumePane->isVisible());
+        QCOMPARE(coronal.seriesIndex(), backend.seriesIndex());
+        QCOMPARE(coronal.plane(), 1);
+        QCOMPARE(sagittal.plane(), 2);
+        QTest::keyClick(window, Qt::Key_Tab);
+        QTest::keyClick(window, Qt::Key_Home);
+        QCOMPARE(coronal.sliceIndex(), 0);
+        QCOMPARE(backend.sliceIndex(), 2);
+        QTest::keyClick(window, Qt::Key_Tab);
+        QTest::keyClick(window, Qt::Key_Tab);
+        QTest::keyClick(window, 'B');   // The 3D view's look, not a slab.
+        QCOMPARE(backend.slabName(), QString());
+        QTest::keyClick(window, Qt::Key_Tab);
+        QTest::keyClick(window, 'V', Qt::ShiftModifier);
+        QTRY_VERIFY(!coronalPane->isVisible());
+
+        // U puts a PET over the series when one was taken with it; here none was.
+        QTest::keyClick(window, 'U');
+        QVERIFY(!backend.fused());
+        QCOMPARE(backend.notice(), QString("There's no PET taken with this series to put over it"));
 
         // P reads the report beside the scans; Esc goes back to them.
         auto *reportPanel = item(window->contentItem(), "reportPanel");

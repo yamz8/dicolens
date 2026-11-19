@@ -4,18 +4,33 @@ import QtQuick.Layouts
 import Dicolens
 
 // One slice view with all that goes over it: what's shown and where, the
-// value under the pointer, the ruler, and the scrubber. Side by side, the
-// window shows two, each with a backend of its own.
+// value under the pointer, the ruler, and the scrubber; or the series in
+// 3D. Side by side, the window shows two, each with a backend of its own,
+// and four views show three planes and the 3D.
 Item {
     id: pane
 
     property var source
     property bool second: false
+    // Of the four views, which this is; -1 outside them.
+    property int quadIndex: -1
     // Side by side, the pane the keys go to has the accent around it.
     property bool inUse: true
+    // Showing the series in 3D rather than a slice of it.
+    property bool threeD: false
+    property string viewName: second ? "rightView" : "view"
+    // The views whose planes this one's lines show.
+    property var reference: null
+    property var secondReference: null
     readonly property alias view: view
+    readonly property alias volume: volumeView
 
-    function activate() { win.rightActive = pane.second }
+    function activate() {
+        if (win.quad)
+            win.quadActive = pane.quadIndex
+        else
+            win.rightActive = pane.second
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -26,12 +41,25 @@ Item {
     // The image isn't mirrored; only the layout around it is.
     SliceView {
         id: view
-        objectName: pane.second ? "rightView" : "view"
+        objectName: pane.viewName
         anchors.fill: parent
+        visible: !pane.threeD
         source: pane.source
         tool: win.tool
-        // Side by side, each side shows where the other cuts it.
-        reference: win.comparing ? (pane.second ? backend : partner) : null
+        // Each view shows where the others cut it.
+        reference: pane.reference
+        secondReference: pane.secondReference
+        accent: theme.accent
+        LayoutMirroring.enabled: false
+    }
+
+    VolumeView {
+        id: volumeView
+        objectName: pane.viewName + "3d"
+        anchors.fill: parent
+        visible: pane.threeD
+        active: pane.threeD && pane.visible && pane.width > 0
+        source: pane.source
         accent: theme.accent
         LayoutMirroring.enabled: false
     }
@@ -40,7 +68,7 @@ Item {
     property point hoverPoint: Qt.point(-1, -1)
 
     function refreshHover() {
-        if (hoverPoint.x < 0) { hoverText = ""; return }
+        if (hoverPoint.x < 0 || pane.threeD) { hoverText = ""; return }
         const p = view.toImage(hoverPoint.x, hoverPoint.y)
         hoverText = pane.source.valueAt(p.x, p.y)
     }
@@ -56,7 +84,8 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         hoverEnabled: true
         enabled: pane.source.hasImages
-        cursorShape: win.tool !== 0 ? Qt.CrossCursor : drag === "pan" ? Qt.ClosedHandCursor
+        cursorShape: pane.threeD ? (drag === "pan" || drag === "turn3d" ? Qt.ClosedHandCursor : Qt.OpenHandCursor)
+                   : win.tool !== 0 ? Qt.CrossCursor : drag === "pan" ? Qt.ClosedHandCursor
                    : drag === "turn" || overLine ? Qt.SizeAllCursor : Qt.ArrowCursor
         LayoutMirroring.enabled: false
 
@@ -74,7 +103,17 @@ Item {
                 drag = "pan"
             else if (event.button === Qt.RightButton)
                 drag = "zoom"
-            else if (win.tool !== 0 || view.drawing) {
+            else if (pane.threeD) {
+                volumeView.stopSpin()
+                if (event.modifiers & Qt.ControlModifier) {
+                    // What values show, as a drag sets the window on a slice.
+                    drag = "shift3d"
+                    volumeView.beginShift()
+                } else {
+                    // A drag turns it; a click, where the planes meet.
+                    drag = "click3d"
+                }
+            } else if (win.tool !== 0 || view.drawing) {
                 drag = "measure"
                 view.press(event.x, event.y)
             } else if (view.nearReference(event.x, event.y)) {
@@ -88,7 +127,15 @@ Item {
         }
         onPositionChanged: (event) => {
             pane.hoverPoint = Qt.point(event.x, event.y)
-            if (drag === "pan")
+            if (drag === "pan" && pane.threeD)
+                volumeView.pan(event.x - last.x, event.y - last.y)
+            else if (drag === "zoom" && pane.threeD)
+                volumeView.zoomBy(Math.pow(1.01, last.y - event.y))
+            else if (drag === "click3d" && Math.hypot(event.x - start.x, event.y - start.y) >= 3)
+                drag = "turn3d"
+            else if (drag === "shift3d")
+                volumeView.shiftLook(event.x - start.x)
+            else if (drag === "pan")
                 view.pan(event.x - last.x, event.y - last.y)
             else if (drag === "zoom")
                 view.zoomAt(start.x, start.y, Math.pow(1.01, last.y - event.y))
@@ -100,11 +147,13 @@ Item {
                 drag = "window"
                 pane.source.beginWindowDrag()
             }
-            if (drag === "window")
+            if (drag === "turn3d")
+                volumeView.turn(event.x - last.x, event.y - last.y)
+            else if (drag === "window")
                 pane.source.dragWindow(event.x - start.x, event.y - start.y)
-            else if (drag === "")
+            else if (drag === "" && !pane.threeD)
                 view.hover(event.x, event.y)
-            overLine = drag === "" && win.tool === 0 && view.nearReference(event.x, event.y)
+            overLine = drag === "" && win.tool === 0 && !pane.threeD && view.nearReference(event.x, event.y)
             last = Qt.point(event.x, event.y)
             pane.refreshHover()
         }
@@ -113,19 +162,29 @@ Item {
                 view.release(event.x, event.y)
             else if (drag === "click") {
                 const p = view.toImage(event.x, event.y)
-                const point = pane.source.pointAt(p.x, p.y)
-                if (point.length > 0) {
-                    pane.source.goThrough(point)
-                    if (win.comparing)
-                        (pane.second ? backend : partner).goThrough(point)
-                }
+                win.goThroughAll(pane.source.pointAt(p.x, p.y))
+            } else if (drag === "click3d") {
+                win.goThroughAll(volumeView.pointAt(event.x, event.y))
             }
             drag = ""
         }
         onExited: { pane.hoverPoint = Qt.point(-1, -1); pane.refreshHover() }
-        onDoubleClicked: (event) => { if (event.button === Qt.LeftButton && win.tool === 0) view.fit() }
+        onDoubleClicked: (event) => {
+            if (event.button === Qt.LeftButton && pane.threeD)
+                volumeView.fit()
+            else if (event.button === Qt.LeftButton && win.tool === 0)
+                view.fit()
+        }
         onWheel: (event) => {
             pane.activate()
+            if (pane.threeD) {
+                // The wheel cuts into it from the front; with Ctrl, zooms.
+                if (event.modifiers & Qt.ControlModifier)
+                    volumeView.zoomBy(Math.pow(1.0015, event.angleDelta.y))
+                else
+                    volumeView.cutDeeper(-event.angleDelta.y / 120 * 5)
+                return
+            }
             if (event.modifiers & Qt.ControlModifier) {
                 view.zoomAt(event.x, event.y, Math.pow(1.0015, event.angleDelta.y))
                 return
@@ -144,27 +203,40 @@ Item {
         width: Math.min(parent.width - 80, 520)
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.Wrap
-        visible: pane.source.hasImages && pane.source.frameError !== ""
-        text: pane.source.frameError
+        visible: pane.source.hasImages && text !== ""
+        text: pane.threeD ? (volumeView.busy ? "" : volumeView.status) : pane.source.frameError
         color: "#ff8a80"  // On the black canvas.
         font.pixelSize: 15
     }
 
     BusyIndicator {
+        id: busy
         anchors.centerIn: parent
         width: 48
         height: 48
-        running: pane.source.hasImages && !pane.source.frameReady && pane.source.frameError === "" && view.width > 0
-        visible: running && pane.source.imageWidth === 0
+        running: pane.threeD ? volumeView.busy
+                             : pane.source.hasImages && !pane.source.frameReady && pane.source.frameError === "" && view.width > 0
+        visible: running && (pane.threeD || pane.source.imageWidth === 0)
+    }
+
+    Label {
+        anchors.top: busy.bottom
+        anchors.topMargin: 12
+        anchors.horizontalCenter: parent.horizontalCenter
+        visible: busy.visible && pane.threeD
+        text: volumeView.status
+        color: win.canvasText
     }
 
     InfoOverlay {
         anchors.fill: parent
         anchors.margins: 16
         source: pane.source
+        volume: pane.threeD ? volumeView : null
+        compact: win.quad && pane.quadIndex > 0
         visible: pane.source.hasImages && !win.infoHidden
         hoverText: pane.hoverText
-        zoom: view.zoom
+        zoom: pane.threeD ? volumeView.zoom : view.zoom
         tool: pane.inUse ? win.tool : 0
     }
 
@@ -175,7 +247,7 @@ Item {
         anchors.right: parent.right
         anchors.bottom: parent.bottom
         height: 14
-        visible: pane.source.sliceCount > 1
+        visible: pane.source.sliceCount > 1 && !pane.threeD
         LayoutMirroring.enabled: false
         LayoutMirroring.childrenInherit: true
 
@@ -220,6 +292,6 @@ Item {
         color: "transparent"
         border.width: 2
         border.color: theme.accent
-        visible: win.comparing && pane.inUse
+        visible: (win.comparing || win.quad) && pane.inUse
     }
 }

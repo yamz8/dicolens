@@ -12,6 +12,11 @@ SliceView::SliceView(QQuickItem *parent) : QQuickPaintedItem(parent) {
     setAntialiasing(true);
     connect(this, &QQuickItem::widthChanged, this, [this] { update(); });
     connect(this, &QQuickItem::heightChanged, this, [this] { update(); });
+    // Another view of the same series may have measured it.
+    connect(&MeasureStore::instance(), &MeasureStore::changed, this, [this] {
+        emit measuresChanged();
+        update();
+    });
 }
 
 void SliceView::setBackend(Backend *backend) {
@@ -28,9 +33,8 @@ void SliceView::setBackend(Backend *backend) {
             emit measuresChanged();
             update();
         });
-        // A new scan starts fitted, with nothing measured.
+        // A new scan starts fitted, with what was measured on it before.
         connect(m_backend, &Backend::opened, this, [this] {
-            m_measures.clear();
             m_drawing = m_secondArm = false;
             emit measuresChanged();
             fit();
@@ -56,10 +60,24 @@ void SliceView::setReference(Backend *reference) {
     update();
 }
 
-bool SliceView::referenceLine(QPointF &a, QPointF &b) const {
-    if (!m_backend || !m_reference || m_reference == m_backend || m_backend->image().isNull())
+void SliceView::setSecondReference(Backend *reference) {
+    if (m_secondReference == reference)
+        return;
+    if (m_secondReference && m_secondReference != m_reference)
+        disconnect(m_secondReference, nullptr, this, nullptr);
+    m_secondReference = reference;
+    if (m_secondReference) {
+        connect(m_secondReference, &Backend::sliceChanged, this, [this] { update(); });
+        connect(m_secondReference, &Backend::orientationChanged, this, [this] { update(); });
+    }
+    emit referenceChanged();
+    update();
+}
+
+bool SliceView::lineTo(Backend *other, QPointF &a, QPointF &b) const {
+    if (!m_backend || !other || other == m_backend || m_backend->image().isNull())
         return false;
-    const ImagePlane here = m_backend->imagePlane(), there = m_reference->imagePlane();
+    const ImagePlane here = m_backend->imagePlane(), there = other->imagePlane();
     if (!here.valid || !there.valid || here.frame.isEmpty() || here.frame != there.frame)
         return false;
     // Points of this picture, o + x·r + y·c, that lie in the other plane:
@@ -170,10 +188,26 @@ void SliceView::fit() {
     update();
 }
 
-QString SliceView::key() const {
+QString SliceView::seriesUid() const {
     if (!m_backend)
         return {};
-    return QStringLiteral("%1/%2/%3").arg(m_backend->seriesIndex()).arg(m_backend->plane()).arg(m_backend->sliceIndex());
+    const QList<Series> &all = m_backend->scan().series;
+    const int i = m_backend->seriesIndex();
+    if (i < 0 || i >= all.size())
+        return {};
+    // A series without a UID still keeps its measurements while it's open.
+    return all[i].uid.isEmpty() ? QStringLiteral("unnamed:%1:%2").arg(i).arg(all[i].slices.value(0).path) : all[i].uid;
+}
+
+QList<Measure> SliceView::measures() const {
+    const QString uid = seriesUid();
+    return uid.isEmpty() ? QList<Measure>() : MeasureStore::instance().at(uid, m_backend->plane(), m_backend->sliceIndex());
+}
+
+void SliceView::keep(const Measure &m) {
+    const QString uid = seriesUid();
+    if (!uid.isEmpty())
+        MeasureStore::instance().add(uid, m_backend->plane(), m_backend->sliceIndex(), m);
 }
 
 void SliceView::setTool(int tool) {
@@ -191,7 +225,7 @@ void SliceView::press(double x, double y) {
     if (m_secondArm) {
         // The angle's far end, which finishes it.
         m_current.c = p;
-        m_measures[key()] << m_current;
+        keep(m_current);
         m_drawing = m_secondArm = false;
         emit measuresChanged();
         update();
@@ -239,7 +273,7 @@ void SliceView::release(double x, double y) {
             update();
             return;
         }
-        m_measures[key()] << m_current;
+        keep(m_current);
         m_drawing = m_secondLine = false;
         emit measuresChanged();
         update();
@@ -265,7 +299,7 @@ void SliceView::release(double x, double y) {
         update();
         return;
     }
-    m_measures[key()] << m_current;
+    keep(m_current);
     m_drawing = false;
     emit measuresChanged();
     update();
@@ -278,30 +312,44 @@ QPointF SliceView::toMm(QPointF p) const {
     return {p.x() * across, p.y() * down};
 }
 
-bool SliceView::nearReference(double x, double y) const {
-    QPointF a, b;
-    if (!referenceLine(a, b) || !m_reference->canReformat())
-        return false;
-    const QLineF line(toItem(a.x(), a.y()), toItem(b.x(), b.y()));
-    const QPointF p(x, y), d = line.p2() - line.p1();
-    const double length2 = d.x() * d.x() + d.y() * d.y();
-    if (length2 < 1e-9)
-        return false;
-    const double t = std::clamp(((p - line.p1()).x() * d.x() + (p - line.p1()).y() * d.y()) / length2, 0.0, 1.0);
-    const QPointF nearest = line.p1() + t * d;
-    return std::hypot(p.x() - nearest.x(), p.y() - nearest.y()) < 8;
+Backend *SliceView::referenceNear(double x, double y) const {
+    Backend *found = nullptr;
+    double best = 8;
+    for (Backend *other : {m_reference.data(), m_secondReference.data()}) {
+        QPointF a, b;
+        if (!other || !lineTo(other, a, b) || !other->canReformat())
+            continue;
+        const QLineF line(toItem(a.x(), a.y()), toItem(b.x(), b.y()));
+        const QPointF p(x, y), d = line.p2() - line.p1();
+        const double length2 = d.x() * d.x() + d.y() * d.y();
+        if (length2 < 1e-9)
+            continue;
+        const double t = std::clamp(((p - line.p1()).x() * d.x() + (p - line.p1()).y() * d.y()) / length2, 0.0, 1.0);
+        const QPointF nearest = line.p1() + t * d;
+        const double distance = std::hypot(p.x() - nearest.x(), p.y() - nearest.y());
+        if (distance < best) {
+            best = distance;
+            found = other;
+        }
+    }
+    return found;
 }
+
+bool SliceView::nearReference(double x, double y) const { return referenceNear(x, y) != nullptr; }
 
 void SliceView::beginTurn(double x, double y) {
     QPointF a, b;
     m_turning = false;
-    if (!m_backend || !referenceLine(a, b) || !m_reference->canReformat())
+    m_turnTarget = referenceNear(x, y);
+    if (!m_turnTarget)
+        m_turnTarget = m_reference;
+    if (!m_backend || !m_turnTarget || !lineTo(m_turnTarget, a, b) || !m_turnTarget->canReformat())
         return;
     const ImagePlane here = m_backend->imagePlane();
     // It turns about the point on the line nearest where the planes meet,
     // which becomes where they meet.
     double point[3];
-    m_reference->crossingPoint(point);
+    m_turnTarget->crossingPoint(point);
     double d[3] = {point[0] - here.origin[0], point[1] - here.origin[1], point[2] - here.origin[2]};
     const QPointF c((d[0] * here.row[0] + d[1] * here.row[1] + d[2] * here.row[2]) / here.rowSpacing,
                     (d[0] * here.column[0] + d[1] * here.column[1] + d[2] * here.column[2]) / here.columnSpacing);
@@ -309,15 +357,15 @@ void SliceView::beginTurn(double x, double y) {
     const double t = std::clamp(((c - a).x() * ab.x() + (c - a).y() * ab.y()) / (ab.x() * ab.x() + ab.y() * ab.y()), 0.0, 1.0);
     m_turnPivot = a + t * ab;
     here.point(m_turnPivot.x(), m_turnPivot.y(), point);
-    m_reference->goThrough({point[0], point[1], point[2], here.frame});
+    m_turnTarget->goThrough({point[0], point[1], point[2], here.frame});
     here.normal(m_turnAxis);
     m_turnStart = toImage(x, y);
-    m_reference->beginTurn();
+    m_turnTarget->beginTurn();
     m_turning = true;
 }
 
 void SliceView::turnTo(double x, double y) {
-    if (!m_turning || !m_reference)
+    if (!m_turning || !m_turnTarget)
         return;
     const QPointF u = toMm(m_turnStart) - toMm(m_turnPivot), v = toMm(toImage(x, y)) - toMm(m_turnPivot);
     if (std::hypot(u.x(), u.y()) < 1e-6 || std::hypot(v.x(), v.y()) < 1e-6)
@@ -325,7 +373,7 @@ void SliceView::turnTo(double x, double y) {
     // Turning by θ about the normal takes the row toward the column, as
     // the angle grows from x toward y in the picture.
     const double angle = std::atan2(v.y(), v.x()) - std::atan2(u.y(), u.x());
-    m_reference->turnPlane(m_turnAxis, angle);
+    m_turnTarget->turnPlane(m_turnAxis, angle);
 }
 
 void SliceView::hover(double x, double y) {
@@ -339,10 +387,9 @@ bool SliceView::removeLast() {
     if (m_drawing) {
         m_drawing = m_secondArm = m_secondLine = m_firstDone = false;
     } else {
-        auto it = m_measures.find(key());
-        if (it == m_measures.end() || it->isEmpty())
+        const QString uid = seriesUid();
+        if (uid.isEmpty() || !MeasureStore::instance().removeLast(uid, m_backend->plane(), m_backend->sliceIndex()))
             return false;
-        it->removeLast();
     }
     emit measuresChanged();
     update();
@@ -350,7 +397,8 @@ bool SliceView::removeLast() {
 }
 
 void SliceView::clearMeasures() {
-    m_measures.remove(key());
+    if (const QString uid = seriesUid(); !uid.isEmpty())
+        MeasureStore::instance().clear(uid, m_backend->plane(), m_backend->sliceIndex());
     m_drawing = m_secondArm = m_secondLine = m_firstDone = false;
     emit measuresChanged();
     update();
@@ -383,7 +431,7 @@ QString SliceView::text(const Measure &m) const {
 
 QStringList SliceView::measureTexts() const {
     QStringList out;
-    for (const auto &m : m_measures.value(key()))
+    for (const auto &m : measures())
         out << text(m);
     return out;
 }
@@ -456,14 +504,15 @@ void SliceView::paint(QPainter *painter) {
     if (m_backend->marksShown())
         paintMarks(painter, t, image.size());
 
-    if (QPointF ra, rb; referenceLine(ra, rb)) {
-        painter->setRenderHint(QPainter::Antialiasing);
-        QColor color = m_accent;
-        color.setAlpha(200);
-        QPen pen(color, 1.5, Qt::DashLine);
-        painter->setPen(pen);
-        painter->drawLine(t.map(ra), t.map(rb));
-    }
+    for (Backend *other : {m_reference.data(), m_secondReference.data()})
+        if (QPointF ra, rb; lineTo(other, ra, rb)) {
+            painter->setRenderHint(QPainter::Antialiasing);
+            QColor color = m_accent;
+            color.setAlpha(200);
+            QPen pen(color, 1.5, Qt::DashLine);
+            painter->setPen(pen);
+            painter->drawLine(t.map(ra), t.map(rb));
+        }
     // Where the planes meet, once a click has set it.
     if (QPointF at; m_backend->crossing(at)) {
         painter->setRenderHint(QPainter::Antialiasing);
@@ -477,7 +526,7 @@ void SliceView::paint(QPainter *painter) {
         }
     }
 
-    for (const auto &m : m_measures.value(key()))
+    for (const auto &m : measures())
         paintMeasure(painter, t, m, false);
     if (m_drawing)
         paintMeasure(painter, t, m_current, true);

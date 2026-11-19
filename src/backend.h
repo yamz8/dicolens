@@ -4,6 +4,7 @@
 #include <QImage>
 #include <QMutex>
 #include <QObject>
+#include <QPointer>
 #include <QPointF>
 #include <QThreadPool>
 #include <QTimer>
@@ -18,6 +19,7 @@
 #include "pixels.h"
 #include "reformat.h"
 #include "study.h"
+#include "volumerender.h"
 
 struct DecodeJob;
 
@@ -68,6 +70,8 @@ class Backend : public QObject {
     Q_PROPERTY(bool tagsWanted READ tagsWanted WRITE setTagsWanted NOTIFY tagsChanged)
     Q_PROPERTY(QString tagFilter READ tagFilter WRITE setTagFilter NOTIFY tagsChanged)
     Q_PROPERTY(QVariantList tags READ tags NOTIFY tagsChanged)
+    Q_PROPERTY(bool fused READ fused NOTIFY fusionChanged)
+    Q_PROPERTY(QString fusionName READ fusionName NOTIFY fusionChanged)
 
 public:
     explicit Backend(FilePicker *picker, QObject *parent = nullptr);
@@ -181,6 +185,12 @@ public:
     // kind of series in another study or else the next series, and follows
     // it from slice to slice.
     Q_INVOKABLE void share(Backend *other);
+    // Four views: shows what another backend shows, cut another way, from
+    // the slices it reads rather than reading them again; its PET too.
+    // Null stops.
+    Q_INVOKABLE void mirror(Backend *leader, int plane);
+    // Takes another's window, so views of one series look alike.
+    Q_INVOKABLE void matchWindow(Backend *other);
     Q_INVOKABLE void follow(Backend *other);
     Q_INVOKABLE void stop();
 
@@ -222,6 +232,26 @@ public:
     // A word from the window about what it did, such as linking the panes.
     Q_INVOKABLE void announce(const QString &notice) { flash(notice); }
 
+    // A PET over the CT or MR it was taken with, in colour: on or off, and
+    // how strongly.
+    bool fused() const { return m_fused; }
+    // Such as "PET over CT  ·  50%", or nothing.
+    QString fusionName() const;
+    Q_INVOKABLE void toggleFusion();
+    Q_INVOKABLE void nextFusionOpacity();
+    // The PET's voxels, once read, and how they're drawn over.
+    std::shared_ptr<const VoxelGrid> fusionGrid() const { return m_fused ? m_fusionGrid : nullptr; }
+    Overlay3D fusionLook() const;
+
+    // The series' decoded slices and its volume, for the 3D view.
+    const QVector<Frame> &frames() const { return m_frames; }
+    const Volume &volume() const { return m_volume; }
+    bool allDecoded() const { return !m_frames.isEmpty() && m_decodedCount == m_frames.size(); }
+    bool crossingShown() const { return m_crossingShown; }
+    // Saves or copies a picture made elsewhere, such as the 3D view's.
+    void exportPicture(const QImage &picture);
+    void copyPicture(const QImage &picture);
+
     // Remakes the text made in C++ after a language switch.
     void retranslate();
 
@@ -247,6 +277,9 @@ signals:
     void marksChanged();
     void reportChanged();
     void reportsChanged();
+    void fusionChanged();
+    // A slice of the shown series has been read, for views mirroring this one.
+    void frameArrived(int index);
 
 private:
     struct WindowState {
@@ -260,6 +293,15 @@ private:
     void showScan(const Scan &scan, int series, int slice);
     void selectReport(int index, bool launch);
     void startDecoding();
+    // Reads a series' slices on the pool, the one wanted first, each handed
+    // to done on this thread with the job's generation.
+    std::shared_ptr<DecodeJob> decode(const Series &series, int wanted, std::function<void(int, int, const Frame &)> done);
+    // The series to fuse with the shown one: a PET with a CT or MR, or the
+    // other way, lined up in one frame of reference; -1 if none.
+    int fusionPartner(int series) const;
+    void startFusion(int series);
+    void fusionDecoded(int generation, int index, const Frame &frame);
+    void dropFusion();
     void frameDecoded(int generation, int index, const Frame &frame);
     void thumbnailDecoded(int generation, int series, const QImage &image);
     void showSlice();
@@ -277,6 +319,7 @@ private:
     // What a value means: Hounsfield units, an SUV, or itself.
     double shownValue(double value) const;
     QString unit() const;
+    QString valueText(const Frame &frame, int x, int y, const QString &where) const;
     const Series *currentSeries() const;
     const Frame *currentFrame() const;
     // Shows a picture built from the slices, not one of them.
@@ -353,6 +396,23 @@ private:
     int m_reportIndex = -1;
     QVariantList m_reportLines;
     std::function<bool(const QUrl &)> m_openUrl;
+
+    QPointer<Backend> m_leader;
+    QList<QMetaObject::Connection> m_leaderConnections;
+    void adoptFrame(int index);
+    void adoptFusion();
+    void storeFrame(int index, const Frame &frame);
+
+    bool m_fused = false;
+    int m_fusionSeries = -1;
+    double m_fusionOpacity = 0.5;
+    std::shared_ptr<DecodeJob> m_fusionJob;
+    QVector<Frame> m_fusionFrames;
+    int m_fusionDecoded = 0;
+    std::shared_ptr<const VoxelGrid> m_fusionGrid;
+    double m_fusionLow = 0, m_fusionHigh = 1;
+    // A picture from elsewhere waiting on the picker to be saved.
+    QImage m_picture;
 
     bool m_tagsWanted = false;
     QString m_tagFilter;

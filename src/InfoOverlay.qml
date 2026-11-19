@@ -8,6 +8,11 @@ Item {
     id: overlay
 
     property var source
+    // The 3D view, when the pane shows one.
+    property var volume: null
+    // Of four views, all but the first leave out who and where, which the
+    // first already says.
+    property bool compact: false
     property string hoverText
     property real zoom: 1
     // The measuring tool, as the slice view numbers them.
@@ -35,6 +40,7 @@ Item {
         anchors.top: parent.top
         anchors.left: parent.left
         spacing: 2
+        visible: !overlay.compact
         Line { text: overlay.source.info.patient || ""; font.bold: true; font.pixelSize: 15 }
         Line { text: overlay.source.info.patientDetails || ""; color: win.canvasDim }
         Line { text: overlay.source.info.study || "" }
@@ -45,12 +51,13 @@ Item {
         anchors.top: parent.top
         anchors.right: parent.right
         spacing: 2
-        Line { alignRight: true; text: overlay.source.info.institution || ""; color: win.canvasDim }
-        Line { alignRight: true; text: overlay.source.info.series || ""; font.bold: true }
-        Line { alignRight: true; text: [overlay.source.info.modality, overlay.source.info.size].filter(x => x).join("  ·  ") }
+        Line { alignRight: true; text: overlay.compact ? "" : overlay.source.info.institution || ""; color: win.canvasDim }
+        Line { alignRight: true; text: overlay.compact ? "" : overlay.source.info.series || ""; font.bold: true }
+        Line { alignRight: true; text: overlay.compact ? "" : [overlay.source.info.modality, overlay.source.info.size].filter(x => x).join("  ·  ") }
         Line {
             alignRight: true
-            text: (overlay.source.playing ? "▶  " : "") + qsTr("Image %1 of %2").arg(overlay.n(overlay.source.sliceIndex + 1, 0)).arg(overlay.n(overlay.source.sliceCount, 0))
+            text: overlay.volume ? qsTr("3D  ·  %1").arg(overlay.volume.lookName)
+                : (overlay.source.playing ? "▶  " : "") + qsTr("Image %1 of %2").arg(overlay.n(overlay.source.sliceIndex + 1, 0)).arg(overlay.n(overlay.source.sliceCount, 0))
             color: theme.accent
             font.bold: true
         }
@@ -70,7 +77,11 @@ Item {
             color: theme.accent
         }
         Line { text: overlay.hoverText; font.family: "monospace" }
+        Line { text: overlay.source.fusionName; color: theme.accent }
+        Line { text: overlay.volume && overlay.volume.cut > 0 ? qsTr("Cut %1 mm into it").arg(overlay.n(overlay.volume.cut, 0)) : "" }
         Line {
+            // A 3D look of its own doesn't follow the window; a surface and a MIP do.
+            visible: text !== "" && (!overlay.volume || overlay.volume.followsWindow)
             text: overlay.source.color ? "" : qsTr("W %1  L %2").arg(overlay.n(overlay.source.windowWidth, 0)).arg(overlay.n(overlay.source.windowCenter, 0))
                   + (overlay.source.windowName ? "  ·  " + overlay.source.windowName : "")
                   + (overlay.source.colorMapName ? "  ·  " + overlay.source.colorMapName : "")
@@ -84,7 +95,7 @@ Item {
         anchors.right: parent.right
         anchors.bottomMargin: 6
         spacing: 2
-        Line { alignRight: true; text: overlay.source.info.geometry || ""; color: win.canvasDim }
+        Line { alignRight: true; text: overlay.volume ? "" : overlay.source.info.geometry || ""; color: win.canvasDim }
     }
 
     // Directions belong to the image, which isn't mirrored.
@@ -92,10 +103,11 @@ Item {
         anchors.fill: parent
         LayoutMirroring.enabled: false
         LayoutMirroring.childrenInherit: true
-        visible: overlay.source.edges.length === 4
-        Line { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: overlay.source.edges[0] || ""; color: theme.accent; font.bold: true }
-        Line { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: overlay.source.edges[1] || ""; color: theme.accent; font.bold: true }
-        Line { anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: overlay.source.edges[2] || ""; color: theme.accent; font.bold: true }
-        Line { anchors.bottom: parent.bottom; anchors.bottomMargin: 6; anchors.horizontalCenter: parent.horizontalCenter; text: overlay.source.edges[3] || ""; color: theme.accent; font.bold: true }
+        readonly property var edges: overlay.volume ? overlay.volume.edges : overlay.source.edges
+        visible: edges.length === 4
+        Line { anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter; text: parent.edges[0] || ""; color: theme.accent; font.bold: true }
+        Line { anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; text: parent.edges[1] || ""; color: theme.accent; font.bold: true }
+        Line { anchors.top: parent.top; anchors.horizontalCenter: parent.horizontalCenter; text: parent.edges[2] || ""; color: theme.accent; font.bold: true }
+        Line { anchors.bottom: parent.bottom; anchors.bottomMargin: 6; anchors.horizontalCenter: parent.horizontalCenter; text: parent.edges[3] || ""; color: theme.accent; font.bold: true }
     }
 }

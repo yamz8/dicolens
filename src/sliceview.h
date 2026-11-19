@@ -7,6 +7,7 @@
 #include <QTransform>
 
 #include "backend.h"
+#include "measurestore.h"
 
 // Draws the shown slice, fitted to the view and then zoomed and panned,
 // with pixels at their true shape, turned and flipped as asked, the marks
@@ -25,6 +26,8 @@ class SliceView : public QQuickPaintedItem {
     // Another view's backend: where its picture cuts this one is drawn as
     // a line, when the two lie in one frame of reference.
     Q_PROPERTY(Backend *reference READ reference WRITE setReference NOTIFY referenceChanged)
+    // Of four views, the third plane's line too.
+    Q_PROPERTY(Backend *secondReference READ secondReference WRITE setSecondReference NOTIFY referenceChanged)
 
 public:
     explicit SliceView(QQuickItem *parent = nullptr);
@@ -36,11 +39,15 @@ public:
     void setAccent(const QColor &accent);
     Backend *reference() const { return m_reference; }
     void setReference(Backend *reference);
+    Backend *secondReference() const { return m_secondReference; }
+    void setSecondReference(Backend *reference);
     // The reference line's ends in image pixels, if there is one.
-    bool referenceLine(QPointF &a, QPointF &b) const;
+    bool referenceLine(QPointF &a, QPointF &b) const { return lineTo(m_reference, a, b); }
+    // Where another view's plane cuts this picture, in image pixels.
+    bool lineTo(Backend *other, QPointF &a, QPointF &b) const;
     int tool() const { return m_tool; }
     void setTool(int tool);
-    int measureCount() const { return m_measures.value(key()).size(); }
+    int measureCount() const { return measures().size(); }
     bool drawing() const { return m_drawing; }
     // What each of the shown slice's measurements says, for tests.
     Q_INVOKABLE QStringList measureTexts() const;
@@ -85,23 +92,24 @@ private:
     void paintMarks(QPainter *painter, const QTransform &t, const QSizeF &size);
     void paintLabel(QPainter *painter, QPointF at, const QString &text);
 
-    struct Measure {
-        int kind = 1;            // As the tool that drew it.
-        QPointF a, b, c, d;      // Image pixels; c is an angle's far end,
-                                 // and c to d a Cobb angle's second line.
-    };
     QString text(const Measure &m) const;
     void paintMeasure(QPainter *painter, const QTransform &t, const Measure &m, bool active);
-    // Measurements stay with the slice they were drawn on.
-    QString key() const;
+    // Measurements stay with the slice they were drawn on, and are kept
+    // for when the scans are opened again.
+    QString seriesUid() const;
+    QList<Measure> measures() const;
+    void keep(const Measure &m);
 
     QPointer<Backend> m_backend;
     QPointer<Backend> m_reference;
+    QPointer<Backend> m_secondReference;
+    QPointer<Backend> m_turnTarget;
+    // The view whose line is under a point, if one that can turn is.
+    Backend *referenceNear(double x, double y) const;
     double m_zoom = 1;
     QPointF m_pan;
     QColor m_accent = QColor("#FFD60A");
     int m_tool = 0;
-    QHash<QString, QList<Measure>> m_measures;
     Measure m_current;
     bool m_drawing = false;
     bool m_secondArm = false;     // An angle waiting for its far end.

@@ -48,9 +48,20 @@ ApplicationWindow {
     property bool comparing: false
     property bool rightActive: false
     property bool linked: true
-    readonly property var inUse: comparing && rightActive ? partner : backend
+    // Four views: the series as scanned, cut the other two ways, and in 3D;
+    // the keys go to one of them.
+    property bool quad: false
+    property int quadActive: 0
+    readonly property var quadPanes: [leftPane, coronalPane, sagittalPane, volumePane]
+    readonly property var inUsePane: quad ? quadPanes[quadActive] : comparing && rightActive ? rightPane : leftPane
+    readonly property var inUse: inUsePane.source
     readonly property var other: inUse === backend ? partner : backend
-    readonly property var inUseView: comparing && rightActive ? rightPane.view : leftPane.view
+    readonly property var inUseView: inUsePane.view
+    // The keys go to a 3D view.
+    readonly property bool in3d: inUsePane.threeD
+    readonly property var inUseVolume: inUsePane.volume
+    // A PET goes over what all four views show at once.
+    readonly property var fusing: quad ? backend : inUse
     readonly property bool reading: backend.reportIndex >= 0
     // Letter keys go to the tag search while it's being typed in.
     readonly property bool typing: tagPanel.searching
@@ -61,6 +72,8 @@ ApplicationWindow {
     function compare() {
         if (!backend.hasImages)
             return
+        if (quad)
+            toggleQuad()
         comparing = !comparing
         if (comparing) {
             partner.share(backend)
@@ -72,6 +85,66 @@ ApplicationWindow {
         }
     }
 
+    function toggleQuad() {
+        if (quad) {
+            quad = false
+            coronal.mirror(null, 0)
+            sagittal.mirror(null, 0)
+            return
+        }
+        if (!backend.hasImages)
+            return
+        if (!backend.canReformat) {
+            backend.announce(qsTr("This series can't be cut another way"))
+            return
+        }
+        comparing = false
+        rightActive = false
+        leftPane.threeD = false
+        backend.setPlane(0)
+        // Fresh from the first slice, the planes meet in the middle instead.
+        if (backend.sliceIndex === 0)
+            backend.sliceIndex = Math.floor(backend.sliceCount / 2)
+        coronal.mirror(backend, 1)
+        sagittal.mirror(backend, 2)
+        quadActive = 0
+        quad = true
+    }
+
+    // A click sets where the planes meet, in every view of that body.
+    function goThroughAll(point) {
+        if (!point || point.length === 0)
+            return
+        backend.goThrough(point)
+        if (comparing)
+            partner.goThrough(point)
+        if (quad) {
+            coronal.goThrough(point)
+            sagittal.goThrough(point)
+        }
+    }
+
+    function toggle3d() {
+        if (!backend.hasImages)
+            return
+        const pane = win.inUsePane
+        if (!pane.threeD && !pane.source.canReformat) {
+            pane.source.announce(qsTr("This series can't be shown in 3D"))
+            return
+        }
+        pane.threeD = !pane.threeD
+    }
+
+    // The four views keep one window, and follow the series the first shows.
+    Connections {
+        target: win.quad ? coronal : null
+        function onWindowChanged() { backend.matchWindow(coronal); sagittal.matchWindow(coronal) }
+    }
+    Connections {
+        target: win.quad ? sagittal : null
+        function onWindowChanged() { backend.matchWindow(sagittal); coronal.matchWindow(sagittal) }
+    }
+
     // While linked, the pane not in use follows the one that is; a series
     // just picked on either side starts where the other side is instead.
     property int leftSeries: -1
@@ -81,6 +154,14 @@ ApplicationWindow {
         function onSliceChanged() {
             const picked = backend.seriesIndex !== win.leftSeries
             win.leftSeries = backend.seriesIndex
+            if (win.quad && picked) {
+                if (!backend.canReformat) {
+                    win.toggleQuad()
+                    return
+                }
+                coronal.mirror(backend, 1)
+                sagittal.mirror(backend, 2)
+            }
             if (!win.comparing || !win.linked)
                 return
             if (picked)
@@ -88,7 +169,15 @@ ApplicationWindow {
             else if (!win.rightActive)
                 partner.follow(backend)
         }
+        function onWindowChanged() {
+            if (win.quad) {
+                coronal.matchWindow(backend)
+                sagittal.matchWindow(backend)
+            }
+        }
         function onOpened() {
+            if (win.quad)
+                win.toggleQuad()
             if (!win.comparing)
                 return
             partner.share(backend)
@@ -114,15 +203,16 @@ ApplicationWindow {
     Shortcut { sequence: "Q"; enabled: !win.typing; onActivated: Qt.quit() }
     Shortcut { sequence: "O"; enabled: win.keys; onActivated: backend.open() }
     Shortcut { sequence: "Shift+O"; enabled: win.keys; onActivated: backend.openFolder() }
-    Shortcut { sequence: "Space"; enabled: win.keys; onActivated: win.inUse.togglePlay() }
-    Shortcut { sequences: ["Up", "K"]; enabled: win.keys; onActivated: win.inUse.step(-1) }
-    Shortcut { sequences: ["Down", "J"]; enabled: win.keys; onActivated: win.inUse.step(1) }
-    Shortcut { sequence: "PgUp"; enabled: win.keys; onActivated: win.inUse.step(-10) }
-    Shortcut { sequence: "PgDown"; enabled: win.keys; onActivated: win.inUse.step(10) }
-    Shortcut { sequence: "Home"; enabled: win.keys; onActivated: win.inUse.sliceIndex = 0 }
-    Shortcut { sequence: "End"; enabled: win.keys; onActivated: win.inUse.sliceIndex = win.inUse.sliceCount - 1 }
-    Shortcut { sequence: "Left"; enabled: win.keys; onActivated: win.inUse.stepSeries(-1) }
-    Shortcut { sequence: "Right"; enabled: win.keys; onActivated: win.inUse.stepSeries(1) }
+    // In 3D, the keys that move through slices cut into it, and Space spins it.
+    Shortcut { sequence: "Space"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.toggleSpin() : win.inUse.togglePlay() }
+    Shortcut { sequences: ["Up", "K"]; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.cutDeeper(-5) : win.inUse.step(-1) }
+    Shortcut { sequences: ["Down", "J"]; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.cutDeeper(5) : win.inUse.step(1) }
+    Shortcut { sequence: "PgUp"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.cutDeeper(-25) : win.inUse.step(-10) }
+    Shortcut { sequence: "PgDown"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.cutDeeper(25) : win.inUse.step(10) }
+    Shortcut { sequence: "Home"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.setCut(0) : win.inUse.sliceIndex = 0 }
+    Shortcut { sequence: "End"; enabled: win.keys && !win.in3d; onActivated: win.inUse.sliceIndex = win.inUse.sliceCount - 1 }
+    Shortcut { sequence: "Left"; enabled: win.keys; onActivated: (win.quad ? backend : win.inUse).stepSeries(-1) }
+    Shortcut { sequence: "Right"; enabled: win.keys; onActivated: (win.quad ? backend : win.inUse).stepSeries(1) }
     Shortcut { sequence: "1"; enabled: win.keys; onActivated: win.inUse.preset(1) }
     Shortcut { sequence: "2"; enabled: win.keys; onActivated: win.inUse.preset(2) }
     Shortcut { sequence: "3"; enabled: win.keys; onActivated: win.inUse.preset(3) }
@@ -134,25 +224,50 @@ ApplicationWindow {
     Shortcut { sequence: "E"; enabled: win.keys; onActivated: win.useTool(2) }
     Shortcut { sequence: "Shift+M"; enabled: win.keys; onActivated: win.useTool(3) }
     Shortcut { sequence: "Shift+C"; enabled: win.keys; onActivated: win.useTool(4) }
-    Shortcut { sequence: "Ctrl+Left"; enabled: win.keys; onActivated: win.inUse.tilt(0, -5) }
-    Shortcut { sequence: "Ctrl+Right"; enabled: win.keys; onActivated: win.inUse.tilt(0, 5) }
-    Shortcut { sequence: "Ctrl+Up"; enabled: win.keys; onActivated: win.inUse.tilt(1, -5) }
-    Shortcut { sequence: "Ctrl+Down"; enabled: win.keys; onActivated: win.inUse.tilt(1, 5) }
+    Shortcut { sequence: "Ctrl+Left"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.turnBy(-15, 0) : win.inUse.tilt(0, -5) }
+    Shortcut { sequence: "Ctrl+Right"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.turnBy(15, 0) : win.inUse.tilt(0, 5) }
+    Shortcut { sequence: "Ctrl+Up"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.turnBy(0, -15) : win.inUse.tilt(1, -5) }
+    Shortcut { sequence: "Ctrl+Down"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.turnBy(0, 15) : win.inUse.tilt(1, 5) }
     Shortcut { sequences: ["Delete", "Backspace"]; enabled: win.keys; onActivated: win.inUseView.removeLast() }
     Shortcut { sequence: "Shift+Delete"; enabled: win.keys; onActivated: win.inUseView.clearMeasures() }
     Shortcut { sequence: "G"; enabled: win.keys; onActivated: win.inUse.nextColorMap() }
-    Shortcut { sequence: "F"; enabled: win.keys; onActivated: win.inUseView.fit() }
-    Shortcut { sequence: "R"; enabled: win.keys; onActivated: { win.inUseView.fit(); win.inUse.resetOrientation(); win.inUse.fileWindow() } }
-    Shortcut { sequence: "]"; enabled: win.keys; onActivated: win.inUse.rotate(1) }
-    Shortcut { sequence: "["; enabled: win.keys; onActivated: win.inUse.rotate(-1) }
-    Shortcut { sequence: "X"; enabled: win.keys; onActivated: win.inUse.flipHorizontal() }
-    Shortcut { sequence: "Y"; enabled: win.keys; onActivated: win.inUse.flipVertical() }
+    Shortcut { sequence: "F"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.fit() : win.inUseView.fit() }
+    Shortcut {
+        sequence: "R"
+        enabled: win.keys
+        onActivated: {
+            if (win.in3d) {
+                win.inUseVolume.reset()
+            } else {
+                win.inUseView.fit()
+                win.inUse.resetOrientation()
+            }
+            win.inUse.fileWindow()
+        }
+    }
+    Shortcut { sequence: "]"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.turnBy(90, 0) : win.inUse.rotate(1) }
+    Shortcut { sequence: "["; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.turnBy(-90, 0) : win.inUse.rotate(-1) }
+    Shortcut { sequence: "X"; enabled: win.keys && !win.in3d; onActivated: win.inUse.flipHorizontal() }
+    Shortcut { sequence: "Y"; enabled: win.keys && !win.in3d; onActivated: win.inUse.flipVertical() }
     Shortcut { sequence: "N"; enabled: win.keys; onActivated: { backend.toggleMarks(); if (partner.marksShown !== backend.marksShown) partner.toggleMarks() } }
     Shortcut { sequence: "C"; enabled: win.keys; onActivated: win.compare() }
-    Shortcut { sequence: "V"; enabled: win.keys; onActivated: win.inUse.nextPlane() }
-    Shortcut { sequence: "B"; enabled: win.keys; onActivated: win.inUse.nextSlab() }
-    Shortcut { sequence: "Shift+B"; enabled: win.keys; onActivated: win.inUse.nextSlabThickness() }
-    Shortcut { sequence: "Tab"; enabled: win.keys && win.comparing; onActivated: win.rightActive = !win.rightActive }
+    Shortcut { sequence: "V"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.nextFace() : win.inUse.nextPlane() }
+    Shortcut { sequence: "Shift+V"; enabled: win.keys; onActivated: win.toggleQuad() }
+    Shortcut { sequence: "D"; enabled: win.keys && !win.quad; onActivated: win.toggle3d() }
+    Shortcut { sequence: "U"; enabled: win.keys; onActivated: win.fusing.toggleFusion() }
+    Shortcut { sequence: "Shift+U"; enabled: win.keys; onActivated: win.fusing.nextFusionOpacity() }
+    Shortcut { sequence: "B"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.nextLook() : win.inUse.nextSlab() }
+    Shortcut { sequence: "Shift+B"; enabled: win.keys && !win.in3d; onActivated: win.inUse.nextSlabThickness() }
+    Shortcut {
+        sequence: "Tab"
+        enabled: win.keys && (win.comparing || win.quad)
+        onActivated: {
+            if (win.quad)
+                win.quadActive = (win.quadActive + 1) % 4
+            else
+                win.rightActive = !win.rightActive
+        }
+    }
     Shortcut {
         sequence: "L"
         enabled: win.keys && win.comparing
@@ -174,10 +289,10 @@ ApplicationWindow {
     Shortcut { sequence: "T"; enabled: win.keys; onActivated: win.tagsVisible = !win.tagsVisible }
     Shortcut { sequence: "H"; enabled: win.keys; onActivated: win.infoHidden = !win.infoHidden }
     Shortcut { sequence: "Ctrl+F"; enabled: !win.reading; onActivated: { win.tagsVisible = true; tagPanel.focusSearch() } }
-    Shortcut { sequence: "Ctrl+E"; onActivated: win.inUse.exportImage() }
-    Shortcut { sequence: "Ctrl+Shift+E"; enabled: win.keys; onActivated: win.inUse.exportVideo() }
+    Shortcut { sequence: "Ctrl+E"; onActivated: win.in3d ? win.inUseVolume.exportImage() : win.inUse.exportImage() }
+    Shortcut { sequence: "Ctrl+Shift+E"; enabled: win.keys && !win.in3d; onActivated: win.inUse.exportVideo() }
     Shortcut { sequence: "Ctrl+Shift+S"; enabled: win.keys; onActivated: backend.exportAnonymous() }
-    Shortcut { sequence: "Ctrl+C"; enabled: win.keys; onActivated: win.inUse.copyImage() }
+    Shortcut { sequence: "Ctrl+C"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.copyImage() : win.inUse.copyImage() }
     Shortcut { sequences: [StandardKey.Undo]; enabled: win.keys; onActivated: win.inUse.undo() }
     Shortcut { sequences: ["Ctrl+Shift+Z", StandardKey.Redo]; enabled: win.keys; onActivated: win.inUse.redo() }
     Shortcut {
@@ -188,6 +303,7 @@ ApplicationWindow {
             else if (win.typing) tagPanel.leaveSearch()
             else if (win.inUseView.drawing) win.inUseView.removeLast()
             else if (win.tool !== 0) win.tool = 0
+            else if (win.in3d && win.inUseVolume.spinning) win.inUseVolume.stopSpin()
             else if (win.inUse.playing) win.inUse.stop()
             else if (backend.problem || partner.problem) { backend.dismissProblem(); partner.dismissProblem() }
         }
@@ -230,15 +346,23 @@ ApplicationWindow {
 
             // Side by side, the panes split the width; the image in each
             // isn't mirrored, but which pane is first follows the language.
+            // Four views split it both ways.
+            readonly property real half: (width - 2) / 2
+            readonly property real halfHeight: (height - 2) / 2
+
             ScanPane {
                 id: leftPane
                 objectName: "leftPane"
                 anchors.top: parent.top
-                anchors.bottom: parent.bottom
                 anchors.left: parent.left
-                width: win.comparing ? (parent.width - 2) / 2 : parent.width
+                width: win.comparing || win.quad ? viewer.half : parent.width
+                height: win.quad ? viewer.halfHeight : parent.height
                 source: backend
-                inUse: !win.rightActive
+                quadIndex: 0
+                inUse: win.quad ? win.quadActive === 0 : !win.rightActive
+                // Side by side, each side shows where the other cuts it.
+                reference: win.quad ? coronal : win.comparing ? partner : null
+                secondReference: win.quad ? sagittal : null
             }
 
             Rectangle {
@@ -247,7 +371,16 @@ ApplicationWindow {
                 anchors.left: leftPane.right
                 width: 2
                 color: win.line
-                visible: win.comparing
+                visible: win.comparing || win.quad
+            }
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: leftPane.bottom
+                height: 2
+                color: win.line
+                visible: win.quad
             }
 
             ScanPane {
@@ -256,11 +389,59 @@ ApplicationWindow {
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
                 anchors.right: parent.right
-                width: (parent.width - 2) / 2
+                width: viewer.half
                 visible: win.comparing
                 source: partner
                 second: true
                 inUse: win.rightActive
+                reference: win.comparing ? backend : null
+            }
+
+            ScanPane {
+                id: coronalPane
+                objectName: "coronalPane"
+                viewName: "coronalView"
+                anchors.top: parent.top
+                anchors.right: parent.right
+                width: viewer.half
+                height: viewer.halfHeight
+                visible: win.quad
+                source: coronal
+                quadIndex: 1
+                inUse: win.quadActive === 1
+                reference: win.quad ? backend : null
+                secondReference: win.quad ? sagittal : null
+            }
+
+            ScanPane {
+                id: sagittalPane
+                objectName: "sagittalPane"
+                viewName: "sagittalView"
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                width: viewer.half
+                height: viewer.halfHeight
+                visible: win.quad
+                source: sagittal
+                quadIndex: 2
+                inUse: win.quadActive === 2
+                reference: win.quad ? backend : null
+                secondReference: win.quad ? coronal : null
+            }
+
+            ScanPane {
+                id: volumePane
+                objectName: "volumePane"
+                viewName: "quadView"
+                anchors.bottom: parent.bottom
+                anchors.right: parent.right
+                width: viewer.half
+                height: viewer.halfHeight
+                visible: win.quad
+                source: backend
+                quadIndex: 3
+                threeD: true
+                inUse: win.quadActive === 3
             }
 
             DropArea {

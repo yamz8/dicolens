@@ -130,35 +130,12 @@ QString sex(const QString &value) {
     return {};
 }
 
-// Colour scales for grey values: hot iron, rainbow, and the usual PET one.
-QRgb scale(int map, int g) {
-    const double t = g / 255.0;
-    auto mix = [](const QList<QPair<double, QColor>> &stops, double t) {
-        for (int i = 1; i < stops.size(); ++i)
-            if (t <= stops[i].first) {
-                const double f = (t - stops[i - 1].first) / (stops[i].first - stops[i - 1].first);
-                const QColor &a = stops[i - 1].second, &b = stops[i].second;
-                return qRgb(qRound(a.red() + (b.red() - a.red()) * f), qRound(a.green() + (b.green() - a.green()) * f),
-                            qRound(a.blue() + (b.blue() - a.blue()) * f));
-            }
-        return stops.last().second.rgb();
-    };
-    static const QList<QPair<double, QColor>> hot{{0, Qt::black}, {0.4, QColor(200, 0, 0)}, {0.75, QColor(255, 200, 0)}, {1, Qt::white}};
-    static const QList<QPair<double, QColor>> rainbow{
-        {0, QColor(0, 0, 80)}, {0.2, QColor(0, 0, 255)}, {0.4, QColor(0, 255, 255)}, {0.6, QColor(0, 255, 0)},
-        {0.8, QColor(255, 255, 0)}, {1, QColor(255, 0, 0)}};
-    static const QList<QPair<double, QColor>> pet{
-        {0, Qt::black}, {0.2, QColor(0, 0, 160)}, {0.4, QColor(120, 0, 180)}, {0.6, QColor(230, 0, 60)},
-        {0.8, QColor(255, 170, 0)}, {1, Qt::white}};
-    return mix(map == 1 ? hot : map == 2 ? pet : rainbow, t);
-}
-
 QImage colorize(const QImage &grey, int map) {
     static QHash<int, QVector<QRgb>> tables;
     if (!tables.contains(map)) {
         QVector<QRgb> table(256);
         for (int g = 0; g < 256; ++g)
-            table[g] = scale(map, g);
+            table[g] = colorScale(map, g);
         tables.insert(map, table);
     }
     QImage indexed = grey.copy();
@@ -403,6 +380,7 @@ void Backend::scanFinished(int generation, const Scan &scan, const QString &focu
 
 void Backend::showScan(const Scan &scan, int series, int slice) {
     stop();
+    dropFusion();
     if (m_job)
         m_job->cancelled = true;
     m_job.reset();
@@ -452,6 +430,116 @@ void Backend::share(Backend *other) {
         }
     }
     showScan(other->m_scan, pick, 0);
+}
+
+void Backend::mirror(Backend *leader, int plane) {
+    for (const auto &c : std::as_const(m_leaderConnections))
+        disconnect(c);
+    m_leaderConnections.clear();
+    m_leader = leader == this ? nullptr : leader;
+    if (!m_leader)
+        return;
+    // Drops a scan of its own still being read.
+    ++m_scanGeneration;
+    m_scanning = false;
+    emit scanningChanged();
+    auto firstPath = [](const Scan &scan) { return scan.series.isEmpty() ? QString() : scan.series.first().slices.first().path; };
+    if (m_scan.series.size() != leader->m_scan.series.size() || firstPath(m_scan) != firstPath(leader->m_scan)) {
+        stop();
+        dropFusion();
+        if (m_job)
+            m_job->cancelled = true;
+        m_job.reset();
+        m_scan = leader->m_scan;
+        m_seriesWindows.clear();
+        m_seriesFileWindows.clear();
+        {
+            QMutexLocker lock(&m_thumbnailMutex);
+            m_thumbnails.clear();
+        }
+        m_seriesIndex = -1;
+        emit seriesChanged();
+        emit reportsChanged();
+    }
+    m_leaderConnections << connect(leader, &Backend::frameArrived, this, &Backend::adoptFrame);
+    m_leaderConnections << connect(leader, &Backend::fusionChanged, this, &Backend::adoptFusion);
+    m_leaderConnections << connect(leader, &QObject::destroyed, this, [this] { mirror(nullptr, 0); });
+    if (m_seriesIndex == leader->m_seriesIndex) {
+        // Already showing it: what's read already is taken over.
+        if (m_job)
+            m_job->cancelled = true;
+        m_job.reset();
+        for (int i = 0; i < leader->m_frames.size() && i < m_frames.size(); ++i)
+            if (leader->m_decoded.value(i) && !m_decoded.value(i))
+                storeFrame(i, leader->m_frames[i]);
+    } else {
+        selectSeries(leader->m_seriesIndex);
+    }
+    matchWindow(leader);
+    if (plane != m_plane) {
+        if (m_plane == 3) {
+            m_plane = 0;   // An oblique plane goes back to the volume's own first.
+            m_oblique = Oblique();
+        }
+        setPlane(plane);
+    }
+    // The planes meet where the leader's do.
+    if (m_volume.valid && leader->m_volume.valid) {
+        for (int a = 0; a < 3; ++a)
+            m_cursor[a] = std::clamp(leader->m_cursor[a], 0, m_volume.size[a] - 1);
+        m_crossingShown = leader->m_crossingShown;
+        if (m_plane != 0 && m_plane != 3)
+            setSliceIndex(m_cursor[m_cut.fixed]);
+    }
+    adoptFusion();
+}
+
+void Backend::adoptFrame(int index) {
+    if (!m_leader || m_leader->m_seriesIndex != m_seriesIndex || index < 0 || index >= m_frames.size() ||
+        index >= m_leader->m_frames.size() || m_job)
+        return;
+    storeFrame(index, m_leader->m_frames[index]);
+}
+
+void Backend::adoptFusion() {
+    if (!m_leader)
+        return;
+    const bool was = m_fused;
+    if (m_leader->m_fused && m_leader->m_seriesIndex == m_seriesIndex) {
+        m_fused = true;
+        m_fusionSeries = m_leader->m_fusionSeries;
+        m_fusionGrid = m_leader->m_fusionGrid;
+        m_fusionLow = m_leader->m_fusionLow;
+        m_fusionHigh = m_leader->m_fusionHigh;
+        m_fusionOpacity = m_leader->m_fusionOpacity;
+    } else {
+        if (m_fusionJob)
+            m_fusionJob->cancelled = true;
+        m_fusionJob.reset();
+        m_fused = false;
+        m_fusionGrid.reset();
+        m_fusionSeries = -1;
+    }
+    if (was || m_fused) {
+        rerender();
+        emit fusionChanged();
+    }
+}
+
+void Backend::matchWindow(Backend *other) {
+    if (!other || other == this || other->m_seriesIndex != m_seriesIndex || !other->m_windowSet)
+        return;
+    if (m_windowSet && m_center == other->m_center && m_width == other->m_width && m_inverted == other->m_inverted &&
+        m_colorMap == other->m_colorMap)
+        return;
+    m_center = other->m_center;
+    m_width = other->m_width;
+    m_inverted = other->m_inverted;
+    m_colorMap = other->m_colorMap;
+    m_fileWindow = other->m_fileWindow;
+    m_windowSet = true;
+    emit windowChanged();
+    rerender();
 }
 
 void Backend::follow(Backend *other) {
@@ -1094,6 +1182,7 @@ void Backend::selectSeries(int index) {
     if (index < 0 || index >= m_scan.series.size() || index == m_seriesIndex)
         return;
     stop();
+    dropFusion();
     if (m_seriesIndex >= 0 && m_windowSet)
         m_seriesWindows.insert(m_seriesIndex, {m_center, m_width, m_inverted});
     m_seriesIndex = index;
@@ -1153,20 +1242,37 @@ void Backend::startDecoding() {
     m_decoded = QVector<bool>(m_frames.size(), false);
     m_decodedCount = 0;
     emit decodedChanged();
+    m_job.reset();
     if (!series)
         return;
+    // A mirror takes what its leader has read, and the rest as it comes.
+    if (m_leader && m_leader->m_seriesIndex == m_seriesIndex && m_leader->m_frames.size() == m_frames.size()) {
+        m_frames = m_leader->m_frames;
+        m_decoded = m_leader->m_decoded;
+        m_decodedCount = m_leader->m_decodedCount;
+        emit decodedChanged();
+        return;
+    }
+    m_job = decode(*series, m_sliceIndex, [this](int generation, int index, const Frame &frame) {
+        frameDecoded(generation, index, frame);
+    });
+}
 
+std::shared_ptr<DecodeJob> Backend::decode(const Series &series, int wanted,
+                                           std::function<void(int, int, const Frame &)> done) {
     auto job = std::make_shared<DecodeJob>();
     job->generation = ++m_jobGeneration;
-    job->slices = series->slices;
-    job->claimed = QVector<char>(series->slices.size(), 0);
-    job->wanted = m_sliceIndex;
-    job->video = isVideo(series->transferSyntax);
-    m_job = job;
+    job->slices = series.slices;
+    job->claimed = QVector<char>(series.slices.size(), 0);
+    job->wanted = wanted;
+    job->video = isVideo(series.transferSyntax);
 
-    auto post = [this, job](int index, const Frame &frame) {
-        QMetaObject::invokeMethod(this, [this, job, index, frame] { frameDecoded(job->generation, index, frame); },
-                                  Qt::QueuedConnection);
+    QPointer<Backend> self(this);
+    auto post = [self, job, done](int index, const Frame &frame) {
+        QMetaObject::invokeMethod(qApp, [self, job, index, frame, done] {
+            if (self)
+                done(job->generation, index, frame);
+        }, Qt::QueuedConnection);
     };
 
     if (job->video) {
@@ -1178,7 +1284,7 @@ void Backend::startDecoding() {
             for (int i = 0; i < job->slices.size() && !job->cancelled; ++i)
                 post(i, frames.value(std::min<int>(std::as_const(job->slices)[i].frame, frames.size() - 1)));
         });
-        return;
+        return job;
     }
 
     const int workers = std::min<int>(m_pool.maxThreadCount(), job->slices.size());
@@ -1205,11 +1311,17 @@ void Backend::startDecoding() {
                     post(index, frame);
             }
         });
+    return job;
 }
 
 void Backend::frameDecoded(int generation, int index, const Frame &frame) {
     if (!m_job || generation != m_job->generation || index < 0 || index >= m_frames.size())
         return;
+    storeFrame(index, frame);
+    emit frameArrived(index);
+}
+
+void Backend::storeFrame(int index, const Frame &frame) {
     m_frames[index] = frame;
     if (!m_decoded[index]) {
         m_decoded[index] = true;
@@ -1290,6 +1402,8 @@ void Backend::rerender() {
         m_image = render(*frame, m_center, m_width, m_inverted);
         if (m_colorMap != 0 && m_image.format() == QImage::Format_Grayscale8)
             m_image = colorize(m_image, m_colorMap);
+        if (m_fused && m_fusionGrid && !frame->isColor())
+            m_image = fuseSlice(m_image, imagePlane(), *m_fusionGrid, fusionLook());
     }
     emit imageChanged();
 }
@@ -1441,6 +1555,24 @@ QString Backend::valueAt(double x, double y) const {
         return tr("%1   R %2  G %3  B %4").arg(where, QLocale().toString(c.red()), QLocale().toString(c.green()),
                                                QLocale().toString(c.blue()));
     }
+    // The PET's value there too, when it's over the picture.
+    QString pet;
+    if (m_fused && m_fusionGrid) {
+        double point[3], voxel[3], value;
+        const ImagePlane plane = imagePlane();
+        if (plane.valid) {
+            plane.point(x - 0.5, y - 0.5, point);
+            toVoxel(m_fusionGrid->volume, point, voxel);
+            if (sampleGrid(*m_fusionGrid, voxel, value))
+                pet = "   " + (m_scan.series.value(m_fusionSeries).suv > 0 ? tr("PET %1 SUV").arg(number(value, 2))
+                                                                            : tr("PET %1").arg(number(value, 0)));
+        }
+    }
+    return valueText(*frame, ix, iy, where) + pet;
+}
+
+QString Backend::valueText(const Frame &f, int ix, int iy, const QString &where) const {
+    const Frame *frame = &f;
     const double v = frame->value(ix, iy);
     const bool whole = frame->slope == std::floor(frame->slope) && frame->intercept == std::floor(frame->intercept);
     const QString value = number(v, whole ? 0 : 2);
@@ -1562,6 +1694,7 @@ QString Backend::angleText(double degrees) const {
 }
 
 void Backend::exportImage() {
+    m_picture = QImage();
     const Series *s = currentSeries();
     if (!s || m_image.isNull() || !m_picker)
         return;
@@ -1573,12 +1706,15 @@ void Backend::exportImage() {
 }
 
 void Backend::saveImage(const QString &path) {
-    if (path.isEmpty() || m_image.isNull())
+    const QImage picture = std::exchange(m_picture, QImage());
+    if (path.isEmpty() || (m_image.isNull() && picture.isNull()))
         return;
     // Written beside the target and renamed over it, so a failure never
     // leaves half a file.
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly) || ![&] {
+            if (!picture.isNull())
+                return picture.save(&file, "PNG");
             const QImage image = trueShape(m_image, pixelAspect());
             return image.transformed(orientation(image.size())).save(&file, "PNG");
         }() || !file.commit()) {
@@ -1629,7 +1765,16 @@ void Backend::saveVideo(const QString &path) {
         Projection projection = Projection::Max;
         double center = 0, width = 0, aspect = 1, fps = 12;
         bool inverted = false, flipped = false;
+        // A PET over it, with where each picture lies to put it there.
+        Series series;
+        int plane = 0;
+        std::shared_ptr<const VoxelGrid> pet;
+        Overlay3D petLook;
     } v;
+    v.series = *s;
+    v.plane = m_plane;
+    v.pet = fusionGrid();
+    v.petLook = fusionLook();
     v.frames = m_frames;
     v.volume = m_volume;
     v.cut = m_plane != 0 && m_plane != 3 ? m_cut : cutAcross(m_volume, 2);
@@ -1663,6 +1808,11 @@ void Backend::saveVideo(const QString &path) {
             QImage image = render(f, v.center, v.width, v.inverted);
             if (v.colorMap != 0 && image.format() == QImage::Format_Grayscale8)
                 image = colorize(image, v.colorMap);
+            if (v.pet && !f.isColor()) {
+                const ImagePlane where = v.plane == 3 ? v.oblique.plane(i)
+                                         : v.plane != 0 ? cutPlane(v.volume, v.cut, i) : slicePlane(v.series, i);
+                image = fuseSlice(image, where, *v.pet, v.petLook);
+            }
             image = trueShape(image, v.aspect);
             return image.transformed(turn(image.size(), v.rotation, v.flipped)).convertToFormat(QImage::Format_RGB32);
         };
@@ -1754,12 +1904,196 @@ void Backend::saveAnonymous(const QString &folder) {
     });
 }
 
+void Backend::exportPicture(const QImage &picture) {
+    const Series *s = currentSeries();
+    if (!s || picture.isNull() || !m_picker)
+        return;
+    QString name = s->description.isEmpty() ? s->modality : s->description;
+    name.replace(QRegularExpression("[^\\w\\-]+"), "-");
+    m_picture = picture;
+    m_asked = true;
+    m_picker->choose(FilePicker::Purpose::SaveImage, QStringLiteral("%1-3D.png").arg(name.isEmpty() ? QStringLiteral("scan") : name));
+}
+
+void Backend::copyPicture(const QImage &picture) {
+    if (picture.isNull())
+        return;
+    QGuiApplication::clipboard()->setImage(picture);
+    flash(tr("Copied the image"));
+}
+
 void Backend::copyImage() {
     if (m_image.isNull())
         return;
     const QImage image = trueShape(m_image, pixelAspect());
     QGuiApplication::clipboard()->setImage(image.transformed(orientation(image.size())));
     flash(tr("Copied the image"));
+}
+
+int Backend::fusionPartner(int index) const {
+    if (index < 0 || index >= m_scan.series.size())
+        return -1;
+    const Series &s = m_scan.series[index];
+    const bool pet = s.modality == "PT";
+    if (!pet && s.modality != "CT" && s.modality != "MR")
+        return -1;
+    int best = -1;
+    qint64 bestScore = -1;
+    for (int i = 0; i < m_scan.series.size(); ++i) {
+        const Series &o = m_scan.series[i];
+        const bool wanted = pet ? (o.modality == "CT" || o.modality == "MR") : o.modality == "PT";
+        if (i == index || !wanted || o.color || o.slices.size() < 2)
+            continue;
+        // Lined up by the scanner, or failing a shared frame, taken in one
+        // study of one patient.
+        const bool sameFrame = !s.frame.isEmpty() && s.frame == o.frame;
+        const bool sameStudy = !s.studyUid.isEmpty() && s.studyUid == o.studyUid && s.patientId == o.patientId;
+        if (!sameFrame && !sameStudy)
+            continue;
+        // The PET has to be a volume; the series under it only has to have
+        // places for its pictures.
+        if (!makeVolume(pet ? s : o).valid)
+            continue;
+        const qint64 score = (sameFrame ? 1000000 : 0) + (o.modality == "CT" ? 100000 : 0) + o.slices.size();
+        if (score > bestScore) {
+            bestScore = score;
+            best = i;
+        }
+    }
+    return best;
+}
+
+QString Backend::fusionName() const {
+    if (!m_fused)
+        return {};
+    const Series *s = currentSeries();
+    const QString under = s ? s->modality : QString();
+    if (!m_fusionGrid)
+        return tr("PET over %1  ·  reading the PET…").arg(under);
+    return tr("PET over %1  ·  %2%").arg(under, number(m_fusionOpacity * 100, 0));
+}
+
+Overlay3D Backend::fusionLook() const {
+    Overlay3D look;
+    look.grid = m_fusionGrid.get();
+    look.low = m_fusionLow;
+    look.high = m_fusionHigh;
+    look.colorMap = 1;
+    look.opacity = m_fusionOpacity;
+    return look;
+}
+
+void Backend::toggleFusion() {
+    if (m_fused) {
+        dropFusion();
+        rerender();
+        flash(tr("PET off"));
+        return;
+    }
+    const Series *s = currentSeries();
+    if (!s)
+        return;
+    const int partner = fusionPartner(m_seriesIndex);
+    if (partner < 0) {
+        flash(s->modality == "PT" ? tr("There's no CT or MR taken with this PET to put it over")
+                                  : tr("There's no PET taken with this series to put over it"));
+        return;
+    }
+    // A PET goes over its CT, so the CT is shown.
+    if (s->modality == "PT") {
+        const int pet = m_seriesIndex;
+        selectSeries(partner);
+        startFusion(pet);
+    } else {
+        startFusion(partner);
+    }
+    flash(fusionName());
+}
+
+void Backend::nextFusionOpacity() {
+    if (!m_fused) {
+        toggleFusion();
+        return;
+    }
+    m_fusionOpacity = m_fusionOpacity < 0.4 ? 0.5 : m_fusionOpacity < 0.6 ? 0.7 : m_fusionOpacity < 0.8 ? 1.0 : 0.3;
+    rerender();
+    emit fusionChanged();
+    flash(fusionName());
+}
+
+void Backend::startFusion(int series) {
+    dropFusion();
+    if (series < 0 || series >= m_scan.series.size())
+        return;
+    m_fused = true;
+    m_fusionSeries = series;
+    const Series &pet = m_scan.series[series];
+    m_fusionFrames = QVector<Frame>(pet.slices.size());
+    m_fusionDecoded = 0;
+    m_fusionJob = decode(pet, pet.slices.size() / 2, [this](int generation, int index, const Frame &frame) {
+        fusionDecoded(generation, index, frame);
+    });
+    emit fusionChanged();
+}
+
+void Backend::fusionDecoded(int generation, int index, const Frame &frame) {
+    if (!m_fusionJob || generation != m_fusionJob->generation || index < 0 || index >= m_fusionFrames.size())
+        return;
+    m_fusionFrames[index] = frame;
+    if (++m_fusionDecoded < m_fusionFrames.size())
+        return;
+    m_fusionJob.reset();
+    const Series &pet = m_scan.series[m_fusionSeries];
+    auto grid = std::make_shared<VoxelGrid>(packVolume(makeVolume(pet), m_fusionFrames, pet.suv > 0 ? pet.suv : 1));
+    m_fusionFrames.clear();
+    if (!grid->valid) {
+        dropFusion();
+        rerender();
+        flash(tr("The PET can't be read whole, so it can't be put over this"));
+        return;
+    }
+    // In SUVs, from where uptake starts to stand out; otherwise by what
+    // the PET's brightest parts reach.
+    if (pet.suv > 0) {
+        m_fusionLow = 1;
+        m_fusionHigh = 6;
+    } else {
+        std::vector<int> counts(256, 0);
+        size_t total = 0;
+        for (quint16 v : grid->data)
+            if (v > 0) {
+                ++counts[v >> 8];
+                ++total;
+            }
+        size_t seen = 0;
+        int top = 255;
+        for (int i = 0; i < 256; ++i) {
+            seen += counts[i];
+            if (seen >= total * 0.995) {
+                top = i;
+                break;
+            }
+        }
+        const double brightest = grid->value((top + 1) * 256.0);
+        m_fusionLow = grid->low + (brightest - grid->low) * 0.2;
+        m_fusionHigh = grid->low + (brightest - grid->low) * 0.9;
+    }
+    m_fusionGrid = grid;
+    rerender();
+    emit fusionChanged();
+}
+
+void Backend::dropFusion() {
+    if (m_fusionJob)
+        m_fusionJob->cancelled = true;
+    m_fusionJob.reset();
+    m_fusionFrames.clear();
+    m_fusionGrid.reset();
+    m_fusionSeries = -1;
+    if (m_fused) {
+        m_fused = false;
+        emit fusionChanged();
+    }
 }
 
 void Backend::setProblem(const QString &problem) {
@@ -1893,6 +2227,7 @@ void Backend::retranslate() {
     emit sliceChanged();
     emit windowChanged();
     emit imageChanged();
+    emit fusionChanged();
     updateTags();
 }
 

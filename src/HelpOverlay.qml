@@ -31,6 +31,9 @@ Rectangle {
                         ["Ctrl+F", qsTr("Search the tags")], ["H", qsTr("Hide or show the patient's details")]]],
         [qsTr("Compare and read"), [["C", qsTr("Two series side by side")], ["Tab", qsTr("The other side")],
                                     ["L", qsTr("Scroll the sides together or apart")],
+                                    ["Shift+V", qsTr("Four views: three planes and 3D")],
+                                    ["U", qsTr("A PET over the CT or MR taken with it")],
+                                    ["Shift+U", qsTr("How strongly the PET shows")],
                                     ["P", qsTr("Read the reports that came with the scans")],
                                     ["← →", qsTr("Other reports, while reading")]]],
         [qsTr("Measure and cut"), [["M", qsTr("Ruler")], ["E", qsTr("Area, with its values")], ["Shift+M", qsTr("Angle")], ["Shift+C", qsTr("Cobb angle, between two lines")],
@@ -40,6 +43,12 @@ Rectangle {
                                    [qsTr("Drag the line"), qsTr("Turn the other side's plane")],
                                    ["B", qsTr("Slabs: MIP, MinIP, average")],
                                    ["Shift+B", qsTr("Slab thickness")]]],
+        [qsTr("In 3D"), [["D", qsTr("The series in 3D, and back")], [qsTr("Drag"), qsTr("Turn it")],
+                         [qsTr("Ctrl+drag"), qsTr("Show more or less of it")],
+                         [qsTr("Wheel") + "  ↑ ↓", qsTr("Cut into it from the front")],
+                         ["B", qsTr("Bone, vessels, skin, lungs, MIP")],
+                         ["V", qsTr("From the front, the side, the back, above")],
+                         ["Space", qsTr("Spin it")]]],
     ]
 
     Flickable {
@@ -61,8 +70,8 @@ Rectangle {
 
             // The groups balanced across the columns there's room for.
             Repeater {
-                model: grid.count === 3 ? [[0, 1], [2, 5], [3, 4]]
-                     : grid.count === 2 ? [[0, 2, 5], [1, 3, 4]] : [[0, 1, 2, 3, 4, 5]]
+                model: grid.count === 3 ? [[0, 5], [1, 2, 6], [3, 4]]
+                     : grid.count === 2 ? [[0, 2, 5], [1, 3, 4, 6]] : [[0, 1, 2, 3, 4, 5, 6]]
                 delegate: ColumnLayout {
                     id: column
                     required property var modelData
