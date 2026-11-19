@@ -10,6 +10,8 @@
 #include <QSaveFile>
 #include <QTextStream>
 
+#include "anonymize.h"
+#include "archive.h"
 #include "pixels.h"
 #include "reports.h"
 #include "study.h"
@@ -30,10 +32,16 @@ const char *Usage = R"(Usage:
   dicolens report <file | folder> [--report <n>] [--out <file.pdf>] [--json]
                                               Read a report that came with the scans: a
                                               structured report as text, or a PDF saved with --out
+  dicolens anonymize <file | folder>... --out <folder> [--json]
+                                              Copy the images without the patient's name, IDs,
+                                              birth date, or institution, into a new folder
+                                              "Anonymous scans" inside the one given; dates, age,
+                                              sex, and weight stay, and reports are left out
   dicolens skill install                      Install the agent skill to ~/.claude/skills/dicolens
   dicolens --help | --version
 
-Folders are read recursively, so a hospital CD's root works. Commands exit
+Folders are read recursively, so a hospital CD's root works, and a zip file
+is read as the folder inside it. Commands exit
 0 on success and 1 on failure, with errors on stderr.
 )";
 
@@ -66,8 +74,20 @@ QString option(QStringList &args, const QString &name) {
 
 bool flag(QStringList &args, const QString &name) { return args.removeAll(name) > 0; }
 
-Scan scanPaths(const QStringList &paths) {
-    return scanFiles(listFiles(paths, true));
+Scan scanPaths(QStringList paths) {
+    // A zip is read as the folder it holds.
+    for (QString &path : paths)
+        if (QFileInfo(path).isFile() && Archive::isZip(path)) {
+            QString error;
+            const QString dir = Archive::unpack(path, &error);
+            if (dir.isEmpty()) {
+                QTextStream(stderr) << path << ": " << error << "\n";
+                continue;
+            }
+            path = dir;
+        }
+    Scan scan = scanFiles(listFiles(paths, true));
+    return scan;
 }
 
 QJsonObject seriesJson(const Series &s, int index) {
@@ -363,6 +383,43 @@ int report(QStringList args) {
     return 0;
 }
 
+int anonymize(QStringList args) {
+    const bool json = flag(args, "--json");
+    const QString output = option(args, "--out");
+    if (args.isEmpty() || output.isEmpty())
+        return fail("anonymize needs files or folders, and --out <folder>", json);
+    for (const auto &path : args)
+        if (!QFileInfo::exists(path))
+            return fail(QStringLiteral("%1 doesn't exist").arg(path), json);
+    const Scan scan = scanPaths(args);
+    if (scan.series.isEmpty())
+        return fail("no DICOM images were found there", json);
+    if (!QDir().mkpath(output))
+        return fail(QStringLiteral("%1 can't be created").arg(output), json);
+    const Anonymize::Result r = Anonymize::copyScan(scan, output);
+    for (const auto &e : r.errors)
+        err() << "dicolens: " << e << "\n";
+    if (r.written == 0)
+        return fail("nothing could be copied", json);
+    if (json) {
+        out() << QJsonDocument(QJsonObject{{"folder", QFileInfo(r.folder).absoluteFilePath()},
+                                           {"written", r.written},
+                                           {"reportsLeftOut", r.skipped},
+                                           {"mayShowDetailsInPicture", r.showDetails},
+                                           {"failed", int(r.errors.size())}})
+                     .toJson(QJsonDocument::Indented);
+    } else {
+        out() << "Copied " << r.written << " files into " << r.folder << "\n";
+        if (r.skipped)
+            out() << "Left out " << r.skipped << " reports, as their text names the patient\n";
+        if (r.showDetails)
+            out() << r.showDetails << " images may show the patient's details in the picture itself; "
+                  << "look at them before sharing\n";
+    }
+    out().flush();
+    return r.errors.isEmpty() ? 0 : 1;
+}
+
 int skill(QStringList args) {
     const bool json = flag(args, "--json");
     if (args != QStringList{"install"})
@@ -406,6 +463,8 @@ int runCli(const QStringList &arguments, QStringList &open) {
         return exportImages(args.mid(1));
     if (command == "report")
         return report(args.mid(1));
+    if (command == "anonymize")
+        return anonymize(args.mid(1));
     if (command == "skill")
         return skill(args.mid(1));
     if (command == "open")

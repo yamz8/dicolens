@@ -16,6 +16,7 @@
 
 #include "filepicker.h"
 #include "pixels.h"
+#include "reformat.h"
 #include "study.h"
 
 struct DecodeJob;
@@ -46,11 +47,15 @@ class Backend : public QObject {
     Q_PROPERTY(double windowWidth READ windowWidth NOTIFY windowChanged)
     Q_PROPERTY(QString windowName READ windowName NOTIFY windowChanged)
     Q_PROPERTY(bool inverted READ inverted NOTIFY windowChanged)
+    Q_PROPERTY(QString colorMapName READ colorMapName NOTIFY windowChanged)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
     Q_PROPERTY(bool playing READ playing NOTIFY playingChanged)
     Q_PROPERTY(QVariantMap info READ info NOTIFY sliceChanged)
     Q_PROPERTY(QStringList edges READ edges NOTIFY orientationChanged)
+    Q_PROPERTY(QString planeName READ planeName NOTIFY orientationChanged)
+    Q_PROPERTY(bool canReformat READ canReformat NOTIFY sliceChanged)
+    Q_PROPERTY(QString slabName READ slabName NOTIFY orientationChanged)
     Q_PROPERTY(int rotation READ rotation NOTIFY orientationChanged)
     Q_PROPERTY(bool flipped READ flipped NOTIFY orientationChanged)
     Q_PROPERTY(bool marksShown READ marksShown NOTIFY marksChanged)
@@ -90,11 +95,24 @@ public:
     double windowWidth() const { return m_width; }
     QString windowName() const;
     bool inverted() const { return m_inverted; }
+    // Grey, or a colour scale for PET and nuclear medicine.
+    int colorMap() const { return m_colorMap; }
+    QString colorMapName() const;
     bool canUndo() const { return !m_undo.isEmpty(); }
     bool canRedo() const { return !m_redo.isEmpty(); }
     bool playing() const { return m_play.isActive(); }
     QVariantMap info() const { return m_info; }
     QStringList edges() const;
+    // Which way the shown picture cuts the body, translated.
+    QString planeName() const;
+    // A stack of even, parallel slices can be cut the other two ways.
+    bool canReformat() const { return m_volume.valid; }
+    // 0 is the plane as scanned; 1 and 2 the others.
+    int plane() const { return m_plane; }
+    // The slab the picture is made of, such as "MIP 10 mm", or nothing.
+    QString slabName() const;
+    // Where in the patient the shown picture lies, for reference lines.
+    ImagePlane imagePlane() const;
     // Quarter turns clockwise, after a flip left to right when flipped.
     int rotation() const { return m_rotation; }
     bool flipped() const { return m_flipped; }
@@ -147,6 +165,12 @@ public:
     Q_INVOKABLE void flipHorizontal();
     Q_INVOKABLE void flipVertical();
     Q_INVOKABLE void resetOrientation();
+    // Cuts the series the next way: as scanned, then the other two.
+    Q_INVOKABLE void nextPlane();
+    Q_INVOKABLE void setPlane(int plane);
+    // Thin, then a MIP, a MinIP, and an average of a slab.
+    Q_INVOKABLE void nextSlab();
+    Q_INVOKABLE void nextSlabThickness();
     Q_INVOKABLE void toggleMarks();
     Q_INVOKABLE void openReport(int index);
     Q_INVOKABLE void openStudyReport();
@@ -162,7 +186,15 @@ public:
 
     Q_INVOKABLE QString valueAt(double x, double y) const;
     Q_INVOKABLE QString distance(double x1, double y1, double x2, double y2) const;
+    // The area of the ellipse in a box of image pixels, and what's in it.
+    Q_INVOKABLE QString areaStats(double x, double y, double width, double height) const;
+    Q_INVOKABLE QString angleText(double degrees) const;
+    Q_INVOKABLE void nextColorMap();
     Q_INVOKABLE void exportImage();
+    // The series (or plane) as an MP4, as shown: windowed, turned, coloured.
+    Q_INVOKABLE void exportVideo();
+    // A copy of every image without what identifies the patient.
+    Q_INVOKABLE void exportAnonymous();
     Q_INVOKABLE void copyImage();
     Q_INVOKABLE void dismissProblem();
     // A word from the window about what it did, such as linking the panes.
@@ -217,8 +249,21 @@ private:
     void setProblem(const QString &problem);
     void flash(const QString &notice);
     void saveImage(const QString &path);
+    void saveVideo(const QString &path);
+    void saveAnonymous(const QString &folder);
+    // Millimetres a pixel across and down at a point, if the image says.
+    bool spacingAt(double x, double y, double &across, double &down) const;
+    // What a value means: Hounsfield units, an SUV, or itself.
+    double shownValue(double value) const;
+    QString unit() const;
     const Series *currentSeries() const;
     const Frame *currentFrame() const;
+    // Shows a picture built from the slices, not one of them.
+    bool built() const { return m_plane != 0 || m_slab != 0; }
+    void build();
+    // The slice of the series behind what's shown: the one shown, or the
+    // one through the cursor.
+    int acquiredSlice() const;
 
     FilePicker *m_picker;
     bool m_asked = false;   // Waiting on the picker for this backend.
@@ -249,9 +294,19 @@ private:
     int m_decodedCount = 0;
     QImage m_image;
 
+    Volume m_volume;
+    Cut m_cut;
+    int m_plane = 0;
+    int m_slab = 0;            // 0 thin, then MIP, MinIP, and average.
+    double m_slabMm = 10;
+    int m_cursor[3] = {0, 0, 0};   // A voxel the planes meet at.
+    Frame m_built;
+    QString m_buildError;
+
     double m_center = 0;
     double m_width = 0;
     bool m_inverted = false;
+    int m_colorMap = 0;
     bool m_windowSet = false;
     WindowState m_fileWindow;
     WindowState m_dragStart;

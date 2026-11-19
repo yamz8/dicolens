@@ -628,6 +628,75 @@ QString makeHeadMr(const QString &root, std::mt19937 &random) {
     return study;
 }
 
+// A PET of the chest an hour after FDG, at PET's coarse resolution: the
+// heart muscle and a nodule in the right lung take it up, the liver some.
+void makePet(const QString &root, std::mt19937 &random) {
+    const QString study = uid(), series = uid(), frame = uid();
+    const int n = 128, slices = 48;
+    const double spacing = 2.8;
+    // 370 MBq at 09:15, the series corrected to its start at 10:30.
+    const double dose = 370e6, halfLife = 6586.2, weight = 70;
+    const double factor = weight * 1000 / (dose * std::pow(0.5, 4500 / halfLife));
+    std::normal_distribution<double> noise(0, 1);
+    Dataset drug;
+    drug.text(0x00180031, "LO", "Fluorodeoxyglucose")
+        .text(0x00181072, "TM", "091500")
+        .text(0x00181074, "DS", ds(dose))
+        .text(0x00181075, "DS", ds(halfLife));
+    for (int s = 0; s < slices; ++s) {
+        std::vector<int> pixels(n * n);
+        for (int r = 0; r < n; ++r)
+            for (int c = 0; c < n; ++c) {
+                double uptake = 0;
+                for (double ox : {-0.33, 0.0, 0.33})
+                    for (double oy : {-0.33, 0.0, 0.33}) {
+                        const double x = (c - 63.5 + ox) * spacing, y = (r - 63.5 + oy) * spacing;
+                        const double hu = chest(x, y, s, false);
+                        double u = hu < -900 || y > 108 ? 0 : hu < -500 ? 0.45 : hu < -50 ? 0.5 : hu > 200 ? 1.4 : 0.95;
+                        if (s > 14 && s < 36 && std::hypot((x - 18) / 52, (y + 28) / 42) < 1 && hu > 40)
+                            u = 4.8;   // The heart muscle.
+                        if (s > 30 && x < -5 && hu > 50 && hu < 90)
+                            u = 2.4;   // The liver.
+                        const double nodule = std::hypot(x + 62, y + 8, (s - 21) * 5.0);
+                        if (nodule < 11)
+                            u = 9.0 * (1 - nodule / 22);
+                        uptake += u / 9;
+                    }
+                const double bq = uptake / factor * (1 + 0.12 * noise(random));
+                pixels[r * n + c] = int(std::lround(std::max(0.0, bq) / 10));
+            }
+        Dataset d = patient(study, "20260320", "PET-CT FDG", "A1107");
+        d.text(0x00080016, "UI", "1.2.840.10008.5.1.4.1.1.128")
+            .text(0x00080021, "DA", "20260320")
+            .text(0x00080031, "TM", "103000")
+            .text(0x00080060, "CS", "PT")
+            .text(0x00080070, "LO", "Made-up Scanner")
+            .text(0x0008103E, "LO", "PET FDG chest")
+            .text(0x00101030, "DS", ds(weight))
+            .text(0x00180050, "DS", "5")
+            .text(0x0020000E, "UI", series)
+            .text(0x00200011, "IS", "3")
+            .text(0x00200013, "IS", QString::number(s + 1))
+            .text(0x00200032, "DS", QStringLiteral("%1\\%1\\%2").arg(ds(-63.5 * spacing), ds(-s * 5.0)))
+            .text(0x00200037, "DS", "1\\0\\0\\0\\1\\0")
+            .text(0x00200052, "UI", frame)
+            .us(0x00280002, 1)
+            .text(0x00280004, "CS", "MONOCHROME2")
+            .us(0x00280010, n).us(0x00280011, n)
+            .text(0x00280030, "DS", QStringLiteral("%1\\%1").arg(ds(spacing)))
+            .us(0x00280100, 16).us(0x00280101, 12).us(0x00280102, 11).us(0x00280103, 0)
+            .text(0x00281050, "DS", ds(3.0 / factor))
+            .text(0x00281051, "DS", ds(6.0 / factor))
+            .text(0x00281052, "DS", "0")
+            .text(0x00281053, "DS", "10")
+            .seq(0x00540016, {drug})
+            .text(0x00541001, "CS", "BQML")
+            .text(0x00541102, "CS", "START")
+            .set(0x7FE00010, "OW", words(pixels));
+        writeDicom(QStringLiteral("%1/ST000003/SE000001/IM%2").arg(root).arg(s + 1, 6, 10, QChar('0')), d);
+    }
+}
+
 void makeEcho(const QString &root, std::mt19937 &random) {
     const int cols = 320, rows = 256, frames = 30;
     std::uniform_real_distribution<double> u(0.0001, 1);
@@ -693,7 +762,9 @@ class Picker : public FilePicker {
 public:
     Picker(const QString &folder, const QString &saves) : m_folder(folder), m_saves(saves) {}
     void choose(Purpose purpose, const QString &suggestedName) override {
-        const QString path = purpose == Purpose::SaveImage ? m_saves + "/" + suggestedName : m_folder;
+        const QString path = purpose == Purpose::SaveImage || purpose == Purpose::SaveVideo ? m_saves + "/" + suggestedName
+                             : purpose == Purpose::SaveFolder                             ? m_saves
+                                                                                          : m_folder;
         QTimer::singleShot(0, this, [this, purpose, path] { emit selected(purpose, {QUrl::fromLocalFile(path)}); });
     }
 
@@ -793,6 +864,17 @@ public:
             m_badgeFrames = std::max(m_badgeFrames, Fps / 2);
             hold(every * 1000 / Fps);
         }
+    }
+
+    void click(QPointF at, const QString &label) {
+        moveTo(at, 300);
+        badge(label);
+        QTest::mousePress(m_window, Qt::LeftButton, Qt::NoModifier, at.toPoint());
+        m_pressed = true;
+        frame();
+        QTest::mouseRelease(m_window, Qt::LeftButton, Qt::NoModifier, at.toPoint());
+        m_pressed = false;
+        hold(200);
     }
 
     void hidePointer() { m_pointerShown = false; }
@@ -911,6 +993,7 @@ int main(int argc, char *argv[]) {
     makeStructuredReport(cd, ctStudy);
     makePdfReport(cd, makeHeadMr(cd, random));
     makeEcho(cd, random);
+    makePet(cd, random);
     if (scansOnly)
         return 0;
 
@@ -1047,8 +1130,71 @@ int main(int argc, char *argv[]) {
              rec.hold(1300);
              rec.drag(at(-18, 58), at(18, 58), Qt::LeftButton, 900, "Drag");
              rec.hold(1300);
+             rec.key("E  Area", Qt::Key_E, Qt::NoModifier, 500);
+             rec.drag(at(13, 33), at(31, 51), Qt::LeftButton, 1300, "Drag inside the aorta");
+             rec.hold(2200);
+             rec.key("Shift+M  Angle", Qt::Key_M, Qt::ShiftModifier, 500);
+             rec.drag(at(-70, 30), at(-20, 75), Qt::LeftButton, 1100, "Drag one arm");
+             rec.moveTo(at(-50, 95), 700);
+             rec.click(at(-60, 100), "Click the other");
+             rec.hold(1800);
              rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 500);
-             rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 700);
+             rec.key("Shift+Delete  Clear", Qt::Key_Delete, Qt::ShiftModifier, 900);
+         }},
+        {"planes", [&] { showSeries("Axial", 22); },
+         [&] {
+             rec.hidePointer();
+             rec.hold(900);
+             rec.key("V  Coronal", Qt::Key_V, Qt::NoModifier, 1600);
+             rec.wheel(at(0, 0), -6, 1400, "Wheel");
+             rec.hidePointer();
+             rec.key("V  Sagittal", Qt::Key_V, Qt::NoModifier, 1800);
+             rec.key("V  As scanned", Qt::Key_V, Qt::NoModifier, 1100);
+             // Side by side, the same scan cut across: each side shows
+             // where the other is.
+             rec.key("C  Side by side", Qt::Key_C, Qt::NoModifier, 300);
+             partner.waitForSlice(10000);
+             partner.selectSeries(backend.seriesIndex());
+             partner.waitForSlice(10000);
+             rec.key("V  Coronal on this side", Qt::Key_V, Qt::NoModifier, 400);
+             partner.waitForSlice(10000);
+             QMetaObject::invokeMethod(findItem(window->contentItem(), "rightView"), "fit");
+             rec.hold(1200);
+             rec.wheel(at(0, 0), 10, 2400, "Wheel: the line follows");
+             rec.hidePointer();
+             rec.key("C  Back to one", Qt::Key_C, Qt::NoModifier, 900);
+         }},
+        {"slabs", [&] { showSeries("Axial", 22); },
+         [&] {
+             rec.hidePointer();
+             rec.hold(800);
+             rec.key("B  MIP", Qt::Key_B, Qt::NoModifier, 1700);
+             rec.key("Shift+B  Thicker", Qt::Key_B, Qt::ShiftModifier, 1500);
+             rec.key("3  Lung", Qt::Key_3, Qt::NoModifier, 500);
+             rec.key("B  MinIP", Qt::Key_B, Qt::NoModifier, 1700);
+             rec.key("B  Average", Qt::Key_B, Qt::NoModifier, 1300);
+             rec.key("B  Thin again", Qt::Key_B, Qt::NoModifier, 1100);
+         }},
+        {"pet", [&] { showSeries("PET", 21); },
+         [&] {
+             const auto atPet = [&](double x, double y) {
+                 return view->mapToScene(view->toItem(x / 2.8 + 64, y / 2.8 + 64));
+             };
+             rec.moveTo(atPet(-62, -8), 900);
+             rec.hold(1500);
+             rec.key("E  Area", Qt::Key_E, Qt::NoModifier, 400);
+             rec.drag(atPet(-78, -24), atPet(-46, 8), Qt::LeftButton, 1100, "Drag around it");
+             rec.hold(2200);
+             rec.hidePointer();
+             rec.key("G  Hot iron", Qt::Key_G, Qt::NoModifier, 1000);
+             rec.key("G  Rainbow", Qt::Key_G, Qt::NoModifier, 1000);
+             rec.key("G  Grey", Qt::Key_G, Qt::NoModifier, 1000);
+             rec.key("I  Invert", Qt::Key_I, Qt::NoModifier, 1300);
+             rec.key("I", Qt::Key_I, Qt::NoModifier, 300);
+             rec.key("G", Qt::Key_G, Qt::NoModifier, 300);
+             rec.key("G", Qt::Key_G, Qt::NoModifier, 300);
+             rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 200);
+             rec.key("Shift+Delete", Qt::Key_Delete, Qt::ShiftModifier, 300);
          }},
         {"turn", [&] { showSeries("T2 axial", 12); },
          [&] {
@@ -1141,7 +1287,30 @@ int main(int argc, char *argv[]) {
          [&] {
              rec.hold(700);
              rec.key("Ctrl+E  Save as PNG", Qt::Key_E, Qt::ControlModifier, 2300);
+             rec.key("Ctrl+Shift+E  Save as a video", Qt::Key_E, Qt::ControlModifier | Qt::ShiftModifier, 2800);
              rec.key("Ctrl+C  Copy", Qt::Key_C, Qt::ControlModifier, 2600);
+         }},
+        {"anonymous", [&] { showSeries("Axial", 22); },
+         [&] {
+             rec.hidePointer();
+             rec.hold(900);
+             rec.key("Ctrl+Shift+S  Anonymous copy", Qt::Key_S, Qt::ControlModifier | Qt::ShiftModifier, 300);
+             QTRY_VERIFY_WITH_TIMEOUT(backend.notice().startsWith("Saved") || !backend.problem().isEmpty(), 60000);
+             rec.hold(2600);
+             // The copy, opened: the same scans, with nobody's name on them.
+             rec.badge("The copy, opened");
+             backend.loadPaths({work.filePath("Anonymous scans")});
+             QTRY_VERIFY_WITH_TIMEOUT(backend.hasImages() && !backend.scanning(), 20000);
+             for (int i = 0; i < backend.seriesList().size(); ++i)
+                 if (backend.seriesList()[i].toMap().value("title").toString().contains("Axial"))
+                     backend.selectSeries(i);
+             backend.setSliceIndex(22);
+             settle();
+             rec.hold(2600);
+             backend.dismissProblem();
+             // Later scenes open the CD again.
+             backend.loadPaths({cd});
+             QTRY_VERIFY_WITH_TIMEOUT(backend.hasImages() && !backend.scanning(), 20000);
          }},
         {"help", [&] { showSeries("Axial", 22); },
          [&] {

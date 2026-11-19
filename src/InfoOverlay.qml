@@ -10,7 +10,8 @@ Item {
     property var source
     property string hoverText
     property real zoom: 1
-    property bool measuring: false
+    // The measuring tool, as the slice view numbers them.
+    property int tool: 0
 
     function n(value, decimals) {
         // Reads the language so the numbers re-render when it changes.
@@ -61,13 +62,17 @@ Item {
         anchors.bottomMargin: 6
         spacing: 2
         Line {
-            text: overlay.measuring ? qsTr("Measuring: drag across the image. M or Esc stops.") : ""
+            text: overlay.tool === 1 ? qsTr("Ruler: drag across the image. Delete removes the last. Esc stops.")
+                : overlay.tool === 2 ? qsTr("Area: drag a box around it. Delete removes the last. Esc stops.")
+                : overlay.tool === 3 ? qsTr("Angle: drag one arm, then click the other's end. Esc stops.")
+                : ""
             color: theme.accent
         }
         Line { text: overlay.hoverText; font.family: "monospace" }
         Line {
             text: overlay.source.color ? "" : qsTr("W %1  L %2").arg(overlay.n(overlay.source.windowWidth, 0)).arg(overlay.n(overlay.source.windowCenter, 0))
                   + (overlay.source.windowName ? "  ·  " + overlay.source.windowName : "")
+                  + (overlay.source.colorMapName ? "  ·  " + overlay.source.colorMapName : "")
                   + (overlay.source.inverted ? "  ·  " + qsTr("Inverted") : "")
         }
         Line { text: Math.abs(overlay.zoom - 1) > 0.01 ? qsTr("Zoom %1%").arg(overlay.n(overlay.zoom * 100, 0)) : ""; color: win.canvasDim }

@@ -8,7 +8,7 @@ class FilePicker : public QObject {
     Q_OBJECT
 
 public:
-    enum class Purpose { OpenScan, OpenFolder, SaveImage };
+    enum class Purpose { OpenScan, OpenFolder, SaveImage, SaveVideo, SaveFolder };
 
     explicit FilePicker(QObject *parent = nullptr) : QObject(parent) {}
     virtual ~FilePicker() = default;

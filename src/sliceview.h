@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QColor>
+#include <QHash>
 #include <QPointer>
 #include <QQuickPaintedItem>
 #include <QTransform>
@@ -15,8 +16,15 @@ class SliceView : public QQuickPaintedItem {
     Q_PROPERTY(Backend *source READ backend WRITE setBackend NOTIFY backendChanged)
     Q_PROPERTY(double zoom READ zoom NOTIFY viewChanged)
     Q_PROPERTY(QColor accent READ accent WRITE setAccent NOTIFY accentChanged)
-    Q_PROPERTY(bool rulerVisible READ rulerVisible NOTIFY rulerChanged)
-    Q_PROPERTY(QString rulerText READ rulerText NOTIFY rulerChanged)
+    // 0 looks, 1 draws rulers, 2 areas, 3 angles.
+    Q_PROPERTY(int tool READ tool WRITE setTool NOTIFY toolChanged)
+    // How many measurements the shown slice has, and whether one is
+    // being drawn.
+    Q_PROPERTY(int measureCount READ measureCount NOTIFY measuresChanged)
+    Q_PROPERTY(bool drawing READ drawing NOTIFY measuresChanged)
+    // Another view's backend: where its picture cuts this one is drawn as
+    // a line, when the two lie in one frame of reference.
+    Q_PROPERTY(Backend *reference READ reference WRITE setReference NOTIFY referenceChanged)
 
 public:
     explicit SliceView(QQuickItem *parent = nullptr);
@@ -26,8 +34,16 @@ public:
     double zoom() const { return m_zoom; }
     QColor accent() const { return m_accent; }
     void setAccent(const QColor &accent);
-    bool rulerVisible() const { return m_rulerVisible; }
-    QString rulerText() const;
+    Backend *reference() const { return m_reference; }
+    void setReference(Backend *reference);
+    // The reference line's ends in image pixels, if there is one.
+    bool referenceLine(QPointF &a, QPointF &b) const;
+    int tool() const { return m_tool; }
+    void setTool(int tool);
+    int measureCount() const { return m_measures.value(key()).size(); }
+    bool drawing() const { return m_drawing; }
+    // What each of the shown slice's measurements says, for tests.
+    Q_INVOKABLE QStringList measureTexts() const;
 
     // Between the item's coordinates and the image's pixels.
     Q_INVOKABLE QPointF toImage(double x, double y) const;
@@ -35,9 +51,15 @@ public:
     Q_INVOKABLE void zoomAt(double x, double y, double factor);
     Q_INVOKABLE void pan(double dx, double dy);
     Q_INVOKABLE void fit();
-    Q_INVOKABLE void startRuler(double x, double y);
-    Q_INVOKABLE void moveRuler(double x, double y);
-    Q_INVOKABLE void clearRuler();
+    // A press, drag, and release draw a ruler or an area; an angle takes
+    // its second arm from a second press.
+    Q_INVOKABLE void press(double x, double y);
+    Q_INVOKABLE void drag(double x, double y);
+    Q_INVOKABLE void release(double x, double y);
+    Q_INVOKABLE void hover(double x, double y);
+    // Drops the one being drawn, or else the slice's last one.
+    Q_INVOKABLE bool removeLast();
+    Q_INVOKABLE void clearMeasures();
 
     void paint(QPainter *painter) override;
 
@@ -50,16 +72,31 @@ signals:
     void backendChanged();
     void viewChanged();
     void accentChanged();
-    void rulerChanged();
+    void referenceChanged();
+    void toolChanged();
+    void measuresChanged();
 
 private:
     void paintMarks(QPainter *painter, const QTransform &t, const QSizeF &size);
     void paintLabel(QPainter *painter, QPointF at, const QString &text);
 
+    struct Measure {
+        int kind = 1;            // As the tool that drew it.
+        QPointF a, b, c;         // Image pixels; c is an angle's far end.
+    };
+    QString text(const Measure &m) const;
+    void paintMeasure(QPainter *painter, const QTransform &t, const Measure &m, bool active);
+    // Measurements stay with the slice they were drawn on.
+    QString key() const;
+
     QPointer<Backend> m_backend;
+    QPointer<Backend> m_reference;
     double m_zoom = 1;
     QPointF m_pan;
     QColor m_accent = QColor("#FFD60A");
-    bool m_rulerVisible = false;
-    QPointF m_rulerA, m_rulerB;     // Image pixels.
+    int m_tool = 0;
+    QHash<QString, QList<Measure>> m_measures;
+    Measure m_current;
+    bool m_drawing = false;
+    bool m_secondArm = false;     // An angle waiting for its far end.
 };

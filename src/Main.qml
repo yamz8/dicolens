@@ -40,7 +40,9 @@ ApplicationWindow {
     property bool seriesVisible: true
     property bool tagsVisible: false
     property bool infoHidden: false
-    property bool measuring: false
+    // 0 looks; 1, 2, and 3 measure lengths, areas, and angles.
+    property int tool: 0
+    function useTool(t) { win.tool = win.tool === t ? 0 : t }
     // Side by side: two panes on the same scans, the keys going to one,
     // the other following it from slice to slice while linked.
     property bool comparing: false
@@ -107,7 +109,12 @@ ApplicationWindow {
     Shortcut { sequence: "0"; enabled: win.keys; onActivated: win.inUse.fileWindow() }
     Shortcut { sequence: "A"; enabled: win.keys; onActivated: win.inUse.fullRange() }
     Shortcut { sequence: "I"; enabled: win.keys; onActivated: win.inUse.toggleInvert() }
-    Shortcut { sequence: "M"; enabled: win.keys; onActivated: win.measuring = !win.measuring }
+    Shortcut { sequence: "M"; enabled: win.keys; onActivated: win.useTool(1) }
+    Shortcut { sequence: "E"; enabled: win.keys; onActivated: win.useTool(2) }
+    Shortcut { sequence: "Shift+M"; enabled: win.keys; onActivated: win.useTool(3) }
+    Shortcut { sequences: ["Delete", "Backspace"]; enabled: win.keys; onActivated: win.inUseView.removeLast() }
+    Shortcut { sequence: "Shift+Delete"; enabled: win.keys; onActivated: win.inUseView.clearMeasures() }
+    Shortcut { sequence: "G"; enabled: win.keys; onActivated: win.inUse.nextColorMap() }
     Shortcut { sequence: "F"; enabled: win.keys; onActivated: win.inUseView.fit() }
     Shortcut { sequence: "R"; enabled: win.keys; onActivated: { win.inUseView.fit(); win.inUse.resetOrientation(); win.inUse.fileWindow() } }
     Shortcut { sequence: "]"; enabled: win.keys; onActivated: win.inUse.rotate(1) }
@@ -116,6 +123,9 @@ ApplicationWindow {
     Shortcut { sequence: "Y"; enabled: win.keys; onActivated: win.inUse.flipVertical() }
     Shortcut { sequence: "N"; enabled: win.keys; onActivated: { backend.toggleMarks(); if (partner.marksShown !== backend.marksShown) partner.toggleMarks() } }
     Shortcut { sequence: "C"; enabled: win.keys; onActivated: win.compare() }
+    Shortcut { sequence: "V"; enabled: win.keys; onActivated: win.inUse.nextPlane() }
+    Shortcut { sequence: "B"; enabled: win.keys; onActivated: win.inUse.nextSlab() }
+    Shortcut { sequence: "Shift+B"; enabled: win.keys; onActivated: win.inUse.nextSlabThickness() }
     Shortcut { sequence: "Tab"; enabled: win.keys && win.comparing; onActivated: win.rightActive = !win.rightActive }
     Shortcut {
         sequence: "L"
@@ -139,6 +149,8 @@ ApplicationWindow {
     Shortcut { sequence: "H"; enabled: win.keys; onActivated: win.infoHidden = !win.infoHidden }
     Shortcut { sequence: "Ctrl+F"; enabled: !win.reading; onActivated: { win.tagsVisible = true; tagPanel.focusSearch() } }
     Shortcut { sequence: "Ctrl+E"; onActivated: win.inUse.exportImage() }
+    Shortcut { sequence: "Ctrl+Shift+E"; enabled: win.keys; onActivated: win.inUse.exportVideo() }
+    Shortcut { sequence: "Ctrl+Shift+S"; enabled: win.keys; onActivated: backend.exportAnonymous() }
     Shortcut { sequence: "Ctrl+C"; enabled: win.keys; onActivated: win.inUse.copyImage() }
     Shortcut { sequences: [StandardKey.Undo]; enabled: win.keys; onActivated: win.inUse.undo() }
     Shortcut { sequences: ["Ctrl+Shift+Z", StandardKey.Redo]; enabled: win.keys; onActivated: win.inUse.redo() }
@@ -148,8 +160,8 @@ ApplicationWindow {
             if (win.helpVisible) win.helpVisible = false
             else if (win.reading) backend.closeReport()
             else if (win.typing) tagPanel.leaveSearch()
-            else if (win.inUseView.rulerVisible) win.inUseView.clearRuler()
-            else if (win.measuring) win.measuring = false
+            else if (win.inUseView.drawing) win.inUseView.removeLast()
+            else if (win.tool !== 0) win.tool = 0
             else if (win.inUse.playing) win.inUse.stop()
             else if (backend.problem || partner.problem) { backend.dismissProblem(); partner.dismissProblem() }
         }

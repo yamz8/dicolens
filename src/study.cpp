@@ -1,5 +1,6 @@
 #include "study.h"
 
+#include <QDate>
 #include <QDirIterator>
 #include <QFileInfo>
 #include <QHash>
@@ -36,10 +37,79 @@ QString direction(const double *v) {
 QStringList Series::edgeLabels() const {
     if (!hasOrientation)
         return {};
-    const double *row = orientation, *column = orientation + 3;
+    return ::edgeLabels(orientation, orientation + 3);
+}
+
+QStringList edgeLabels(const double *row, const double *column) {
     const double left[3] = {-row[0], -row[1], -row[2]};
     const double top[3] = {-column[0], -column[1], -column[2]};
     return {direction(left), direction(row), direction(top), direction(column)};
+}
+
+namespace {
+
+// Seconds into the day of a DICOM time, HHMMSS.FFFFFF, or -1.
+double seconds(QString time) {
+    time = time.trimmed().remove(':');
+    if (time.size() < 4)
+        return -1;
+    bool ok = true;
+    const double h = time.mid(0, 2).toDouble(&ok), m = time.mid(2, 2).toDouble();
+    const double s = time.size() > 4 ? time.mid(4).toDouble() : 0;
+    return ok ? h * 3600 + m * 60 + s : -1;
+}
+
+}
+
+double suvFactor(const DicomFile &file) {
+    const QString units = file.first(0x00541001).toUpper();
+    if (units == "GML")
+        return 1;   // Already SUVs.
+    if (units != "BQML")
+        return 0;
+    const double weight = file.numbers(0x00101030).value(0);   // kg
+    const DicomElement *drugs = file.element(0x00540016);
+    if (weight <= 0 || !drugs || drugs->items.isEmpty())
+        return 0;
+    double dose = 0, halfLife = 0;
+    QString injected, injectedDate;
+    for (const auto &e : drugs->items.first()) {
+        if (e.tag == 0x00181074)
+            dose = file.numbers(&e).value(0);   // Bq
+        else if (e.tag == 0x00181075)
+            halfLife = file.numbers(&e).value(0);   // s
+        else if (e.tag == 0x00181072 && injected.isEmpty())
+            injected = file.decode(e.value).trimmed();
+        else if (e.tag == 0x00181078) {
+            // A date and time, which beats the time alone.
+            const QString dt = file.decode(e.value).trimmed();
+            if (dt.size() >= 12) {
+                injectedDate = dt.left(8);
+                injected = dt.mid(8);
+            }
+        }
+    }
+    if (dose <= 0 || halfLife <= 0)
+        return 0;
+    const QString correction = file.first(0x00541102).toUpper();
+    if (correction == "ADMIN")
+        return weight * 1000 / dose;
+    if (!correction.isEmpty() && correction != "START")
+        return 0;   // Uncorrected values decay slice by slice.
+    // Corrected to the series' start: the dose as it had decayed by then.
+    const double start = seconds(file.first(0x00080031)), at = seconds(injected);
+    if (start < 0 || at < 0)
+        return 0;
+    double elapsed = start - at;
+    const QDate day = QDate::fromString(file.first(0x00080021), "yyyyMMdd");
+    const QDate then = QDate::fromString(injectedDate, "yyyyMMdd");
+    if (day.isValid() && then.isValid())
+        elapsed += then.daysTo(day) * 86400.0;
+    else if (elapsed < 0)
+        elapsed += 86400;   // Injected before midnight.
+    if (elapsed < 0)
+        return 0;
+    return weight * 1000 / (dose * std::pow(0.5, elapsed / halfLife));
 }
 
 QStringList listFiles(const QStringList &paths, bool recursive) {
@@ -71,6 +141,7 @@ void addFile(Scan &scan, const DicomFile &file) {
         } else if (Marks::isPresentationState(file)) {
             ++scan.files;
             scan.marks += Marks::read(file);
+            scan.annotations << file.path();
         } else {
             ++scan.skipped;
         }
@@ -109,6 +180,9 @@ void addFile(Scan &scan, const DicomFile &file) {
             s.studyDate = file.first(Tag::SeriesDate);
         s.studyTime = file.first(Tag::StudyTime);
         s.institution = file.string(Tag::Institution);
+        s.frame = file.first(0x00200052);
+        if (s.modality == "PT")
+            s.suv = suvFactor(file);
         s.transferSyntax = file.transferSyntax();
         s.color = ImageFormat::from(file).color();
 

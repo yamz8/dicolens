@@ -88,6 +88,10 @@ PortalFileFilter allFilter() {
     return {QCoreApplication::translate("dicolens", "All files"), {{0, QStringLiteral("*")}}};
 }
 
+PortalFileFilter mp4Filter() {
+    return {QCoreApplication::translate("dicolens", "MP4 video"), {{1, QStringLiteral("video/mp4")}, {0, QStringLiteral("*.mp4")}}};
+}
+
 PortalFileFilter pngFilter() {
     return {QCoreApplication::translate("dicolens", "PNG image"), {{1, QStringLiteral("image/png")}, {0, QStringLiteral("*.png")}}};
 }
@@ -126,6 +130,20 @@ void PortalFilePicker::choose(Purpose purpose, const QString &suggestedName) {
         options.insert(QStringLiteral("current_name"), suggestedName);
         options.insert(QStringLiteral("current_folder"), portalPathBytes(startFolder()));
         options.insert(QStringLiteral("filters"), QVariant::fromValue(PortalFileFilters{pngFilter()}));
+    } else if (purpose == Purpose::SaveVideo) {
+        method = QStringLiteral("SaveFile");
+        title = QCoreApplication::translate("dicolens", "Save the Series as a Video");
+        options.insert(QStringLiteral("accept_label"), QCoreApplication::translate("dicolens", "Save"));
+        options.insert(QStringLiteral("current_name"), suggestedName);
+        options.insert(QStringLiteral("current_folder"), portalPathBytes(startFolder()));
+        options.insert(QStringLiteral("filters"), QVariant::fromValue(PortalFileFilters{mp4Filter()}));
+    } else if (purpose == Purpose::SaveFolder) {
+        // The copy goes into a new folder inside the one picked.
+        title = QCoreApplication::translate("dicolens", "Save an Anonymous Copy");
+        options.insert(QStringLiteral("accept_label"), QCoreApplication::translate("dicolens", "Save Here"));
+        options.insert(QStringLiteral("directory"), true);
+        options.insert(QStringLiteral("multiple"), false);
+        options.insert(QStringLiteral("current_folder"), portalPathBytes(QDir::homePath()));
     } else if (purpose == Purpose::OpenFolder) {
         title = QCoreApplication::translate("dicolens", "Open a Folder of Scans");
         options.insert(QStringLiteral("accept_label"), QCoreApplication::translate("dicolens", "Open"));

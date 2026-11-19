@@ -1,13 +1,14 @@
 ---
 name: dicolens
-description: Read DICOM medical images (CT, MR, X-ray, ultrasound, hospital CDs) with the dicolens command - list series and patient/study details, read the reports that came with them, dump tags, and export slices to PNG with a chosen window. Use when asked about a .dcm file, a DICOMDIR or CD folder, or to turn a scan into pictures.
+description: Read DICOM medical images (CT, MR, X-ray, ultrasound, hospital CDs) with the dicolens command - list series and patient/study details, read the reports that came with them, dump tags, export slices to PNG with a chosen window, and make an anonymous copy to share. Use when asked about a .dcm file, a DICOMDIR or CD folder, or to turn a scan into pictures.
 ---
 
 # Dicolens
 
 `dicolens` is a DICOM viewer with commands that need no display. Each takes
 `--json`, exits 0 on success and 1 on failure, with the error on stderr.
-Folders are read recursively, so a CD's root works.
+Folders are read recursively, so a CD's root works, and a zip file is read as
+the folder inside it.
 
 - `dicolens info <file|folder>... --json`: every series found, with modality,
   description, image count, size, pixel spacing, transfer syntax, whether it
@@ -22,6 +23,12 @@ Folders are read recursively, so a CD's root works.
   report that came with the scans (`info` lists them under `reports`). A
   structured report comes back as its findings (`content`, headings and
   name/value lines); a PDF report is saved to `--out`, to be read from there.
+- `dicolens anonymize <file|folder|zip>... --out <folder> --json`: copies the
+  images into a new folder "Anonymous scans" inside `--out`, without the
+  patient's name, IDs, birth date, or institution, with new UIDs (PS3.15 Basic
+  Profile, keeping dates and age, sex, and weight). Reports are left out.
+  `mayShowDetailsInPicture` counts images, such as ultrasound, whose picture
+  itself may show the name; tell the user to check those before sharing.
 
 CT windows in Hounsfield units: brain 40,80; soft tissue 40,400; lung
 -600,1500; bone 400,1800.

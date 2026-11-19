@@ -29,6 +29,9 @@ Item {
         objectName: pane.second ? "rightView" : "view"
         anchors.fill: parent
         source: pane.source
+        tool: win.tool
+        // Side by side, each side shows where the other cuts it.
+        reference: win.comparing ? (pane.second ? backend : partner) : null
         accent: theme.accent
         LayoutMirroring.enabled: false
     }
@@ -53,7 +56,7 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         hoverEnabled: true
         enabled: pane.source.hasImages
-        cursorShape: win.measuring ? Qt.CrossCursor : drag === "pan" ? Qt.ClosedHandCursor : Qt.ArrowCursor
+        cursorShape: win.tool !== 0 ? Qt.CrossCursor : drag === "pan" ? Qt.ClosedHandCursor : Qt.ArrowCursor
         LayoutMirroring.enabled: false
 
         property string drag: ""
@@ -69,9 +72,9 @@ Item {
                 drag = "pan"
             else if (event.button === Qt.RightButton)
                 drag = "zoom"
-            else if (win.measuring) {
-                drag = "ruler"
-                view.startRuler(event.x, event.y)
+            else if (win.tool !== 0 || view.drawing) {
+                drag = "measure"
+                view.press(event.x, event.y)
             } else {
                 drag = "window"
                 pane.source.beginWindowDrag()
@@ -83,16 +86,22 @@ Item {
                 view.pan(event.x - last.x, event.y - last.y)
             else if (drag === "zoom")
                 view.zoomAt(start.x, start.y, Math.pow(1.01, last.y - event.y))
-            else if (drag === "ruler")
-                view.moveRuler(event.x, event.y)
+            else if (drag === "measure")
+                view.drag(event.x, event.y)
             else if (drag === "window")
                 pane.source.dragWindow(event.x - start.x, event.y - start.y)
+            else
+                view.hover(event.x, event.y)
             last = Qt.point(event.x, event.y)
             pane.refreshHover()
         }
-        onReleased: drag = ""
+        onReleased: (event) => {
+            if (drag === "measure")
+                view.release(event.x, event.y)
+            drag = ""
+        }
         onExited: { pane.hoverPoint = Qt.point(-1, -1); pane.refreshHover() }
-        onDoubleClicked: (event) => { if (event.button === Qt.LeftButton && !win.measuring) view.fit() }
+        onDoubleClicked: (event) => { if (event.button === Qt.LeftButton && win.tool === 0) view.fit() }
         onWheel: (event) => {
             pane.activate()
             if (event.modifiers & Qt.ControlModifier) {
@@ -134,7 +143,7 @@ Item {
         visible: pane.source.hasImages && !win.infoHidden
         hoverText: pane.hoverText
         zoom: view.zoom
-        measuring: win.measuring && pane.inUse
+        tool: pane.inUse ? win.tool : 0
     }
 
     // Where in the series the shown slice is, and how much of it is

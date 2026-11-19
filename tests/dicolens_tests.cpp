@@ -17,11 +17,14 @@
 #include <QRegularExpression>
 #include <QtTest>
 
+#include "anonymize.h"
+#include "archive.h"
 #include "backend.h"
 #include "dicom.h"
 #include "ljpeg.h"
 #include "marks.h"
 #include "pixels.h"
+#include "reformat.h"
 #include "reports.h"
 #include "sliceview.h"
 #include "study.h"
@@ -338,6 +341,51 @@ bool write(const QString &path, const QByteArray &contents) {
 }
 
 const QString ExplicitLE = "1.2.840.10008.1.2.1";
+
+// An axial CT stack, 4 columns by 3 rows, 5 slices 3 mm apart from the feet
+// up, with each pixel 100 × its slice + 10 × its row + its column, so a
+// value says where it came from.
+bool writeVolume(const QString &folder, const QByteArray &series = "1.2.9.1") {
+    for (int k = 0; k < 5; ++k) {
+        QList<int> values;
+        for (int j = 0; j < 3; ++j)
+            for (int i = 0; i < 4; ++i)
+                values << 100 * k + 10 * j + i;
+        Writer w;
+        w.add(Tag::SopClass, "UI", "1.2.840.10008.5.1.4.1.1.2")
+            .add(0x00080018, "UI", series + "." + QByteArray::number(k + 1))
+            .add(Tag::Modality, "CS", "CT")
+            .add(0x0020000D, "UI", "1.2.9")
+            .add(0x00200052, "UI", "1.2.9.100")
+            .image(3, 4, 16, 12, false)
+            .add(0x0020000E, "UI", series)
+            .add(Tag::InstanceNumber, "IS", QByteArray::number(k + 1))
+            .add(Tag::ImagePosition, "DS", "0\\0\\" + QByteArray::number(k * 3))
+            .add(Tag::ImageOrientation, "DS", "1\\0\\0\\0\\1\\0")
+            .add(Tag::PixelSpacing, "DS", "1\\1")
+            .pixels(le16(values));
+        if (!write(QStringLiteral("%1/%2-%3").arg(folder, QString::fromLatin1(series)).arg(k), w.file(ExplicitLE)))
+            return false;
+    }
+    return true;
+}
+
+// A picker that answers at once with a path the test gave it.
+class FakePicker : public FilePicker {
+public:
+    QString answer;
+    Purpose asked = Purpose::OpenScan;
+    void choose(Purpose purpose, const QString &) override {
+        asked = purpose;
+        emit selected(purpose, {QUrl::fromLocalFile(answer)});
+    }
+};
+
+// The number at the end of what valueAt says, after the pointer's place.
+double shownNumber(const QString &text) {
+    const QRegularExpression number("(-?[0-9.]+)\\s*[A-Z]*$");
+    return number.match(text.trimmed()).captured(1).toDouble();
+}
 
 // Encodes grey samples with ffmpeg, or returns nothing when it can't.
 QByteArray encode(const QList<int> &values, int width, const QString &pixelFormat, const QStringList &codec) {
@@ -1249,6 +1297,343 @@ private slots:
         QCOMPARE(beside.scan().series[beside.seriesIndex()].studyUid, QString("1.2.8"));
     }
 
+    void cutsTheSeriesOtherWays() {
+        QTemporaryDir dir;
+        QVERIFY(writeVolume(dir.path()));
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        QVERIFY(backend.canReformat());
+        QCOMPARE(backend.planeName(), QString("Axial"));
+        QCOMPARE(backend.sliceCount(), 5);
+        backend.setSliceIndex(2);
+
+        // Coronal, through the middle row: head at the top, the patient's
+        // right on the left, a pixel 1 mm across and 3 mm down.
+        backend.nextPlane();
+        QCOMPARE(backend.planeName(), QString("Coronal"));
+        QCOMPARE(backend.sliceCount(), 3);
+        QCOMPARE(backend.sliceIndex(), 1);
+        QVERIFY(backend.waitForSlice(10000));
+        QCOMPARE(backend.imageWidth(), 4);
+        QCOMPARE(backend.imageHeight(), 5);
+        QCOMPARE(backend.edges(), (QStringList{"R", "L", "H", "F"}));
+        QCOMPARE(shownNumber(backend.valueAt(0.5, 0.5)), 410.0);
+        QCOMPARE(shownNumber(backend.valueAt(3.5, 4.5)), 13.0);
+        QCOMPARE(backend.pixelAspect(), 1.0 / 3);
+        QCOMPARE(backend.distance(0, 0, 0, 2), QString("6.0 mm"));
+        QVERIFY(backend.overlay().isNull() && backend.marks().isEmpty());
+
+        // Sagittal, through the middle column: the front on the left.
+        backend.nextPlane();
+        QCOMPARE(backend.planeName(), QString("Sagittal"));
+        QCOMPARE(backend.sliceCount(), 4);
+        QVERIFY(backend.waitForSlice(10000));
+        QCOMPARE(backend.imageWidth(), 3);
+        QCOMPARE(backend.edges(), (QStringList{"A", "P", "H", "F"}));
+        QCOMPARE(shownNumber(backend.valueAt(2.5, 0.5)), 422.0);
+
+        // Back as scanned, at the slice the planes met at.
+        backend.nextPlane();
+        QCOMPARE(backend.planeName(), QString("Axial"));
+        QCOMPARE(backend.sliceIndex(), 2);
+        QVERIFY(backend.waitForSlice(10000));
+
+        // A 10 mm slab is two slices either side: its brightest, darkest,
+        // and average value at the top left.
+        backend.nextSlab();
+        QCOMPARE(backend.slabName(), QString("MIP 10 mm"));
+        QVERIFY(backend.waitForSlice(10000));
+        QCOMPARE(shownNumber(backend.valueAt(0.5, 0.5)), 400.0);
+        backend.nextSlab();
+        QCOMPARE(shownNumber(backend.valueAt(0.5, 0.5)), 0.0);
+        backend.nextSlab();
+        QCOMPARE(shownNumber(backend.valueAt(1.5, 0.5)), 201.0);
+        backend.nextSlab();
+        QCOMPARE(backend.slabName(), QString());
+        QCOMPARE(shownNumber(backend.valueAt(1.5, 0.5)), 201.0);
+    }
+
+    void drawsReferenceLines() {
+        // Side by side, the axial slice shows where the coronal plane cuts
+        // it: along its middle row.
+        QTemporaryDir dir;
+        QVERIFY(writeVolume(dir.path()));
+        Backend axial(nullptr), coronal(nullptr);
+        axial.loadPaths({dir.path()});
+        QVERIFY(axial.waitForSlice(10000));
+        coronal.loadPaths({dir.path()});
+        QVERIFY(coronal.waitForSlice(10000));
+        coronal.nextPlane();
+        QVERIFY(coronal.waitForSlice(10000));
+        SliceView view;
+        view.setSize({400, 300});
+        view.setBackend(&axial);
+        view.setReference(&coronal);
+        QPointF a, b;
+        QVERIFY(view.referenceLine(a, b));
+        QCOMPARE(a.y(), 1.0);
+        QCOMPARE(b.y(), 1.0);
+        QCOMPARE(std::abs(b.x() - a.x()), 4.0);
+        // Two slices of one stack never meet.
+        view.setReference(&axial);
+        QVERIFY(!view.referenceLine(a, b));
+
+        // Following goes by place: the coronal side moves to the row the
+        // axial one is on, and back.
+        coronal.setSliceIndex(2);
+        axial.setPlane(1);
+        axial.follow(&coronal);
+        QCOMPARE(axial.sliceIndex(), 2);
+    }
+
+    void measuresAreasAndAngles() {
+        QTemporaryDir dir;
+        for (int k = 0; k < 2; ++k) {
+            QList<int> values(16, 100);
+            values[0] = values[3] = values[12] = values[15] = 1000;   // Corners, outside the circle.
+            Writer w;
+            w.add(Tag::Modality, "CS", "CT")
+                .image(4, 4, 16, 16, false)
+                .add(Tag::InstanceNumber, "IS", QByteArray::number(k + 1))
+                .add(Tag::PixelSpacing, "DS", "0.5\\0.5")
+                .pixels(le16(values));
+            QVERIFY(write(dir.filePath(QString("IM%1").arg(k)), w.file(ExplicitLE)));
+        }
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        const QString stats = backend.areaStats(0, 0, 4, 4);
+        QVERIFY2(stats.startsWith("Area 3.1 mm²"), qPrintable(stats));
+        QVERIFY2(stats.contains("Mean 100.0 HU  ·  SD 0.0"), qPrintable(stats));
+        QVERIFY2(stats.contains("Min 100 HU  ·  Max 100 HU"), qPrintable(stats));
+
+        SliceView view;
+        view.setSize({400, 400});
+        view.setBackend(&backend);
+        auto at = [&](double x, double y) { return view.toItem(x, y); };
+        // A ruler two pixels long, then an area, kept on their slice.
+        view.setTool(1);
+        view.press(at(0, 0).x(), at(0, 0).y());
+        view.drag(at(1, 0).x(), at(1, 0).y());
+        view.release(at(2, 0).x(), at(2, 0).y());
+        view.setTool(2);
+        view.press(at(0, 0).x(), at(0, 0).y());
+        view.release(at(4, 4).x(), at(4, 4).y());
+        QCOMPARE(view.measureCount(), 2);
+        QCOMPARE(view.measureTexts().first(), QString("1.0 mm"));
+        backend.step(1);
+        QCOMPARE(view.measureCount(), 0);
+        backend.step(-1);
+        QCOMPARE(view.measureCount(), 2);
+        QVERIFY(view.removeLast());
+        QCOMPARE(view.measureCount(), 1);
+
+        // An angle: one arm dragged, the other's end clicked.
+        view.setTool(3);
+        view.press(at(3, 2).x(), at(3, 2).y());
+        view.release(at(1, 2).x(), at(1, 2).y());
+        QVERIFY(view.drawing());
+        view.hover(at(1, 1).x(), at(1, 1).y());
+        view.press(at(1, 0).x(), at(1, 0).y());
+        QVERIFY(!view.drawing());
+        QCOMPARE(view.measureTexts().last(), QString("90.0°"));
+        view.clearMeasures();
+        QCOMPARE(view.measureCount(), 0);
+    }
+
+    void readsPetUptake() {
+        // 70 kg, 370 MBq of FDG at 10:00, the series corrected to 11:00.
+        Writer drug;
+        drug.add(0x00181072, "TM", "100000").add(0x00181074, "DS", "370000000").add(0x00181075, "DS", "6586.2");
+        Writer w;
+        w.add(0x00080021, "DA", "20250101")
+            .add(0x00080031, "TM", "110000")
+            .add(Tag::Modality, "CS", "PT")
+            .add(0x00101030, "DS", "70")
+            .sequence(0x00540016, {drug})
+            .add(0x00541001, "CS", "BQML")
+            .add(0x00541102, "CS", "START")
+            .image(2, 2, 16, 16, false)
+            .add(Tag::RescaleSlope, "DS", "10")
+            .pixels(le16({0, 1000, 2000, 3000}));
+        QString error;
+        const DicomFile file = DicomFile::parse(w.file(ExplicitLE), &error);
+        QVERIFY2(file.isValid(), qPrintable(error));
+        const double expected = 70000 / (370e6 * std::pow(0.5, 3600 / 6586.2));
+        QVERIFY(std::abs(suvFactor(file) - expected) < 1e-9);
+
+        QTemporaryDir dir;
+        QVERIFY(write(dir.filePath("PET1"), w.file(ExplicitLE)));
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        // 30 000 Bq/ml there makes an SUV of about 4.15.
+        const QString value = backend.valueAt(1.5, 1.5);
+        QVERIFY2(value.endsWith(QString("%1 SUV").arg(QLocale().toString(30000 * expected, 'f', 2))), qPrintable(value));
+        QVERIFY(backend.areaStats(0, 0, 2, 2).contains("SUV"));
+        // PET starts in its colours, and G goes on through the others.
+        QCOMPARE(backend.colorMapName(), QString("PET colours"));
+        QVERIFY(!backend.image().isGrayscale());
+        backend.nextColorMap();
+        QCOMPARE(backend.colorMapName(), QString("Rainbow"));
+        backend.nextColorMap();
+        QCOMPARE(backend.colorMapName(), QString());
+        QCOMPARE(backend.image().format(), QImage::Format_Grayscale8);
+    }
+
+    void anonymizesACopy() {
+        QTemporaryDir dir;
+        Writer reference;
+        reference.add(0x00081150, "UI", "1.2.840.10008.5.1.4.1.1.2").add(0x00081155, "UI", "1.2.7.1");
+        Writer w;
+        w.add(0x00080016, "UI", "1.2.840.10008.5.1.4.1.1.2")
+            .add(0x00080018, "UI", "1.2.7.2")
+            .add(Tag::StudyDate, "DA", "20250101")
+            .add(0x00080050, "SH", "ACC123")
+            .add(Tag::Modality, "CS", "CT")
+            .add(0x00080080, "LO", "Saint Elsewhere")
+            .add(0x00080090, "PN", "House^Gregory")
+            .sequence(0x00081140, {reference})
+            .add(0x00090010, "LO", "VENDOR")
+            .add(0x00091001, "LO", "secret")
+            .add(0x00100010, "PN", "Doe^Jane")
+            .add(0x00100020, "LO", "MRN42")
+            .add(0x00100030, "DA", "19700101")
+            .add(0x00100040, "CS", "F")
+            .add(0x00101030, "DS", "70")
+            .add(0x0020000D, "UI", "1.2.7")
+            .image(2, 2, 16, 12, false)
+            .add(0x0020000E, "UI", "1.2.7.3")
+            .pixels(le16({1, 2, 3, 4}));
+        QVERIFY(write(dir.filePath("IM1"), w.file(ExplicitLE)));
+        // The same patient's other image, written implicitly, as older
+        // systems do.
+        Writer implicit;
+        implicit.explicitVr = false;
+        implicit.add(0x00080016, "UI", "1.2.840.10008.5.1.4.1.1.2")
+            .add(0x00080018, "UI", "1.2.7.1")
+            .add(Tag::Modality, "CS", "CT")
+            .add(0x00100010, "PN", "Doe^Jane")
+            .add(0x00100020, "LO", "MRN42")
+            .add(0x0020000D, "UI", "1.2.7")
+            .image(2, 2, 16, 12, false)
+            .add(0x0020000E, "UI", "1.2.7.3")
+            .add(Tag::InstanceNumber, "IS", "2")
+            .pixels(le16({5, 6, 7, 8}));
+        QVERIFY(write(dir.filePath("IM2"), implicit.file("1.2.840.10008.1.2")));
+
+        const Scan scan = scanFiles(listFiles({dir.path()}, true));
+        QTemporaryDir out;
+        const Anonymize::Result result = Anonymize::copyScan(scan, out.path());
+        QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join("\n")));
+        QCOMPARE(result.written, 2);
+        QCOMPARE(result.folder, out.filePath("Anonymous scans"));
+
+        const Scan copied = scanFiles(listFiles({result.folder}, true));
+        QCOMPARE(copied.series.size(), 1);
+        QCOMPARE(copied.series.first().slices.size(), 2);
+        const DicomFile a = DicomFile::read(copied.series.first().slices[0].path);
+        const DicomFile b = DicomFile::read(copied.series.first().slices[1].path);
+        for (const DicomFile *f : {&a, &b}) {
+            QVERIFY(f->isValid());
+            QCOMPARE(f->first(0x00100010), QString("Anonymous"));
+            QCOMPARE(f->first(0x00100020), QString("ANON1"));
+            QVERIFY(!f->has(0x00080080) && !f->has(0x00091001) && !f->has(0x00090010));
+            QCOMPARE(f->first(0x00120062), QString("YES"));
+            QCOMPARE(f->first(0x00080016), QString("1.2.840.10008.5.1.4.1.1.2"));
+            QVERIFY(f->first(0x0020000D).startsWith("2.25."));
+            QCOMPARE(f->first(0x0020000D), a.first(0x0020000D));
+        }
+        QCOMPARE(a.first(0x00080050), QString());
+        QCOMPARE(a.first(0x00080090), QString());
+        QCOMPARE(a.first(0x00100030), QString());
+        QCOMPARE(a.first(0x00100040), QString("F"));
+        QCOMPARE(a.first(Tag::StudyDate), QString("20250101"));
+        // The reference to the other image still finds it, by its new UID.
+        const DicomFile &withReference = a.has(0x00081140) ? a : b;
+        const DicomFile &referenced = a.has(0x00081140) ? b : a;
+        const DicomElement *refs = withReference.element(0x00081140);
+        QVERIFY(refs && refs->items.size() == 1);
+        QString uid;
+        for (const auto &e : refs->items.first())
+            if (e.tag == 0x00081155)
+                uid = QString::fromLatin1(e.value).remove(QChar('\0')).trimmed();
+        QCOMPARE(uid, referenced.first(0x00080018));
+        // The pictures are untouched.
+        const Frame pixels = decodeFrame(withReference, 0);
+        QCOMPARE(pixels.mono, (QVector<quint16>{1, 2, 3, 4}));
+        QCOMPARE(decodeFrame(referenced, 0).mono, (QVector<quint16>{5, 6, 7, 8}));
+        QCOMPARE(referenced.transferSyntax(), QString("1.2.840.10008.1.2"));
+
+        // Ultrasound may have the name in the picture, which is said.
+        Writer us;
+        us.add(Tag::Modality, "CS", "US");
+        QVERIFY(Anonymize::mayShowDetails(DicomFile::parse(us.file(ExplicitLE))));
+        QVERIFY(!Anonymize::mayShowDetails(a));
+
+        // And from the command line, with what it did as JSON.
+        const QString app = QCoreApplication::applicationDirPath() + "/dicolens";
+        QProcess p;
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        env.insert("QT_QPA_PLATFORM", "offscreen");
+        p.setProcessEnvironment(env);
+        p.start(app, {"anonymize", dir.path(), "--out", out.path(), "--json"});
+        QVERIFY(p.waitForFinished(20000));
+        QCOMPARE(p.exitCode(), 0);
+        const QJsonObject json = QJsonDocument::fromJson(p.readAllStandardOutput()).object();
+        QCOMPARE(json.value("written").toInt(), 2);
+        QCOMPARE(json.value("folder").toString(), QFileInfo(out.filePath("Anonymous scans 2")).absoluteFilePath());
+    }
+
+    void opensZipFiles() {
+        const QString bsdtar = QStandardPaths::findExecutable("bsdtar");
+        QVERIFY2(!bsdtar.isEmpty(), "bsdtar (libarchive) is needed");
+        QTemporaryDir dir;
+        QVERIFY(QDir(dir.path()).mkpath("cd/DICOM"));
+        QVERIFY(writeVolume(dir.filePath("cd/DICOM")));
+        const QString zip = dir.filePath("scans.zip");
+        QProcess pack;
+        pack.start(bsdtar, {"-a", "-c", "-f", zip, "-C", dir.filePath("cd"), "DICOM"});
+        QVERIFY(pack.waitForFinished(20000) && pack.exitCode() == 0);
+        QVERIFY(Archive::isZip(zip));
+        QVERIFY(!Archive::isZip(dir.filePath("cd/DICOM/1.2.9.1-0")));
+
+        Backend backend(nullptr);
+        backend.loadPaths({zip});
+        QVERIFY(backend.waitForSlice(20000));
+        QCOMPARE(backend.sliceCount(), 5);
+        const QString unpacked = backend.scan().series.first().slices.first().path;
+        QVERIFY(!unpacked.startsWith(dir.path()));
+        Archive::cleanUp(true);
+        QVERIFY(!QFileInfo::exists(unpacked));
+    }
+
+    void savesTheSeriesAsAVideo() {
+        QVERIFY2(!QStandardPaths::findExecutable("ffprobe").isEmpty(), "ffmpeg is needed");
+        QTemporaryDir dir;
+        QVERIFY(writeVolume(dir.path()));
+        FakePicker picker;
+        picker.answer = dir.filePath("loop.mp4");
+        Backend backend(&picker);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        while (backend.decodedCount() < backend.sliceCount())
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+        backend.nextPlane();   // The coronal planes, 3 of them.
+        QVERIFY(backend.waitForSlice(10000));
+        backend.exportVideo();
+        QCOMPARE(picker.asked, FilePicker::Purpose::SaveVideo);
+        QTRY_VERIFY_WITH_TIMEOUT(backend.notice().startsWith("Saved") || !backend.problem().isEmpty(), 20000);
+        QVERIFY2(backend.problem().isEmpty(), qPrintable(backend.problem()));
+        QProcess probe;
+        probe.start("ffprobe", {"-v", "error", "-count_frames", "-select_streams", "v:0", "-show_entries",
+                                "stream=nb_read_frames,width,height", "-of", "csv=p=0", picker.answer});
+        QVERIFY(probe.waitForFinished(20000));
+        // 4 wide; 5 tall at 3 mm a pixel, shown 15 tall, padded even.
+        QCOMPARE(QString::fromUtf8(probe.readAllStandardOutput()).trimmed(), QString("4,16,3"));
+    }
+
     void backendSaysWhenNothingIsThere() {
         QTemporaryDir dir;
         QVERIFY(write(dir.filePath("notes.txt"), "not a scan"));
@@ -1504,6 +1889,7 @@ private slots:
                     .add(Tag::InstanceNumber, "IS", QByteArray::number(i + 1))
                     .add(Tag::ImagePosition, "DS", "0\\0\\" + QByteArray::number(i * 5))
                     .add(Tag::ImageOrientation, "DS", "1\\0\\0\\0\\1\\0")
+                    .add(Tag::PixelSpacing, "DS", "1\\1")
                     .pixels(le16({0, 1, 2, 3}));
                 QVERIFY(write(scans.filePath(QString("IM%1-%2").arg(s).arg(i)), w.file(ExplicitLE)));
             }
@@ -1536,6 +1922,36 @@ private slots:
         QTest::keyClick(window, 'R');
         QCOMPARE(backend.rotation(), 0);
         QVERIFY(!backend.flipped());
+
+        // V cuts the series the other ways and back; B makes slabs of it.
+        QTest::keyClick(window, 'V');
+        QCOMPARE(backend.plane(), 1);
+        QTRY_VERIFY(backend.frameReady());
+        QTest::keyClick(window, 'V');
+        QTest::keyClick(window, 'V');
+        QCOMPARE(backend.plane(), 0);
+        QTest::keyClick(window, 'B');
+        QCOMPARE(backend.slabName(), QString("MIP 10 mm"));
+        QTest::keyClick(window, 'B', Qt::ShiftModifier);
+        QCOMPARE(backend.slabName(), QString("MIP 20 mm"));
+        for (int i = 0; i < 3; ++i)
+            QTest::keyClick(window, 'B');
+        QCOMPARE(backend.slabName(), QString());
+        QTest::keyClick(window, 'G');
+        QCOMPARE(backend.colorMapName(), QString("Hot iron"));
+        QTest::keyClick(window, 'R');
+
+        // M, E, and Shift+M pick the measuring tools; Esc puts them down.
+        auto *view = qobject_cast<SliceView *>(item(window->contentItem(), "view"));
+        QVERIFY(view);
+        QTest::keyClick(window, 'E');
+        QCOMPARE(view->tool(), 2);
+        QTest::keyClick(window, 'M', Qt::ShiftModifier);
+        QCOMPARE(view->tool(), 3);
+        QTest::keyClick(window, 'M');
+        QCOMPARE(view->tool(), 1);
+        QTest::keyClick(window, Qt::Key_Escape);
+        QCOMPARE(view->tool(), 0);
         QTest::keyClick(window, Qt::Key_Home);
 
         // C puts the next series beside this one, following it; Tab and the

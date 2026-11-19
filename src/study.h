@@ -57,6 +57,10 @@ struct Series {
     double orientation[6] = {1, 0, 0, 0, 1, 0};
     double frameRate = 0;         // Frames a second, when the file says.
     QList<Region> regions;        // Ultrasound's calibrated areas.
+    QString frame;                // Frame of Reference UID, shared by series that line up.
+    // PET values times this are standardised uptake values (body weight),
+    // or 0 when the file lacks what it takes.
+    double suv = 0;
     QList<Slice> slices;
 
     // Patient directions at the image's edges: left, right, top, bottom
@@ -72,6 +76,7 @@ struct Scan {
     int skipped = 0;          // Files that weren't DICOM images or reports, such as DICOMDIR.
     QList<Report> reports;    // In study order, then by date.
     QList<Mark> marks;        // From presentation states, for the images they name.
+    QStringList annotations;  // The presentation states' files.
     QStringList unreadable;   // DICOM files that couldn't be read, with the reason.
 };
 
@@ -86,3 +91,11 @@ Scan scanFiles(const QStringList &files, const std::function<void(int done, int 
 // Adds one parsed file to a scan. Exposed for tests.
 void addFile(Scan &scan, const DicomFile &file);
 void sortScan(Scan &scan);
+
+// Patient directions at an image's left, right, top, and bottom edges, for
+// an image whose rows and columns run along these directions.
+QStringList edgeLabels(const double *row, const double *column);
+
+// The factor from a PET image's values to SUVbw: the patient's weight over
+// the injected dose, decayed to the time the values are corrected to.
+double suvFactor(const DicomFile &file);

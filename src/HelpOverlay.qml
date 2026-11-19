@@ -12,7 +12,8 @@ Rectangle {
     readonly property var groups: [
         [qsTr("Open"), [["O", qsTr("Open files")], ["Shift+O", qsTr("Open a folder or a CD")],
                         [qsTr("Drop"), qsTr("Drop files or folders on the window")],
-                        ["Ctrl+E", qsTr("Save the image as a PNG")], ["Ctrl+C", qsTr("Copy the image")],
+                        ["Ctrl+E", qsTr("Save the image as a PNG")], ["Ctrl+Shift+E", qsTr("Save the series as a video")],
+                        ["Ctrl+C", qsTr("Copy the image")], ["Ctrl+Shift+S", qsTr("Save an anonymous copy of the scans")],
                         ["?", qsTr("This list")], ["Q", qsTr("Quit")]]],
         [qsTr("Move through"), [[qsTr("Wheel"), qsTr("Previous / next slice")], ["↑ ↓", qsTr("Previous / next slice")],
                                 ["PgUp PgDn", qsTr("Ten slices back / on")], ["Home End", qsTr("First / last slice")],
@@ -20,11 +21,11 @@ Rectangle {
         [qsTr("Look"), [[qsTr("Drag"), qsTr("Contrast across, brightness down")],
                         ["1 2 3 4", qsTr("CT windows: brain, soft tissue, lung, bone")],
                         ["0", qsTr("The file's own window")], ["A", qsTr("The image's full range")],
-                        ["I", qsTr("Invert")], ["Ctrl+Z", qsTr("Undo a window change")], ["Ctrl+Shift+Z", qsTr("Redo")]]],
+                        ["I", qsTr("Invert")], ["G", qsTr("Colour scales, for PET")], ["Ctrl+Z", qsTr("Undo a window change")], ["Ctrl+Shift+Z", qsTr("Redo")]]],
         [qsTr("View"), [[qsTr("Ctrl+wheel"), qsTr("Zoom about the pointer")], [qsTr("Right-drag"), qsTr("Zoom")],
                         [qsTr("Middle-drag"), qsTr("Move the image (or Shift+drag)")], ["F", qsTr("Fit to the window")],
                         ["] [", qsTr("Turn right / left")], ["X Y", qsTr("Flip left to right / top to bottom")],
-                        ["R", qsTr("Reset the view and window")], ["M", qsTr("Measure: drag a ruler")],
+                        ["R", qsTr("Reset the view and window")],
                         ["N", qsTr("Show or hide marks left on the image")],
                         ["S", qsTr("Show or hide the series")], ["T", qsTr("Show or hide the tags")],
                         ["Ctrl+F", qsTr("Search the tags")], ["H", qsTr("Hide or show the patient's details")]]],
@@ -32,6 +33,10 @@ Rectangle {
                                     ["L", qsTr("Scroll the sides together or apart")],
                                     ["P", qsTr("Read the reports that came with the scans")],
                                     ["← →", qsTr("Other reports, while reading")]]],
+        [qsTr("Measure and cut"), [["M", qsTr("Ruler")], ["E", qsTr("Area, with its values")], ["Shift+M", qsTr("Angle")],
+                                   ["Delete", qsTr("Remove the last measurement")], ["Shift+Delete", qsTr("Remove this slice's measurements")],
+                                   ["V", qsTr("Cut the series another way")], ["B", qsTr("Slabs: MIP, MinIP, average")],
+                                   ["Shift+B", qsTr("Slab thickness")]]],
     ]
 
     Flickable {
@@ -44,16 +49,17 @@ Rectangle {
 
         RowLayout {
             id: grid
-            readonly property int count: help.width > 1100 ? 2 : 1
+            readonly property int count: help.width > 1180 ? 3 : help.width > 760 ? 2 : 1
             readonly property real columnWidth: (help.width - 64 - (count - 1) * spacing) / count
             x: 32
             y: 40
             width: help.width - 64
-            spacing: 48
+            spacing: count === 3 ? 36 : 48
 
-            // Two columns put the long View group beside all the others.
+            // The groups balanced across the columns there's room for.
             Repeater {
-                model: grid.count === 2 ? [[0, 2, 4], [1, 3]] : [[0, 1, 2, 3, 4]]
+                model: grid.count === 3 ? [[0, 1], [2, 5], [3, 4]]
+                     : grid.count === 2 ? [[0, 2, 5], [1, 3, 4]] : [[0, 1, 2, 3, 4, 5]]
                 delegate: ColumnLayout {
                     id: column
                     required property var modelData
@@ -88,7 +94,7 @@ Rectangle {
                                         color: win.text
                                         font.family: "monospace"
                                         font.bold: true
-                                        Layout.preferredWidth: 150
+                                        Layout.preferredWidth: grid.count === 3 ? 118 : 150
                                         Layout.alignment: Qt.AlignTop
                                         wrapMode: Text.Wrap
                                     }

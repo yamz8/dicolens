@@ -11,6 +11,7 @@
 #include <QTimer>
 #include <QUrl>
 
+#include "archive.h"
 #include "backend.h"
 #include "cli.h"
 #include "portalfilepicker.h"
@@ -42,8 +43,10 @@ int main(int argc, char *argv[]) {
     app.setApplicationVersion("0.3.0");
 
     QStringList open;
-    if (const int code = runCli(app.arguments(), open); code >= 0)
+    if (const int code = runCli(app.arguments(), open); code >= 0) {
+        Archive::cleanUp(true);
         return code;
+    }
 
     // Matches the window to dicolens.desktop, so the compositor (Wayland app_id)
     // and the launcher pick up the installed icon. The compiled-in copy covers
@@ -115,5 +118,8 @@ int main(int argc, char *argv[]) {
         });
     }
 
-    return app.exec();
+    Archive::cleanUp(false);
+    const int status = app.exec();
+    Archive::cleanUp(true);
+    return status;
 }

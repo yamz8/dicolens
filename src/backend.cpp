@@ -1,5 +1,8 @@
 #include "backend.h"
 
+#include "anonymize.h"
+#include "archive.h"
+
 #include <QClipboard>
 #include <QCoreApplication>
 #include <QDate>
@@ -7,6 +10,9 @@
 #include <QDesktopServices>
 #include <QDir>
 #include <QElapsedTimer>
+#include <QEventLoopLocker>
+#include <QPointer>
+#include <QProcess>
 #include <QFileInfo>
 #include <QGuiApplication>
 #include <QLocale>
@@ -15,7 +21,10 @@
 #include <QStandardPaths>
 #include <QTime>
 #include <algorithm>
+#include <cerrno>
 #include <cmath>
+#include <cstdio>
+#include <cstring>
 
 // What one series' decoding shares between the pool's threads: which
 // slices are taken, which one the viewer wants next, and the multi-frame
@@ -119,6 +128,54 @@ QString sex(const QString &value) {
     return {};
 }
 
+// Colour scales for grey values: hot iron, rainbow, and the usual PET one.
+QRgb scale(int map, int g) {
+    const double t = g / 255.0;
+    auto mix = [](const QList<QPair<double, QColor>> &stops, double t) {
+        for (int i = 1; i < stops.size(); ++i)
+            if (t <= stops[i].first) {
+                const double f = (t - stops[i - 1].first) / (stops[i].first - stops[i - 1].first);
+                const QColor &a = stops[i - 1].second, &b = stops[i].second;
+                return qRgb(qRound(a.red() + (b.red() - a.red()) * f), qRound(a.green() + (b.green() - a.green()) * f),
+                            qRound(a.blue() + (b.blue() - a.blue()) * f));
+            }
+        return stops.last().second.rgb();
+    };
+    static const QList<QPair<double, QColor>> hot{{0, Qt::black}, {0.4, QColor(200, 0, 0)}, {0.75, QColor(255, 200, 0)}, {1, Qt::white}};
+    static const QList<QPair<double, QColor>> rainbow{
+        {0, QColor(0, 0, 80)}, {0.2, QColor(0, 0, 255)}, {0.4, QColor(0, 255, 255)}, {0.6, QColor(0, 255, 0)},
+        {0.8, QColor(255, 255, 0)}, {1, QColor(255, 0, 0)}};
+    static const QList<QPair<double, QColor>> pet{
+        {0, Qt::black}, {0.2, QColor(0, 0, 160)}, {0.4, QColor(120, 0, 180)}, {0.6, QColor(230, 0, 60)},
+        {0.8, QColor(255, 170, 0)}, {1, Qt::white}};
+    return mix(map == 1 ? hot : map == 2 ? pet : rainbow, t);
+}
+
+QImage colorize(const QImage &grey, int map) {
+    static QHash<int, QVector<QRgb>> tables;
+    if (!tables.contains(map)) {
+        QVector<QRgb> table(256);
+        for (int g = 0; g < 256; ++g)
+            table[g] = scale(map, g);
+        tables.insert(map, table);
+    }
+    QImage indexed = grey.copy();
+    indexed.reinterpretAsFormat(QImage::Format_Indexed8);
+    indexed.setColorTable(tables.value(map));
+    return indexed.convertToFormat(QImage::Format_RGB32);
+}
+
+QTransform turn(const QSizeF &size, int rotation, bool flipped) {
+    const bool sideways = rotation % 2;
+    QTransform t;
+    t.translate((sideways ? size.height() : size.width()) / 2, (sideways ? size.width() : size.height()) / 2);
+    if (flipped)
+        t.scale(-1, 1);
+    t.rotate(90 * rotation);
+    t.translate(-size.width() / 2, -size.height() / 2);
+    return t;
+}
+
 QImage trueShape(const QImage &image, double aspect) {
     if (image.isNull() || std::abs(aspect - 1) < 0.01)
         return image;
@@ -142,7 +199,7 @@ Backend::Backend(FilePicker *picker, QObject *parent) : QObject(parent), m_picke
     connect(&m_play, &QTimer::timeout, this, [this] {
         // Waits for the next slice rather than showing a gap.
         const int next = (m_sliceIndex + 1) % std::max(1, sliceCount());
-        if (next < m_decoded.size() && m_decoded[next])
+        if (built() || (next < m_decoded.size() && m_decoded[next]))
             setSliceIndex(next);
     });
     if (m_picker) {
@@ -153,6 +210,14 @@ Backend::Backend(FilePicker *picker, QObject *parent) : QObject(parent), m_picke
             m_asked = false;
             if (purpose == FilePicker::Purpose::SaveImage) {
                 saveImage(urls.first().toLocalFile());
+                return;
+            }
+            if (purpose == FilePicker::Purpose::SaveVideo) {
+                saveVideo(urls.first().toLocalFile());
+                return;
+            }
+            if (purpose == FilePicker::Purpose::SaveFolder) {
+                saveAnonymous(urls.first().toLocalFile());
                 return;
             }
             QVariantList list;
@@ -221,7 +286,7 @@ void Backend::loadPaths(const QStringList &paths) {
     QString focus;
     QStringList roots = existing;
     bool recursive = true;
-    if (existing.size() == 1 && QFileInfo(existing.first()).isFile()) {
+    if (existing.size() == 1 && QFileInfo(existing.first()).isFile() && !Archive::isZip(existing.first())) {
         focus = existing.first();
         roots = {QFileInfo(focus).absolutePath()};
         recursive = false;
@@ -239,7 +304,27 @@ void Backend::loadPaths(const QStringList &paths) {
     emit scanProgress();
     setProblem({});
 
-    m_pool.start([this, roots, recursive, focus, cancel, generation] {
+    m_pool.start([this, roots, recursive, focus, cancel, generation]() mutable {
+        // A zip is unpacked and read as the folder it holds.
+        for (QString &root : roots)
+            if (QFileInfo(root).isFile() && Archive::isZip(root)) {
+                QString error;
+                const QString dir = Archive::unpack(root, &error);
+                if (dir.isEmpty()) {
+                    QMetaObject::invokeMethod(this, [this, error, generation] {
+                        if (generation != m_scanGeneration)
+                            return;
+                        m_scanning = false;
+                        emit scanningChanged();
+                        setProblem(tr(error.toUtf8().constData()));
+                    }, Qt::QueuedConnection);
+                    return;
+                }
+                if (root == focus)
+                    focus.clear();
+                root = dir;
+                recursive = true;
+            }
         const QStringList files = listFiles(roots, recursive);
         QElapsedTimer throttle;
         throttle.start();
@@ -372,25 +457,28 @@ void Backend::follow(Backend *other) {
     const Series *theirs = other ? other->currentSeries() : nullptr;
     if (!mine || !theirs || mine->slices.isEmpty() || theirs->slices.isEmpty())
         return;
-    const Slice &at = theirs->slices.value(other->m_sliceIndex);
 
-    // The slice at the same place in the patient, when both series cut
-    // the body the same way; otherwise as far through the series.
-    auto normal = [](const Series &s, double *n) {
-        const double *o = s.orientation;
-        n[0] = o[1] * o[5] - o[2] * o[4];
-        n[1] = o[2] * o[3] - o[0] * o[5];
-        n[2] = o[0] * o[4] - o[1] * o[3];
-    };
+    // The picture at the same place in the patient, when both cut the body
+    // the same way; otherwise as far through.
+    const ImagePlane there = other->imagePlane(), here = imagePlane();
     double a[3], b[3];
-    normal(*mine, a);
-    normal(*theirs, b);
-    const bool parallel = mine->hasOrientation && theirs->hasOrientation
-                          && std::abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) > 0.95;
+    here.normal(a);
+    there.normal(b);
+    const bool parallel = here.valid && there.valid && std::abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) > 0.95;
+    // Planes that cross in one body stay put: the reference line shows
+    // where the other is.
+    if (!parallel && here.valid && there.valid && !here.frame.isEmpty() && here.frame == there.frame)
+        return;
     int best = -1;
-    double nearest = 0;
-    if (parallel && at.hasPosition) {
-        const double target = at.position[0] * a[0] + at.position[1] * a[1] + at.position[2] * a[2];
+    if (parallel && m_plane != 0) {
+        const int f = m_cut.fixed;
+        double along = 0;
+        for (int i = 0; i < 3; ++i)
+            along += (there.origin[i] - m_volume.origin[i]) * m_volume.axis[f][i];
+        best = std::clamp(int(std::lround(along / m_volume.spacing[f])), 0, sliceCount() - 1);
+    } else if (parallel) {
+        const double target = there.origin[0] * a[0] + there.origin[1] * a[1] + there.origin[2] * a[2];
+        double nearest = 0;
         for (int i = 0; i < mine->slices.size(); ++i) {
             const Slice &s = mine->slices[i];
             if (!s.hasPosition)
@@ -403,8 +491,8 @@ void Backend::follow(Backend *other) {
         }
     }
     if (best < 0) {
-        const double fraction = theirs->slices.size() > 1 ? double(other->m_sliceIndex) / (theirs->slices.size() - 1) : 0;
-        best = qRound(fraction * (mine->slices.size() - 1));
+        const double fraction = other->sliceCount() > 1 ? double(other->m_sliceIndex) / (other->sliceCount() - 1) : 0;
+        best = int(std::lround(fraction * (sliceCount() - 1)));
     }
     setSliceIndex(best);
 }
@@ -454,6 +542,8 @@ const Series *Backend::currentSeries() const {
 }
 
 const Frame *Backend::currentFrame() const {
+    if (built())
+        return m_built.isNull() && m_buildError.isEmpty() ? nullptr : &m_built;
     if (m_sliceIndex < 0 || m_sliceIndex >= m_frames.size() || !m_decoded.value(m_sliceIndex))
         return nullptr;
     return &m_frames[m_sliceIndex];
@@ -461,15 +551,142 @@ const Frame *Backend::currentFrame() const {
 
 int Backend::sliceCount() const {
     const Series *s = currentSeries();
+    if (s && m_plane != 0)
+        return m_cut.count(m_volume);
     return s ? s->slices.size() : 0;
 }
 
+int Backend::acquiredSlice() const {
+    return m_plane != 0 ? m_cursor[2] : m_sliceIndex;
+}
+
+void Backend::build() {
+    m_built = Frame();
+    m_buildError.clear();
+    // Every slice goes into the picture, so it waits for them all.
+    if (!built() || !m_volume.valid || m_decodedCount < m_frames.size())
+        return;
+    const Cut cut = m_plane != 0 ? m_cut : cutAcross(m_volume, 2);
+    int half = 0;
+    Projection projection = Projection::Max;
+    if (m_slab != 0) {
+        half = std::max(1, int(std::lround(m_slabMm / m_volume.spacing[cut.fixed] / 2)));
+        projection = m_slab == 1 ? Projection::Max : m_slab == 2 ? Projection::Min : Projection::Mean;
+    }
+    m_built = reformat(m_volume, cut, m_sliceIndex, m_frames, half, projection);
+    if (m_built.isNull())
+        m_buildError = QT_TRANSLATE_NOOP("dicolens", "Some slices can't be read, so this picture can't be made");
+}
+
+ImagePlane Backend::imagePlane() const {
+    const Series *s = currentSeries();
+    if (!s)
+        return {};
+    if (m_plane != 0)
+        return cutPlane(m_volume, m_cut, m_sliceIndex);
+    return slicePlane(*s, m_sliceIndex);
+}
+
+QString Backend::planeName() const {
+    const ImagePlane p = imagePlane();
+    return p.valid ? tr(::planeName(p)) : QString();
+}
+
+QString Backend::slabName() const {
+    const QString mm = number(m_slabMm, 0);
+    switch (m_slab) {
+    case 1: return tr("MIP %1 mm").arg(mm);
+    case 2: return tr("MinIP %1 mm").arg(mm);
+    case 3: return tr("Average %1 mm").arg(mm);
+    }
+    return {};
+}
+
+void Backend::nextPlane() {
+    if (!currentSeries())
+        return;
+    if (!m_volume.valid) {
+        flash(tr("This series can't be cut another way"));
+        return;
+    }
+    setPlane((m_plane + 1) % 3);
+    flash(planeName());
+}
+
+void Backend::setPlane(int plane) {
+    if (plane < 0 || plane > 2 || plane == m_plane || (plane != 0 && !m_volume.valid))
+        return;
+    stop();
+    // The planes meet at one point, which stays where it is.
+    if (m_plane != 0)
+        m_cursor[m_cut.fixed] = m_sliceIndex;
+    else
+        m_cursor[2] = m_sliceIndex;
+    m_plane = plane;
+    // An axial stack's rows make coronal planes, and its columns sagittal.
+    m_cut = cutAcross(m_volume, plane == 0 ? 2 : plane == 1 ? 1 : 0);
+    m_sliceIndex = std::clamp(m_cursor[m_cut.fixed], 0, std::max(0, sliceCount() - 1));
+    m_rotation = 0;
+    m_flipped = false;
+    m_image = QImage();
+    if (m_job)
+        m_job->wanted = acquiredSlice();
+    build();
+    updateInfo();
+    emit sliceChanged();
+    emit orientationChanged();
+    showSlice();
+    updateTags();
+}
+
+void Backend::nextSlab() {
+    if (!currentSeries())
+        return;
+    if (!m_volume.valid) {
+        flash(tr("This series can't be made into slabs"));
+        return;
+    }
+    m_slab = (m_slab + 1) % 4;
+    build();
+    updateInfo();
+    emit sliceChanged();
+    emit orientationChanged();
+    showSlice();
+    flash(m_slab == 0 ? tr("Thin slices") : slabName());
+}
+
+void Backend::nextSlabThickness() {
+    if (m_slab == 0) {
+        nextSlab();
+        return;
+    }
+    static const double sizes[] = {5, 10, 20, 40};
+    double next = sizes[0];
+    for (double s : sizes)
+        if (s > m_slabMm + 0.5) {
+            next = s;
+            break;
+        }
+    if (m_slabMm >= 40)
+        next = sizes[0];
+    m_slabMm = next;
+    build();
+    updateInfo();
+    emit orientationChanged();
+    showSlice();
+    flash(slabName());
+}
+
 bool Backend::frameReady() const {
+    if (built() && !m_buildError.isEmpty())
+        return false;
     const Frame *f = currentFrame();
     return f && f->error.isEmpty() && !f->isNull();
 }
 
 QString Backend::frameError() const {
+    if (built() && !m_buildError.isEmpty())
+        return tr(m_buildError.toUtf8().constData());
     const Frame *f = currentFrame();
     if (!f || f->error.isEmpty())
         return {};
@@ -484,6 +701,8 @@ bool Backend::color() const {
 
 double Backend::pixelAspect() const {
     const Series *s = currentSeries();
+    if (s && m_plane != 0)
+        return m_volume.spacing[m_cut.horizontal] / m_volume.spacing[m_cut.vertical];
     return s ? s->pixelAspect() : 1.0;
 }
 
@@ -492,6 +711,10 @@ QStringList Backend::edges() const {
     if (!s)
         return {};
     QStringList e = s->edgeLabels();   // Left, right, top, bottom.
+    if (m_plane != 0) {
+        const ImagePlane p = imagePlane();
+        e = ::edgeLabels(p.row, p.column);
+    }
     if (e.size() != 4)
         return e;
     // Each clockwise turn brings the left edge to the top.
@@ -503,14 +726,7 @@ QStringList Backend::edges() const {
 }
 
 QTransform Backend::orientation(const QSizeF &size) const {
-    const bool sideways = m_rotation % 2;
-    QTransform t;
-    t.translate((sideways ? size.height() : size.width()) / 2, (sideways ? size.width() : size.height()) / 2);
-    if (m_flipped)
-        t.scale(-1, 1);
-    t.rotate(90 * m_rotation);
-    t.translate(-size.width() / 2, -size.height() / 2);
-    return t;
+    return turn(size, m_rotation, m_flipped);
 }
 
 void Backend::rotate(int quarterTurns) {
@@ -562,7 +778,8 @@ QImage Backend::overlay() const {
 QList<Mark> Backend::marks() const {
     QList<Mark> out;
     const Series *s = currentSeries();
-    if (!s || m_scan.marks.isEmpty())
+    // Marks belong to a slice, not to a plane cut across many.
+    if (!s || m_scan.marks.isEmpty() || m_plane != 0)
         return out;
     const Slice &slice = s->slices.value(m_sliceIndex);
     if (slice.sop.isEmpty())
@@ -708,6 +925,19 @@ void Backend::selectSeries(int index) {
     // A turn suits one series; the next is shown as it was taken.
     m_rotation = 0;
     m_flipped = false;
+    // PET starts in its colours; the rest in grey.
+    m_colorMap = m_scan.series[index].modality == "PT" ? 2 : 0;
+    emit windowChanged();
+    const Series &chosen = m_scan.series[index];
+    m_volume = makeVolume(chosen);
+    m_plane = 0;
+    m_slab = 0;
+    m_cut = Cut();
+    m_cursor[0] = chosen.columns / 2;
+    m_cursor[1] = chosen.rows / 2;
+    m_cursor[2] = 0;
+    m_built = Frame();
+    m_buildError.clear();
     startDecoding();
     updateInfo();
     emit sliceChanged();
@@ -794,6 +1024,13 @@ void Backend::frameDecoded(int generation, int index, const Frame &frame) {
         ++m_decodedCount;
         emit decodedChanged();
     }
+    if (built()) {
+        if (m_decodedCount == m_frames.size()) {
+            build();
+            showSlice();
+        }
+        return;
+    }
     if (index == m_sliceIndex)
         showSlice();
 }
@@ -806,8 +1043,13 @@ void Backend::setSliceIndex(int index) {
     if (index == m_sliceIndex && m_seriesIndex >= 0 && !m_image.isNull())
         return;
     m_sliceIndex = index;
+    if (m_plane != 0)
+        m_cursor[m_cut.fixed] = index;
+    else
+        m_cursor[2] = index;
     if (m_job)
-        m_job->wanted = index;
+        m_job->wanted = acquiredSlice();
+    build();
     updateInfo();
     emit sliceChanged();
     showSlice();
@@ -838,9 +1080,34 @@ void Backend::showSlice() {
 
 void Backend::rerender() {
     // Until the slice arrives, the last picture stays up rather than a gap.
-    if (const Frame *frame = currentFrame(); frame && frame->error.isEmpty())
+    if (const Frame *frame = currentFrame(); frame && frame->error.isEmpty()) {
         m_image = render(*frame, m_center, m_width, m_inverted);
+        if (m_colorMap != 0 && m_image.format() == QImage::Format_Grayscale8)
+            m_image = colorize(m_image, m_colorMap);
+    }
     emit imageChanged();
+}
+
+QString Backend::colorMapName() const {
+    switch (m_colorMap) {
+    case 1: return tr("Hot iron");
+    case 2: return tr("PET colours");
+    case 3: return tr("Rainbow");
+    }
+    return {};
+}
+
+void Backend::nextColorMap() {
+    if (!hasImages())
+        return;
+    if (color()) {
+        flash(tr("Colour scales are for grey images"));
+        return;
+    }
+    m_colorMap = (m_colorMap + 1) % 4;
+    emit windowChanged();
+    rerender();
+    flash(m_colorMap == 0 ? tr("Grey") : colorMapName());
 }
 
 QString Backend::windowName() const {
@@ -972,9 +1239,49 @@ QString Backend::valueAt(double x, double y) const {
     const bool whole = frame->slope == std::floor(frame->slope) && frame->intercept == std::floor(frame->intercept);
     const QString value = number(v, whole ? 0 : 2);
     const Series *s = currentSeries();
+    if (s && s->suv > 0)
+        return tr("%1   %2 SUV").arg(where, number(shownValue(v), 2));
     if (s && s->modality == "CT")
         return tr("%1   %2 HU").arg(where, value);
     return QStringLiteral("%1   %2").arg(where, value);
+}
+
+bool Backend::spacingAt(double x, double y, double &across, double &down) const {
+    const Series *s = currentSeries();
+    if (!s)
+        return false;
+    if (m_plane != 0) {
+        across = m_volume.spacing[m_cut.horizontal];
+        down = m_volume.spacing[m_cut.vertical];
+        return true;
+    }
+    if (s->hasSpacing) {
+        across = s->spacing[1];
+        down = s->spacing[0];
+        return true;
+    }
+    // Ultrasound calibrates the picture's areas, not the whole frame.
+    for (const auto &r : s->regions)
+        if (r.contains(x, y)) {
+            across = r.deltaX;
+            down = r.deltaY;
+            return true;
+        }
+    return false;
+}
+
+double Backend::shownValue(double value) const {
+    const Series *s = currentSeries();
+    return s && s->suv > 0 ? value * s->suv : value;
+}
+
+QString Backend::unit() const {
+    const Series *s = currentSeries();
+    if (!s)
+        return {};
+    if (s->suv > 0)
+        return QStringLiteral("SUV");
+    return s->modality == "CT" ? QStringLiteral("HU") : QString();
 }
 
 QString Backend::distance(double x1, double y1, double x2, double y2) const {
@@ -982,14 +1289,66 @@ QString Backend::distance(double x1, double y1, double x2, double y2) const {
     if (!s)
         return {};
     auto length = [&](double mm) { return mm >= 100 ? tr("%1 cm").arg(number(mm / 10, 1)) : tr("%1 mm").arg(number(mm, 1)); };
-    if (s->hasSpacing)
-        return length(std::hypot((x2 - x1) * s->spacing[1], (y2 - y1) * s->spacing[0]));
-    // Ultrasound calibrates the picture's area, not the whole frame: a
+    double across, down;
+    if ((m_plane != 0 || s->hasSpacing) && spacingAt(x1, y1, across, down))
+        return length(std::hypot((x2 - x1) * across, (y2 - y1) * down));
+    // Ultrasound calibrates the picture's areas, not the whole frame: a
     // line inside one area has a length; across areas, or outside, none.
     for (const auto &r : s->regions)
         if (r.contains(x1, y1) && r.contains(x2, y2))
             return length(std::hypot((x2 - x1) * r.deltaX, (y2 - y1) * r.deltaY));
     return tr("%1 px").arg(number(std::hypot(x2 - x1, y2 - y1), 0));
+}
+
+QString Backend::areaStats(double x, double y, double width, double height) const {
+    const Frame *frame = currentFrame();
+    if (!frame || frame->isNull() || !frame->error.isEmpty() || width <= 0 || height <= 0)
+        return {};
+    const double cx = x + width / 2, cy = y + height / 2, rx = width / 2, ry = height / 2;
+    QString area;
+    if (double across, down; spacingAt(cx, cy, across, down)) {
+        const double mm2 = M_PI * rx * ry * across * down;
+        area = mm2 >= 100 ? tr("%1 cm²").arg(number(mm2 / 100, 2)) : tr("%1 mm²").arg(number(mm2, 1));
+    } else {
+        area = tr("%1 px²").arg(number(M_PI * rx * ry, 0));
+    }
+    QStringList lines{tr("Area %1").arg(area)};
+    if (frame->isColor())
+        return lines.join('\n');
+
+    // Pixels whose centres fall inside the ellipse.
+    double sum = 0, squares = 0, low = 0, high = 0;
+    qint64 count = 0;
+    const int x0 = std::max(0, int(std::floor(x))), x1 = std::min(frame->width - 1, int(std::ceil(x + width)));
+    const int y0 = std::max(0, int(std::floor(y))), y1 = std::min(frame->height - 1, int(std::ceil(y + height)));
+    for (int j = y0; j <= y1; ++j)
+        for (int i = x0; i <= x1; ++i) {
+            const double dx = (i + 0.5 - cx) / rx, dy = (j + 0.5 - cy) / ry;
+            if (dx * dx + dy * dy > 1)
+                continue;
+            const double v = shownValue(frame->value(i, j));
+            if (count == 0)
+                low = high = v;
+            low = std::min(low, v);
+            high = std::max(high, v);
+            sum += v;
+            squares += v * v;
+            ++count;
+        }
+    if (count == 0)
+        return lines.join('\n');
+    const double mean = sum / count;
+    const double sd = std::sqrt(std::max(0.0, squares / count - mean * mean));
+    const QString u = unit();
+    const int decimals = u == "SUV" ? 2 : (u == "HU" || (frame->slope == 1 && frame->intercept == std::floor(frame->intercept))) ? 0 : 2;
+    auto v = [&](double value, int extra = 0) { return u.isEmpty() ? number(value, decimals + extra) : number(value, decimals + extra) + " " + u; };
+    lines << tr("Mean %1  ·  SD %2").arg(v(mean, decimals == 0 ? 1 : 0), number(sd, decimals == 0 ? 1 : decimals));
+    lines << tr("Min %1  ·  Max %2").arg(v(low), v(high));
+    return lines.join('\n');
+}
+
+QString Backend::angleText(double degrees) const {
+    return tr("%1°").arg(number(degrees, 1));
 }
 
 void Backend::exportImage() {
@@ -1017,6 +1376,166 @@ void Backend::saveImage(const QString &path) {
         return;
     }
     flash(tr("Saved %1").arg(QFileInfo(path).fileName()));
+}
+
+void Backend::exportVideo() {
+    const Series *s = currentSeries();
+    if (!s || !m_picker)
+        return;
+    if (sliceCount() < 2) {
+        flash(tr("A video needs more than one image"));
+        return;
+    }
+    if (m_decodedCount < m_frames.size()) {
+        flash(tr("The series is still being read"));
+        return;
+    }
+    if (QStandardPaths::findExecutable("ffmpeg").isEmpty()) {
+        setProblem(tr("Saving a video needs ffmpeg"));
+        return;
+    }
+    QString name = s->description.isEmpty() ? s->modality : s->description;
+    if (m_plane != 0)
+        name += "-" + QString::fromLatin1(::planeName(imagePlane()));
+    name.replace(QRegularExpression("[^\\w\\-]+"), "-");
+    m_asked = true;
+    m_picker->choose(FilePicker::Purpose::SaveVideo, (name.isEmpty() ? QStringLiteral("scan") : name) + ".mp4");
+}
+
+void Backend::saveVideo(const QString &path) {
+    const Series *s = currentSeries();
+    if (path.isEmpty() || !s)
+        return;
+    // Everything the pictures are made from is copied for the worker,
+    // which renders them as shown and feeds them to ffmpeg.
+    struct Video {
+        QVector<Frame> frames;
+        Volume volume;
+        Cut cut;
+        bool built = false;
+        int count = 0, half = 0, colorMap = 0, rotation = 0;
+        Projection projection = Projection::Max;
+        double center = 0, width = 0, aspect = 1, fps = 12;
+        bool inverted = false, flipped = false;
+    } v;
+    v.frames = m_frames;
+    v.volume = m_volume;
+    v.cut = m_plane != 0 ? m_cut : cutAcross(m_volume, 2);
+    v.built = built();
+    v.count = sliceCount();
+    if (m_slab != 0) {
+        v.half = std::max(1, int(std::lround(m_slabMm / m_volume.spacing[v.cut.fixed] / 2)));
+        v.projection = m_slab == 1 ? Projection::Max : m_slab == 2 ? Projection::Min : Projection::Mean;
+    }
+    v.colorMap = m_colorMap;
+    v.rotation = m_rotation;
+    v.flipped = m_flipped;
+    v.center = m_center;
+    v.width = m_width;
+    v.inverted = m_inverted;
+    v.aspect = pixelAspect();
+    v.fps = s->frameRate > 0 && m_plane == 0 ? std::clamp(s->frameRate, 1.0, 60.0) : 12.0;
+    flash(tr("Saving the video…"));
+
+    QPointer<Backend> self(this);
+    auto locker = std::make_shared<QEventLoopLocker>();
+    QThreadPool::globalInstance()->start([self, v, path, locker] {
+        auto picture = [&v](int i) {
+            const Frame f = v.built ? reformat(v.volume, v.cut, i, v.frames, v.half, v.projection) : v.frames.value(i);
+            if (f.isNull() || !f.error.isEmpty())
+                return QImage();
+            QImage image = render(f, v.center, v.width, v.inverted);
+            if (v.colorMap != 0 && image.format() == QImage::Format_Grayscale8)
+                image = colorize(image, v.colorMap);
+            image = trueShape(image, v.aspect);
+            return image.transformed(turn(image.size(), v.rotation, v.flipped)).convertToFormat(QImage::Format_RGB32);
+        };
+        QString error;
+        const QImage first = picture(0);
+        const QFileInfo target(path);
+        const QString part = target.absolutePath() + "/." + target.fileName() + ".part";
+        if (first.isNull()) {
+            error = QStringLiteral("the first image can't be read");
+        } else {
+            QProcess ffmpeg;
+            ffmpeg.setProcessChannelMode(QProcess::SeparateChannels);
+            // Video wants even sides; the padding is black.
+            ffmpeg.start("ffmpeg", {"-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "bgra", "-s",
+                                    QStringLiteral("%1x%2").arg(first.width()).arg(first.height()), "-r",
+                                    QString::number(v.fps), "-i", "-", "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", "-c:v",
+                                    "libx264", "-pix_fmt", "yuv420p", "-crf", "18", "-movflags", "+faststart", "-f",
+                                    "mp4", part});
+            if (!ffmpeg.waitForStarted()) {
+                error = QStringLiteral("ffmpeg didn't start");
+            } else {
+                for (int i = 0; i < v.count; ++i) {
+                    QImage image = i == 0 ? first : picture(i);
+                    if (image.size() != first.size()) {
+                        image = QImage(first.size(), QImage::Format_RGB32);
+                        image.fill(Qt::black);
+                    }
+                    ffmpeg.write(reinterpret_cast<const char *>(image.constBits()), image.sizeInBytes());
+                    ffmpeg.waitForBytesWritten(-1);
+                }
+                ffmpeg.closeWriteChannel();
+                ffmpeg.waitForFinished(-1);
+                if (ffmpeg.exitStatus() != QProcess::NormalExit || ffmpeg.exitCode() != 0)
+                    error = QString::fromUtf8(ffmpeg.readAllStandardError()).trimmed().section('\n', -1);
+            }
+        }
+        // Written beside the target and renamed over it, so a failure never
+        // leaves half a video.
+        if (error.isEmpty() && std::rename(QFile::encodeName(part).constData(), QFile::encodeName(path).constData()) != 0)
+            error = QString::fromLocal8Bit(std::strerror(errno));
+        if (!error.isEmpty())
+            QFile::remove(part);
+        QMetaObject::invokeMethod(qApp, [self, error, path] {
+            if (!self)
+                return;
+            if (error.isEmpty())
+                self->flash(tr("Saved %1").arg(QFileInfo(path).fileName()));
+            else
+                self->setProblem(tr("The video couldn't be saved: %1").arg(error));
+        }, Qt::QueuedConnection);
+    });
+}
+
+void Backend::exportAnonymous() {
+    if (!hasImages() || !m_picker)
+        return;
+    m_asked = true;
+    m_picker->choose(FilePicker::Purpose::SaveFolder);
+}
+
+void Backend::saveAnonymous(const QString &folder) {
+    if (folder.isEmpty() || !hasImages())
+        return;
+    flash(tr("Saving an anonymous copy…"));
+    QPointer<Backend> self(this);
+    auto locker = std::make_shared<QEventLoopLocker>();
+    const Scan scan = m_scan;
+    QThreadPool::globalInstance()->start([self, scan, folder, locker] {
+        const Anonymize::Result result = Anonymize::copyScan(scan, folder);
+        QMetaObject::invokeMethod(qApp, [self, result] {
+            if (!self)
+                return;
+            if (result.written == 0) {
+                self->setProblem(tr("The anonymous copy couldn't be saved: %1").arg(result.errors.value(0)));
+                return;
+            }
+            self->flash(tr("Saved %n files in %1", nullptr, result.written).arg(QFileInfo(result.folder).fileName()));
+            // What the copy can't promise is said where it stays up.
+            QStringList warnings;
+            if (result.showDetails > 0)
+                warnings << tr("%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.", nullptr, result.showDetails);
+            if (result.skipped > 0)
+                warnings << tr("Reports were left out, as their text names the patient.");
+            if (!result.errors.isEmpty())
+                warnings << tr("%n files couldn't be copied.", nullptr, result.errors.size());
+            if (!warnings.isEmpty())
+                self->setProblem(warnings.join(' '));
+        }, Qt::QueuedConnection);
+    });
 }
 
 void Backend::copyImage() {
@@ -1068,10 +1587,18 @@ void Backend::updateInfo() {
 
     QStringList geometry;
     const Slice &slice = s->slices.value(m_sliceIndex);
-    if (slice.hasLocation)
-        geometry << tr("Location %1 mm").arg(number(slice.location, 1));
-    if (s->thickness > 0)
-        geometry << tr("Thickness %1 mm").arg(number(s->thickness, 1));
+    QString size = QStringLiteral("%1 × %2").arg(QLocale().toString(s->columns), QLocale().toString(s->rows));
+    if (m_plane != 0) {
+        geometry << planeName();
+        size = QStringLiteral("%1 × %2").arg(QLocale().toString(m_cut.width(m_volume)), QLocale().toString(m_cut.height(m_volume)));
+    } else {
+        if (slice.hasLocation)
+            geometry << tr("Location %1 mm").arg(number(slice.location, 1));
+        if (s->thickness > 0 && m_slab == 0)
+            geometry << tr("Thickness %1 mm").arg(number(s->thickness, 1));
+    }
+    if (m_slab != 0)
+        geometry << slabName();
 
     m_info = {
         {"patient", s->patientName},
@@ -1082,7 +1609,7 @@ void Backend::updateInfo() {
         {"series", series},
         {"modality", s->modality},
         {"geometry", geometry.join("  ·  ")},
-        {"size", QStringLiteral("%1 × %2").arg(QLocale().toString(s->columns), QLocale().toString(s->rows))},
+        {"size", size},
     };
 }
 
@@ -1107,7 +1634,7 @@ void Backend::updateTags() {
         emit tagsChanged();
         return;
     }
-    const Slice &slice = s->slices.value(m_sliceIndex);
+    const Slice &slice = s->slices.value(acquiredSlice());
     const DicomFile file = DicomFile::read(slice.path);
     const QString filter = m_tagFilter.trimmed();
     const int limit = 3000;
