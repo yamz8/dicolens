@@ -1,0 +1,902 @@
+// Records what Dicolens does as short GIFs for the README: it makes up a
+// hospital CD (a chest CT with its scout, a head MR, and an echo loop), opens
+// the real window offscreen with a made-up theme and language, and drives it
+// with keys and the mouse, drawing the pointer and each key pressed onto the
+// frames. bin/demos builds and runs it; nothing here is part of the app.
+
+#include <QDir>
+#include <QElapsedTimer>
+#include <QFile>
+#include <QGuiApplication>
+#include <QPainter>
+#include <QPainterPath>
+#include <QProcess>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+#include <QQuickItem>
+#include <QQuickStyle>
+#include <QQuickWindow>
+#include <QTemporaryDir>
+#include <QTimer>
+#include <QWheelEvent>
+#include <QtEndian>
+#include <QtTest>
+
+#include <cmath>
+#include <functional>
+#include <map>
+#include <random>
+
+#include "backend.h"
+#include "filepicker.h"
+#include "sliceview.h"
+#include "theme.h"
+#include "thumbnails.h"
+#include "translator.h"
+
+namespace {
+
+// ---------------------------------------------------------------------------
+// A small DICOM writer: explicit VR little endian, elements in tag order.
+
+struct Dataset {
+    std::map<quint32, std::pair<QByteArray, QByteArray>> elements;
+
+    Dataset &set(quint32 tag, const char *vr, QByteArray value) {
+        const QByteArray v(vr);
+        if (value.size() % 2)
+            value.append(v == "UI" || v == "OB" || v == "OW" ? '\0' : ' ');
+        elements[tag] = {v, value};
+        return *this;
+    }
+    Dataset &text(quint32 tag, const char *vr, const QString &value) { return set(tag, vr, value.toLatin1()); }
+    Dataset &us(quint32 tag, quint16 value) {
+        QByteArray b(2, 0);
+        qToLittleEndian(value, b.data());
+        return set(tag, "US", b);
+    }
+};
+
+QByteArray encode(const Dataset &d) {
+    QByteArray out;
+    for (const auto &[tag, element] : d.elements) {
+        const auto &[vr, value] = element;
+        char b[4];
+        qToLittleEndian(quint16(tag >> 16), b);
+        qToLittleEndian(quint16(tag & 0xffff), b + 2);
+        out.append(b, 4).append(vr);
+        if (vr == "OB" || vr == "OW" || vr == "SQ" || vr == "UT" || vr == "UN") {
+            out.append(2, '\0');
+            qToLittleEndian(quint32(value.size()), b);
+            out.append(b, 4);
+        } else {
+            qToLittleEndian(quint16(value.size()), b);
+            out.append(b, 2);
+        }
+        out.append(value);
+    }
+    return out;
+}
+
+QString uid() {
+    static int next = 1000;
+    return QStringLiteral("2.25.4187392057612%1").arg(next++);
+}
+
+void writeDicom(const QString &path, Dataset d) {
+    const QString sopClass = QString::fromLatin1(d.elements[0x00080016].second).trimmed().remove(QChar('\0'));
+    const QString sop = uid();
+    d.text(0x00080018, "UI", sop);
+    Dataset meta;
+    meta.set(0x00020001, "OB", QByteArray("\0\1", 2))
+        .text(0x00020002, "UI", sopClass)
+        .text(0x00020003, "UI", sop)
+        .text(0x00020010, "UI", "1.2.840.10008.1.2.1")
+        .text(0x00020012, "UI", "2.25.41873920576120001");
+    const QByteArray metaBytes = encode(meta);
+    QByteArray length(4, 0);
+    qToLittleEndian(quint32(metaBytes.size()), length.data());
+    Dataset group;
+    group.set(0x00020000, "UL", length);
+
+    QDir().mkpath(QFileInfo(path).path());
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly))
+        qFatal("can't write %s", qPrintable(path));
+    file.write(QByteArray(128, '\0') + "DICM" + encode(group) + metaBytes + encode(d));
+}
+
+QByteArray words(const std::vector<int> &values) {
+    QByteArray out(int(values.size() * 2), 0);
+    for (size_t i = 0; i < values.size(); ++i)
+        qToLittleEndian(quint16(std::clamp(values[i], 0, 4095)), out.data() + i * 2);
+    return out;
+}
+
+QString ds(double v) { return QString::number(v, 'g', 6); }
+
+// What every image of one patient carries.
+Dataset patient(const QString &studyUid, const QString &date, const QString &study, const QString &accession) {
+    Dataset d;
+    d.text(0x00080020, "DA", date)
+        .text(0x00080030, "TM", "093000")
+        .text(0x00080050, "SH", accession)
+        .text(0x00080080, "LO", "Example Hospital")
+        .text(0x00081030, "LO", study)
+        .text(0x00100010, "PN", "Doe^Jane")
+        .text(0x00100020, "LO", "DEMO-0001")
+        .text(0x00100030, "DA", "19800101")
+        .text(0x00100040, "CS", "F")
+        .text(0x0020000D, "UI", studyUid);
+    return d;
+}
+
+// ---------------------------------------------------------------------------
+// A made-up chest, in Hounsfield units, at (x, y) millimetres on slice s
+// (0 at the shoulders, 47 at the upper abdomen, 5 mm apart). x runs to the
+// patient's left, y to the back, as an axial CT is shown.
+
+double inside(double x, double y, double cx, double cy, double a, double b) {
+    const double dx = (x - cx) / a, dy = (y - cy) / b;
+    return dx * dx + dy * dy;
+}
+
+double smoothstep(double a, double b, double v) {
+    const double t = std::clamp((v - a) / (b - a), 0.0, 1.0);
+    return t * t * (3 - 2 * t);
+}
+
+struct Vessel {
+    double x, y, phase, radius;
+};
+
+const std::vector<Vessel> &vessels() {
+    static const std::vector<Vessel> list = [] {
+        std::mt19937 random(7);
+        std::uniform_real_distribution<double> u(0, 1);
+        std::vector<Vessel> v;
+        for (int side : {-1, 1})
+            for (int i = 0; i < 46; ++i) {
+                const double a = u(random) * 2 * M_PI, r = std::sqrt(u(random));
+                const double x = side * 66 + std::cos(a) * r * 40, y = -2 + std::sin(a) * r * 62;
+                // Larger towards the hilum, in the middle.
+                const double hilum = 1 - std::min(1.0, std::abs(x - side * 30) / 60);
+                v.push_back({x, y, u(random) * 6.28, 1.0 + 2.6 * hilum * u(random) + 0.4 * u(random)});
+            }
+        return v;
+    }();
+    return list;
+}
+
+// A scout is taken before the contrast goes in, so its vessels are plain blood.
+double chest(double x, double y, double s, bool contrast = true) {
+    const double blood = contrast ? 1 : 0;
+    if (y > 108 && y < 116 && std::abs(x) < 175)
+        return 140;  // The table.
+    const double bodyA = 126 + 26 * smoothstep(-6, 14, s), bodyB = 92 + 8 * smoothstep(-6, 10, s);
+    const double body = inside(x, y, 0, 0, bodyA, bodyB);
+    if (body > 1)
+        return -1000;
+    double hu = body > 0.985 ? 30 : body > 0.87 ? -95 : 45;
+
+    // Lungs, cut short below by the diaphragm, higher on the right.
+    for (int side : {-1, 1}) {
+        const double base = side < 0 ? 33 : 37;
+        const double scale = std::sqrt(smoothstep(-1, 7, s)) * (1 - smoothstep(base - 6, base + 2, s) * 0.85);
+        if (scale > 0.05 && inside(x, y, side * 66, -2, 46 * scale, 68 * scale) < 1) {
+            hu = -860;
+            for (const Vessel &v : vessels()) {
+                if ((v.x < 0) != (side < 0))
+                    continue;
+                const double vx = side * 66 + (v.x - side * 66) * scale + 5 * std::sin(s * 0.35 + v.phase);
+                const double vy = -2 + (v.y + 2) * scale + 5 * std::cos(s * 0.3 + v.phase);
+                if (inside(x, y, vx, vy, v.radius, v.radius) < 1)
+                    hu = 30;
+            }
+        }
+    }
+
+    // Upper abdomen: liver on the right, stomach and spleen on the left.
+    if (s > 30) {
+        const double l = smoothstep(30, 40, s);
+        if (inside(x, y, -38, 6, 92 * l, 78 * l) < 1)
+            hu = inside(x, y, -30, 20, 12, 10) < 1 || inside(x, y, -55, -10, 8, 8) < 1 ? 150 : 62;
+        if (s > 37 && inside(x, y, 52, -26, 34, 28) < 1)
+            hu = y < -36 ? -950 : 18;
+        if (s > 38 && inside(x, y, 76, 34, 22, 36) < 1)
+            hu = 52;
+    }
+
+    // The mediastinum.
+    if (s > 14 && s < 38) {
+        const double h = std::pow(std::sin(M_PI * (s - 14) / 24), 0.6);
+        const double heart = inside(x, y, 18, -28, 52 * h, 42 * h);
+        if (heart < 1.15 && heart >= 1)
+            hu = -90;  // Pericardial fat.
+        if (heart < 1) {
+            // Muscle, with contrast in the chambers: the left ventricle behind
+            // and to the left, the right in front, the atria higher up.
+            hu = 58;
+            const double low = smoothstep(18, 24, s), high = 1 - smoothstep(24, 30, s);
+            if (inside(x, y, 36, -18, 22 * h, 17 * h) < 1 * low)
+                hu = 45 + 190 * blood;
+            if (inside(x, y, 4, -46, 25 * h, 12 * h) < 1 * low)
+                hu = 45 + 160 * blood;
+            if (inside(x, y, 26, -10, 20 * h, 14 * h) < 1 * high)
+                hu = 45 + 180 * blood;
+            if (inside(x, y, -14, -24, 17 * h, 16 * h) < 1 * high)
+                hu = 45 + 155 * blood;
+        }
+    }
+    if (s < 11 && inside(x, y, 0, -30, 11, 11) < 1)
+        hu = inside(x, y, 0, -30, 8.5, 8.5) < 1 ? -1000 : 40;
+    if (s >= 11 && s < 15)
+        for (int side : {-1, 1})
+            if (inside(x, y, side * (s - 10) * 5, -26, 7, 7) < 1)
+                hu = inside(x, y, side * (s - 10) * 5, -26, 5, 5) < 1 ? -1000 : 40;
+    if (s > 9 && s < 27 && inside(x, y, 10, -40, 15, 15) < 1)
+        hu = 45 + 215 * blood;  // Ascending aorta.
+    if (s >= 6 && s <= 10) {
+        // The arch, from front to back.
+        const double t = std::clamp((y + 40) / 82, 0.0, 1.0), cx = 10 + 12 * t, cy = -40 + 82 * t;
+        if (inside(x, y, cx, cy, 14, 14) < 1)
+            hu = 45 + 215 * blood;
+    }
+    if (s >= 6 && inside(x, y, 22, 42, 12, 12) < 1)
+        hu = 45 + 215 * blood;  // Descending aorta.
+    if (s > 11 && s < 17 && inside(x, y, -14, -42, 13, 13) < 1)
+        hu = 45 + 195 * blood;  // Pulmonary trunk.
+    if (s < 36 && inside(x, y, 6, 30, 7, 7) < 1)
+        hu = inside(x, y, 6, 30, 2.2, 2.2) < 1 ? -900 : 38;  // Oesophagus.
+
+    // Bone: sternum, ribs, and the spine.
+    if (s > 3 && s < 32 && std::abs(x) < 14 && y > -91 && y < -80)
+        hu = std::abs(x) > 11 || y < -89 || y > -82 ? 620 : 280;
+    if (s < 42)
+        for (int side : {-1, 1})
+            for (int k = 0; k < 7; ++k) {
+                if (std::fmod(s + k * 1.7 + (side > 0 ? 0.8 : 0), 3.0) > 1.7)
+                    continue;
+                const double phi = (35 + k * 20 + 6 * std::sin(s * 0.4 + k)) * M_PI / 180;
+                const double rx = side * bodyA * 0.79 * std::sin(phi), ry = bodyB * 0.79 * std::cos(phi);
+                const double r = inside(x, y, rx, ry, 6, 6);
+                if (r < 1)
+                    hu = r > 0.45 ? 700 : 260;
+            }
+    const double vertebra = inside(x, y, 0, 58, 18, 15);
+    if (vertebra < 1)
+        hu = vertebra > 0.72 ? 650 : 240;
+    const double canal = inside(x, y, 0, 82, 8, 8);
+    if (canal < 1)
+        hu = 15;
+    else if (canal < 2.6 && y > 76)
+        hu = 560;
+    if (std::abs(x) < 4 && y > 88 && y < 106)
+        hu = 560;
+    return hu;
+}
+
+// ---------------------------------------------------------------------------
+// The CD: a chest CT with its scout, a head MR, and an echo loop.
+
+void makeChestCt(const QString &root, std::mt19937 &random) {
+    const QString study = uid(), axial = uid(), scout = uid(), frame = uid();
+    const auto base = [&] {
+        return patient(study, "20260314", "CT Chest with contrast", "A1001")
+            .text(0x00080016, "UI", "1.2.840.10008.5.1.4.1.1.2")
+            .text(0x00080060, "CS", "CT")
+            .text(0x00080070, "LO", "Made-up Scanner")
+            .text(0x00180015, "CS", "CHEST")
+            .text(0x00200052, "UI", frame)
+            .us(0x00280002, 1)
+            .text(0x00280004, "CS", "MONOCHROME2")
+            .us(0x00280100, 16).us(0x00280101, 12).us(0x00280102, 11).us(0x00280103, 0)
+            .text(0x00281052, "DS", "-1024")
+            .text(0x00281053, "DS", "1");
+    };
+    std::normal_distribution<double> noise(0, 1);
+
+    // The axial series: 48 slices, head to foot.
+    const int n = 512, slices = 48;
+    const double spacing = 0.7;
+    for (int s = 0; s < slices; ++s) {
+        std::vector<int> pixels(n * n);
+        for (int r = 0; r < n; ++r)
+            for (int c = 0; c < n; ++c) {
+                const double x = (c - 255.5) * spacing, y = (r - 255.5) * spacing;
+                // Four samples a pixel, so edges blend as a scanner's do.
+                double hu = 0;
+                for (double ox : {-0.25, 0.25})
+                    for (double oy : {-0.25, 0.25})
+                        hu += chest(x + ox * spacing, y + oy * spacing, s) / 4;
+                const double sigma = hu <= -990 ? 1 : hu < -500 ? 7 : 3.5;
+                pixels[r * n + c] = int(std::lround(hu + sigma * noise(random))) + 1024;
+            }
+        Dataset d = base();
+        d.text(0x0008103E, "LO", "Axial 5 mm")
+            .text(0x00180050, "DS", "5")
+            .text(0x00180060, "DS", "120")
+            .text(0x0020000E, "UI", axial)
+            .text(0x00200011, "IS", "2")
+            .text(0x00200013, "IS", QString::number(s + 1))
+            .text(0x00200032, "DS", QStringLiteral("%1\\%1\\%2").arg(ds(-255.5 * spacing), ds(-s * 5.0)))
+            .text(0x00200037, "DS", "1\\0\\0\\0\\1\\0")
+            .text(0x00201041, "DS", ds(-s * 5.0))
+            .us(0x00280010, n).us(0x00280011, n)
+            .text(0x00280030, "DS", QStringLiteral("%1\\%1").arg(ds(spacing)))
+            .text(0x00281050, "DS", "40")
+            .text(0x00281051, "DS", "400")
+            .set(0x7FE00010, "OW", words(pixels));
+        writeDicom(QStringLiteral("%1/ST000001/SE000002/IM%2").arg(root).arg(s + 1, 6, 10, QChar('0')), d);
+    }
+
+    // The scout: the same chest seen from the front, as X-rays add up through it.
+    const int cols = 512, rows = 400;
+    const double step = 0.7;
+    std::vector<double> sum(cols * rows);
+    for (int r = 0; r < rows; ++r)
+        for (int c = 0; c < cols; ++c) {
+            const double x = (c - 255.5) * step, s = (r * step - 20) / 5;
+            double total = 0;
+            for (double y = -105; y <= 105; y += 2.5)
+                total += std::max(0.0, chest(x, y, s, false) + 1000) / 1000 * 2.5;
+            sum[r * cols + c] = total;
+        }
+    std::vector<int> pixels(cols * rows);
+    for (int i = 0; i < cols * rows; ++i)
+        pixels[i] = int(std::lround(std::pow(sum[i] / 260, 0.8) * 3600 + 14 * noise(random)));
+    Dataset d = base();
+    d.text(0x00080008, "CS", "ORIGINAL\\PRIMARY\\LOCALIZER")
+        .text(0x0008103E, "LO", "Scout")
+        .text(0x0020000E, "UI", scout)
+        .text(0x00200011, "IS", "1")
+        .text(0x00200013, "IS", "1")
+        .text(0x00200032, "DS", QStringLiteral("%1\\0\\%2").arg(ds(-255.5 * step), ds(20)))
+        .text(0x00200037, "DS", "1\\0\\0\\0\\0\\-1")
+        .us(0x00280010, rows).us(0x00280011, cols)
+        .text(0x00280030, "DS", QStringLiteral("%1\\%1").arg(ds(step)))
+        .text(0x00281050, "DS", "2100")
+        .text(0x00281051, "DS", "3400")
+        .text(0x00281052, "DS", "0")
+        .set(0x7FE00010, "OW", words(pixels));
+    writeDicom(root + "/ST000001/SE000001/IM000001", d);
+}
+
+void makeHeadMr(const QString &root, std::mt19937 &random) {
+    const QString study = uid(), series = uid(), frame = uid();
+    std::normal_distribution<double> noise(0, 1);
+    const int n = 256, slices = 20;
+    const double spacing = 0.9;
+    for (int s = 0; s < slices; ++s) {
+        // s 0 is low, through the eyes; 19 is near the top of the head.
+        const double shrink = s > 7 ? std::sqrt(std::max(0.05, 1 - std::pow((s - 7) / 14.0, 2))) : 1;
+        std::vector<int> pixels(n * n);
+        for (int r = 0; r < n; ++r)
+            for (int c = 0; c < n; ++c) {
+                const double x = (c - 127.5) * spacing, y = (r - 127.5) * spacing;
+                const double rn = std::sqrt(inside(x, y, 0, 0, 74 * shrink, 92 * shrink));
+                const double theta = std::atan2(y, x);
+                double v = 0;
+                if (rn <= 1) {
+                    const double gyri = 0.86 - 0.05 * (0.5 + 0.5 * std::sin(theta * 15 + s * 0.9))
+                                        - 0.02 * std::sin(theta * 7 - s * 0.5);
+                    v = rn > 0.95 ? 1150 : rn > 0.89 ? 70 : rn > 0.875 ? 1700 : rn > gyri ? 1650 : rn > gyri - 0.09 ? 980 : 690;
+                    if (std::abs(x) < 1.3 && rn < 0.87 && rn > 0.12)
+                        v = 1600;  // Between the hemispheres.
+                    if (s >= 6 && s <= 13) {
+                        for (int side : {-1, 1}) {
+                            if (inside(x, y, side * 10, -4, 6.5, 24) < 1)
+                                v = 1800;  // Lateral ventricles.
+                            if (s <= 10 && inside(x, y, side * 19, 10, 10, 13) < 1)
+                                v = 930;  // Thalamus.
+                        }
+                    }
+                    if (s < 5)
+                        for (int side : {-1, 1})
+                            if (inside(x, y, side * 31, -74, 13, 12) < 1)
+                                v = inside(x, y, side * 31, -84, 6, 3) < 1 ? 300 : 1750;  // Eyes.
+                }
+                pixels[r * n + c] = int(std::lround(std::abs(v + (v > 0 ? 16 : 10) * noise(random))));
+            }
+        Dataset d = patient(study, "20260502", "MR Head", "A1002");
+        d.text(0x00080016, "UI", "1.2.840.10008.5.1.4.1.1.4")
+            .text(0x00080060, "CS", "MR")
+            .text(0x0008103E, "LO", "T2 axial")
+            .text(0x00180015, "CS", "HEAD")
+            .text(0x00180050, "DS", "5")
+            .text(0x00180087, "DS", "3")
+            .text(0x0020000E, "UI", series)
+            .text(0x00200011, "IS", "3")
+            .text(0x00200013, "IS", QString::number(slices - s))
+            .text(0x00200032, "DS", QStringLiteral("%1\\%1\\%2").arg(ds(-127.5 * spacing), ds(s * 5.0)))
+            .text(0x00200037, "DS", "1\\0\\0\\0\\1\\0")
+            .text(0x00200052, "UI", frame)
+            .us(0x00280002, 1)
+            .text(0x00280004, "CS", "MONOCHROME2")
+            .us(0x00280010, n).us(0x00280011, n)
+            .text(0x00280030, "DS", QStringLiteral("%1\\%1").arg(ds(spacing)))
+            .us(0x00280100, 16).us(0x00280101, 12).us(0x00280102, 11).us(0x00280103, 0)
+            .text(0x00281050, "DS", "900")
+            .text(0x00281051, "DS", "1900")
+            .set(0x7FE00010, "OW", words(pixels));
+        writeDicom(QStringLiteral("%1/ST000002/SE000003/IM%2").arg(root).arg(slices - s, 6, 10, QChar('0')), d);
+    }
+}
+
+void makeEcho(const QString &root, std::mt19937 &random) {
+    const int cols = 320, rows = 256, frames = 30;
+    std::uniform_real_distribution<double> u(0.0001, 1);
+    // Speckle that stays put, so only the walls move from frame to frame.
+    std::vector<double> speckle(cols * rows);
+    for (double &v : speckle)
+        v = std::sqrt(-2 * std::log(u(random)));
+    QByteArray pixels;
+    for (int f = 0; f < frames; ++f) {
+        const double beat = 0.5 + 0.5 * std::cos(2 * M_PI * f / frames);
+        for (int r = 0; r < rows; ++r)
+            for (int c = 0; c < cols; ++c) {
+                const double dx = c - 160, dy = r - 8, depth = std::hypot(dx, dy), angle = std::atan2(dx, dy);
+                double v = 0;
+                if (std::abs(angle) < 0.72 && depth > 14 && depth < 245) {
+                    const double sp = speckle[r * cols + c];
+                    double tissue = 0.42;
+                    // Four chambers whose walls move with the beat.
+                    const double lv = inside(c, r, 140, 120, 30 + 7 * beat, 62 + 6 * beat);
+                    const double rv = inside(c, r, 192, 118, 22 + 6 * beat, 50 + 5 * beat);
+                    const double atria = std::min(inside(c, r, 140, 205, 30, 26 - 4 * beat), inside(c, r, 194, 203, 24, 22 - 4 * beat));
+                    if (lv < 1.35 || rv < 1.45 || atria < 1.35)
+                        tissue = 0.85;
+                    if (lv < 1 || rv < 1 || atria < 1)
+                        tissue = 0.06;
+                    if (std::abs(c - 168) < 4 && r > 190 && r < 215)
+                        tissue = 0.85;  // The valve plane.
+                    v = tissue * sp * 120 * (1.15 - depth / 420);
+                }
+                pixels.append(char(std::clamp(int(v), 0, 255)));
+            }
+    }
+    Dataset d = patient(uid(), "20260620", "Echocardiogram", "A1003");
+    d.text(0x00080016, "UI", "1.2.840.10008.5.1.4.1.1.3.1")
+        .text(0x00080060, "CS", "US")
+        .text(0x0008103E, "LO", "Apical 4 chamber")
+        .text(0x00181063, "DS", "40")
+        .text(0x0020000E, "UI", uid())
+        .text(0x00200011, "IS", "1")
+        .text(0x00200013, "IS", "1")
+        .us(0x00280002, 1)
+        .text(0x00280004, "CS", "MONOCHROME2")
+        .text(0x00280008, "IS", QString::number(frames))
+        .set(0x00280009, "AT", QByteArray("\x18\x00\x63\x10", 4))
+        .us(0x00280010, rows).us(0x00280011, cols)
+        .text(0x00280030, "DS", "0.6\\0.6")
+        .us(0x00280100, 8).us(0x00280101, 8).us(0x00280102, 7).us(0x00280103, 0)
+        .set(0x7FE00010, "OB", pixels);
+    writeDicom(root + "/ST000003/SE000001/IM000001", d);
+}
+
+// ---------------------------------------------------------------------------
+// The window's file chooser, answered at once.
+
+class Picker : public FilePicker {
+public:
+    Picker(const QString &folder, const QString &saves) : m_folder(folder), m_saves(saves) {}
+    void choose(Purpose purpose, const QString &suggestedName) override {
+        const QString path = purpose == Purpose::SaveImage ? m_saves + "/" + suggestedName : m_folder;
+        QTimer::singleShot(0, this, [this, purpose, path] { emit selected(purpose, {QUrl::fromLocalFile(path)}); });
+    }
+
+private:
+    QString m_folder, m_saves;
+};
+
+// ---------------------------------------------------------------------------
+// Frames, with the pointer and the keys pressed drawn on them.
+
+class Recorder {
+public:
+    static constexpr int Fps = 12;
+
+    Recorder(QQuickWindow *window, const QString &out) : m_window(window), m_out(out) {}
+
+    void begin(const QString &name) {
+        m_name = name;
+        m_frames.reset(new QTemporaryDir);
+        m_index = 0;
+        m_badge.clear();
+        m_pointerShown = false;
+        m_clock.start();
+        m_next = 0;
+    }
+
+    void finish() {
+        const QString gif = m_out + "/" + m_name + ".gif";
+        QProcess ffmpeg;
+        ffmpeg.setProcessChannelMode(QProcess::ForwardedErrorChannel);
+        ffmpeg.start("ffmpeg", {"-v", "error", "-y", "-framerate", QString::number(Fps), "-i", m_frames->path() + "/%05d.png",
+                                "-vf", "split[a][b];[a]palettegen=max_colors=128:stats_mode=full[p];"
+                                       "[b][p]paletteuse=dither=none:diff_mode=rectangle",
+                                gif});
+        ffmpeg.waitForFinished(-1);
+        qInfo().noquote() << QStringLiteral("%1: %2 frames, %3 KB").arg(gif).arg(m_index).arg(QFileInfo(gif).size() / 1024);
+    }
+
+    void hold(int ms) {
+        const int count = std::max(1, ms * Fps / 1000);
+        for (int i = 0; i < count; ++i)
+            frame();
+    }
+
+    void badge(const QString &text) {
+        m_badge = text;
+        m_badgeFrames = Fps * 11 / 10;
+    }
+
+    void key(const QString &label, Qt::Key key, Qt::KeyboardModifiers modifiers = Qt::NoModifier, int holdMs = 900) {
+        badge(label);
+        QTest::keyClick(m_window, key, modifiers);
+        hold(holdMs);
+    }
+
+    void type(const QString &text) {
+        for (const QChar c : text) {
+            QTest::keyClick(m_window, c.toLatin1());
+            hold(110);
+        }
+    }
+
+    void moveTo(QPointF to, int ms) {
+        if (!m_pointerShown) {
+            m_pointer = to + QPointF(160, 120);
+            m_pointerShown = true;
+        }
+        const QPointF from = m_pointer;
+        const int count = std::max(1, ms * Fps / 1000);
+        for (int i = 1; i <= count; ++i) {
+            const double t = double(i) / count, e = t * t * (3 - 2 * t);
+            m_pointer = from + (to - from) * e;
+            QTest::mouseMove(m_window, m_pointer.toPoint());
+            frame();
+        }
+    }
+
+    void drag(QPointF from, QPointF to, Qt::MouseButton button, int ms, const QString &label,
+              Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+        moveTo(from, 350);
+        badge(label);
+        QTest::mousePress(m_window, button, modifiers, from.toPoint());
+        m_pressed = true;
+        moveTo(to, ms);
+        QTest::mouseRelease(m_window, button, modifiers, to.toPoint());
+        m_pressed = false;
+    }
+
+    void wheel(QPointF at, int notches, int ms, const QString &label, Qt::KeyboardModifiers modifiers = Qt::NoModifier) {
+        moveTo(at, 300);
+        badge(label);
+        const int every = std::max(1, ms * Fps / 1000 / std::abs(notches));
+        for (int i = 0; i < std::abs(notches); ++i) {
+            QWheelEvent event(at, m_window->mapToGlobal(at), {}, QPoint(0, notches > 0 ? -120 : 120), Qt::NoButton,
+                              modifiers, Qt::NoScrollPhase, false);
+            QCoreApplication::sendEvent(m_window, &event);
+            m_badgeFrames = std::max(m_badgeFrames, Fps / 2);
+            hold(every * 1000 / Fps);
+        }
+    }
+
+    void hidePointer() { m_pointerShown = false; }
+
+private:
+    void frame() {
+        // Real time passes between frames, so playback and fades run as they would.
+        const qint64 wait = m_next - m_clock.elapsed();
+        if (wait > 0)
+            QTest::qWait(int(wait));
+        else
+            QCoreApplication::processEvents();
+        m_next = m_clock.elapsed() + 1000 / Fps;
+
+        const double scale = 0.75;
+        QImage image = m_window->grabWindow().scaled(QSize(960, 600), Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+        image = image.convertToFormat(QImage::Format_RGB32);
+        QPainter p(&image);
+        p.setRenderHint(QPainter::Antialiasing);
+
+        if (m_badgeFrames > 0 && !m_badge.isEmpty()) {
+            QFont font = p.font();
+            font.setPixelSize(19);
+            font.setBold(true);
+            p.setFont(font);
+            const QRectF text = p.fontMetrics().boundingRect(m_badge);
+            const double alpha = std::min(1.0, m_badgeFrames / 4.0);
+            QRectF box(0, 0, text.width() + 36, text.height() + 18);
+            box.moveCenter(QPointF(image.width() / 2.0, image.height() - 60));
+            p.setPen(QPen(QColor(255, 255, 255, int(60 * alpha)), 1));
+            p.setBrush(QColor(18, 18, 22, int(225 * alpha)));
+            p.drawRoundedRect(box, 9, 9);
+            p.setPen(QColor(255, 255, 255, int(255 * alpha)));
+            p.drawText(box, Qt::AlignCenter, m_badge);
+            --m_badgeFrames;
+        }
+
+        if (m_pointerShown) {
+            QPainterPath arrow;
+            arrow.moveTo(0, 0);
+            arrow.lineTo(0, 19);
+            arrow.lineTo(4.6, 14.6);
+            arrow.lineTo(8, 22);
+            arrow.lineTo(11, 20.6);
+            arrow.lineTo(7.6, 13.4);
+            arrow.lineTo(13.6, 13.4);
+            arrow.closeSubpath();
+            p.translate(m_pointer * scale);
+            if (m_pressed) {
+                p.setPen(Qt::NoPen);
+                p.setBrush(QColor(255, 214, 10, 110));
+                p.drawEllipse(QPointF(0, 0), 13, 13);
+            }
+            p.setPen(QPen(Qt::black, 1.4));
+            p.setBrush(Qt::white);
+            p.drawPath(arrow);
+        }
+        p.end();
+        image.save(QStringLiteral("%1/%2.png").arg(m_frames->path()).arg(m_index++, 5, 10, QChar('0')));
+    }
+
+    QQuickWindow *m_window;
+    QString m_out, m_name;
+    std::unique_ptr<QTemporaryDir> m_frames;
+    int m_index = 0;
+    QString m_badge;
+    int m_badgeFrames = 0;
+    QPointF m_pointer;
+    bool m_pointerShown = false, m_pressed = false;
+    QElapsedTimer m_clock;
+    qint64 m_next = 0;
+};
+
+QQuickItem *findItem(QQuickItem *from, const QString &name) {
+    for (auto *child : from->childItems()) {
+        if (child->objectName() == name)
+            return child;
+        if (auto *found = findItem(child, name))
+            return found;
+    }
+    return nullptr;
+}
+
+bool write(const QString &path, const QByteArray &contents) {
+    QDir().mkpath(QFileInfo(path).path());
+    QFile file(path);
+    return file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size();
+}
+
+QByteArray themeColors(const QString &name) {
+    QFile file("/usr/share/omarchy/themes/" + name + "/colors.toml");
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+}
+
+} // namespace
+
+int main(int argc, char *argv[]) {
+    qputenv("QT_QPA_PLATFORM", "offscreen");
+    QGuiApplication app(argc, argv);
+    QQuickStyle::setStyle("Material");
+    const QStringList only = app.arguments().mid(2);
+    const QString out = QDir(app.arguments().value(1, "docs/demos")).absolutePath();
+    QDir().mkpath(out);
+
+    QTemporaryDir work;
+    const QString cd = work.filePath("DEMO_CD/DICOM");
+    std::mt19937 random(2026);
+    qInfo() << "Making up the scans";
+    makeChestCt(cd, random);
+    makeHeadMr(cd, random);
+    makeEcho(cd, random);
+
+    // The default look, in English, whatever this desktop has.
+    write(work.filePath("omarchy/language"), "en\n");
+    Translator translator(work.filePath("omarchy/language"));
+    app.installTranslator(&translator);
+    Theme theme(work.filePath("state"));
+    Picker picker(work.filePath("DEMO_CD"), work.path());
+    Backend backend(&picker);
+
+    qmlRegisterType<SliceView>("Dicolens", 1, 0, "SliceView");
+    qmlRegisterUncreatableType<Backend>("Dicolens", 1, 0, "Backend", "The backend is given to QML as \"backend\"");
+    QQmlApplicationEngine engine;
+    QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);
+    QObject::connect(&translator, &Translator::changed, &backend, [&backend] { backend.retranslate(); });
+    engine.addImageProvider("thumbnails", new ThumbnailProvider(&backend));
+    engine.rootContext()->setContextProperty("translator", &translator);
+    engine.rootContext()->setContextProperty("theme", &theme);
+    engine.rootContext()->setContextProperty("backend", &backend);
+    engine.load(QUrl("qrc:/Main.qml"));
+    if (engine.rootObjects().isEmpty())
+        return 1;
+    auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
+    window->resize(1280, 800);
+    if (!QTest::qWaitForWindowExposed(window))
+        return 1;
+    window->requestActivate();
+    if (!QTest::qWaitForWindowActive(window))
+        return 1;
+
+    auto *view = qobject_cast<SliceView *>(findItem(window->contentItem(), "view"));
+    // Where a point of the image, in millimetres from its middle, is on the window.
+    auto at = [&](double xmm, double ymm, double spacing = 0.7) {
+        const QPointF image(xmm / spacing + backend.imageWidth() / 2.0, ymm / spacing + backend.imageHeight() / 2.0);
+        return view->mapToScene(view->toItem(image.x(), image.y()));
+    };
+    auto settle = [&] {
+        backend.waitForSlice(10000);
+        QTest::qWait(400);
+    };
+    auto showSeries = [&](const QString &title, int slice) {
+        if (!backend.hasImages()) {
+            backend.loadPaths({cd});
+            QTRY_VERIFY_WITH_TIMEOUT(backend.hasImages() && !backend.scanning(), 20000);
+        }
+        for (int i = 0; i < backend.seriesList().size(); ++i)
+            if (backend.seriesList()[i].toMap().value("title").toString().contains(title))
+                backend.selectSeries(i);
+        if (slice >= 0)
+            backend.setSliceIndex(slice);
+        settle();
+        backend.fileWindow();
+        QMetaObject::invokeMethod(view, "fit");
+        settle();
+    };
+
+    Recorder rec(window, out);
+    struct Scene {
+        QString name;
+        std::function<void()> prepare, play;
+    };
+    const QList<Scene> scenes{
+        {"open", [] {},
+         [&] {
+             rec.hold(1300);
+             rec.key("Shift+O", Qt::Key_O, Qt::ShiftModifier, 400);
+             QTRY_VERIFY_WITH_TIMEOUT(backend.hasImages() && !backend.scanning(), 20000);
+             rec.hold(3200);
+             rec.key("→", Qt::Key_Right, Qt::NoModifier, 1300);
+             rec.key("→", Qt::Key_Right, Qt::NoModifier, 1300);
+             rec.key("→", Qt::Key_Right, Qt::NoModifier, 1600);
+         }},
+        {"slices", [&] { showSeries("Axial", 4); },
+         [&] {
+             const QPointF middle = at(0, 0);
+             rec.moveTo(middle, 500);
+             rec.wheel(middle, 18, 2600, "Wheel");
+             rec.key("↓", Qt::Key_Down, Qt::NoModifier, 500);
+             rec.key("↓", Qt::Key_Down, Qt::NoModifier, 500);
+             rec.key("PgDn", Qt::Key_PageDown, Qt::NoModifier, 900);
+             rec.key("Home", Qt::Key_Home, Qt::NoModifier, 900);
+             rec.key("End", Qt::Key_End, Qt::NoModifier, 900);
+             const QRectF bar = view->mapRectToScene(view->boundingRect());
+             rec.drag(QPointF(bar.left() + bar.width() * 0.9, bar.bottom() - 4), QPointF(bar.left() + bar.width() * 0.45, bar.bottom() - 4),
+                      Qt::LeftButton, 1800, "Drag along the bar");
+             rec.hold(900);
+         }},
+        {"window", [&] { showSeries("Axial", 22); },
+         [&] {
+             const QPointF middle = at(0, 0);
+             rec.drag(middle, middle + QPointF(-140, -90), Qt::LeftButton, 1300, "Drag");
+             rec.drag(middle + QPointF(-140, -90), middle + QPointF(170, 60), Qt::LeftButton, 1500, "Drag");
+             rec.hold(500);
+             rec.hidePointer();
+             rec.key("1  Brain", Qt::Key_1, Qt::NoModifier, 1100);
+             rec.key("2  Soft tissue", Qt::Key_2, Qt::NoModifier, 1100);
+             rec.key("3  Lung", Qt::Key_3, Qt::NoModifier, 1300);
+             rec.key("4  Bone", Qt::Key_4, Qt::NoModifier, 1300);
+             rec.key("A  Full range", Qt::Key_A, Qt::NoModifier, 1100);
+             rec.key("I  Invert", Qt::Key_I, Qt::NoModifier, 1100);
+             rec.key("Ctrl+Z", Qt::Key_Z, Qt::ControlModifier, 900);
+             rec.key("Ctrl+Z", Qt::Key_Z, Qt::ControlModifier, 900);
+             rec.key("0  The file's window", Qt::Key_0, Qt::NoModifier, 1200);
+         }},
+        {"zoom", [&] { showSeries("Axial", 22); },
+         [&] {
+             const QPointF heart = at(20, -24);
+             rec.wheel(heart, -5, 1200, "Ctrl+Wheel", Qt::ControlModifier);
+             rec.hold(500);
+             rec.drag(heart, heart + QPointF(-200, 90), Qt::MiddleButton, 1300, "Middle-drag");
+             rec.hold(400);
+             rec.drag(heart + QPointF(-200, 90), heart + QPointF(-200, 30), Qt::RightButton, 900, "Right-drag");
+             rec.hold(600);
+             rec.key("F  Fit", Qt::Key_F, Qt::NoModifier, 1200);
+         }},
+        {"measure", [&] { showSeries("Axial", 22); },
+         [&] {
+             rec.moveTo(at(-70, -10), 700);
+             rec.hold(900);
+             rec.moveTo(at(22, 42), 600);
+             rec.hold(900);
+             rec.moveTo(at(0, 52), 600);
+             rec.hold(900);
+             rec.key("M  Measure", Qt::Key_M, Qt::NoModifier, 500);
+             rec.drag(at(-38, -24), at(78, -24), Qt::LeftButton, 1500, "Drag");
+             rec.hold(1300);
+             rec.drag(at(-18, 58), at(18, 58), Qt::LeftButton, 900, "Drag");
+             rec.hold(1300);
+             rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 500);
+             rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 700);
+         }},
+        {"series", [&] { showSeries("Scout", -1); },
+         [&] {
+             rec.hold(1300);
+             rec.key("→  CT", Qt::Key_Right, Qt::NoModifier, 1000);
+             rec.key("→  MR", Qt::Key_Right, Qt::NoModifier, 700);
+             rec.wheel(at(0, 0, 0.9), 8, 1100, "Wheel");
+             rec.hidePointer();
+             rec.key("→  Ultrasound", Qt::Key_Right, Qt::NoModifier, 900);
+             rec.key("Space  Play", Qt::Key_Space, Qt::NoModifier, 4200);
+             rec.key("Space  Pause", Qt::Key_Space, Qt::NoModifier, 900);
+         }},
+        {"tags", [&] { showSeries("Axial", 22); },
+         [&] {
+             rec.hold(700);
+             rec.key("T  Tags", Qt::Key_T, Qt::NoModifier, 1500);
+             rec.key("Ctrl+F", Qt::Key_F, Qt::ControlModifier, 300);
+             rec.type("spacing");
+             rec.hold(1500);
+             rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 400);
+             rec.key("↓", Qt::Key_Down, Qt::NoModifier, 400);
+             rec.key("↓", Qt::Key_Down, Qt::NoModifier, 700);
+             rec.key("T", Qt::Key_T, Qt::NoModifier, 900);
+         }},
+        {"privacy", [&] { showSeries("Axial", 22); },
+         [&] {
+             rec.hold(1000);
+             rec.key("H  Hide details", Qt::Key_H, Qt::NoModifier, 1700);
+             rec.key("H  Show them", Qt::Key_H, Qt::NoModifier, 1200);
+         }},
+        {"export", [&] { showSeries("Axial", 22); },
+         [&] {
+             rec.hold(700);
+             rec.key("Ctrl+E  Save as PNG", Qt::Key_E, Qt::ControlModifier, 2300);
+             rec.key("Ctrl+C  Copy", Qt::Key_C, Qt::ControlModifier, 2600);
+         }},
+        {"help", [&] { showSeries("Axial", 22); },
+         [&] {
+             rec.hold(600);
+             rec.badge("?");
+             QTest::keyClick(window, '?');
+             rec.hold(3800);
+             rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 800);
+         }},
+        {"theme", [&] { showSeries("Axial", 22); },
+         [&] {
+             rec.hold(1200);
+             const auto setTheme = [&](const QString &name, const QString &label) {
+                 rec.badge(label);
+                 write(work.filePath("state/theme/colors.toml"), themeColors(name));
+                 rec.hold(1700);
+             };
+             const auto setLanguage = [&](const QByteArray &code, const QString &label) {
+                 rec.badge(label);
+                 write(work.filePath("omarchy/language"), code + "\n");
+                 rec.hold(1700);
+             };
+             setTheme("tokyo-night", "Theme: Tokyo Night");
+             setTheme("catppuccin-latte", "Theme: Catppuccin Latte");
+             setTheme("everforest", "Theme: Everforest");
+             setLanguage("da", "Language: Dansk");
+             setLanguage("ar", "Language: العربية");
+             setLanguage("ja", "Language: 日本語");
+             setLanguage("en", "Language: English");
+         }},
+    };
+
+    for (const Scene &scene : scenes) {
+        if (!only.isEmpty() && !only.contains(scene.name))
+            continue;
+        // Each scene starts as the app does: nothing hidden, nothing measured.
+        QTest::keyClick(window, Qt::Key_Escape);
+        scene.prepare();
+        rec.begin(scene.name);
+        scene.play();
+        rec.finish();
+    }
+    return 0;
+}

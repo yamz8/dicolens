@@ -32,6 +32,10 @@ target_link_libraries(dicolens_tests PRIVATE dicolens_core Qt6::Test)
 add_test(NAME dicolens_tests COMMAND dicolens_tests)
 set_tests_properties(dicolens_tests PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 
+# bin/demos records the README's GIFs with this; a plain build leaves it out.
+add_executable(dicolens_demo EXCLUDE_FROM_ALL tools/demo.cpp src/resources.qrc)
+target_link_libraries(dicolens_demo PRIVATE dicolens_core Qt6::Test)
+
 # `cmake --install build --prefix ~/.local` puts the app in the launcher
 # before it is packaged; a package installs the same files under /usr.
 include(GNUInstallDirs)

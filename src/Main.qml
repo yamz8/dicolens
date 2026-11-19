@@ -132,6 +132,7 @@ ApplicationWindow {
             // The image isn't mirrored; only the layout around it is.
             SliceView {
                 id: view
+                objectName: "view"
                 anchors.fill: parent
                 source: backend
                 accent: theme.accent

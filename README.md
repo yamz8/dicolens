@@ -34,6 +34,89 @@ A folder is read with everything under it, so a CD's root works; `DICOMDIR`
 isn't needed. Files are grouped into series and studies and sorted head to
 foot by where each slice is.
 
+## What it does
+
+Every recording here is made by `bin/demos` from made-up scans, through the
+real window, so they stay true to the app as it changes.
+
+### Open a CD or a folder
+
+![Opening a made-up hospital CD: the series appear under their studies, each with a thumbnail](docs/demos/open.gif)
+
+Point it at a CD, a folder, or one file. Everything under it is read, grouped
+into studies and series, and each series gets a thumbnail.
+
+### Move through the slices
+
+![Scrolling through a chest CT with the wheel, the arrow keys, Page Down, Home and End, and by dragging along the bar at the bottom](docs/demos/slices.gif)
+
+The wheel or `↑` `↓` go a slice at a time, `PgUp` `PgDn` ten, and `Home`
+`End` to either end. The bar along the bottom shows where you are and how much
+is loaded; drag along it to go anywhere.
+
+### Choose the window
+
+![Dragging to change contrast and brightness, then the brain, soft tissue, lung and bone windows, the full range, invert, and undo](docs/demos/window.gif)
+
+Drag across the image for contrast, down it for brightness. `1`–`4` are the CT
+windows radiologists reach for, `0` the file's own, `A` the image's full
+range, `I` inverts, and `Ctrl+Z` undoes any of it.
+
+### Zoom and move
+
+![Zooming into the heart with Ctrl and the wheel, moving the image with a middle-drag, zooming with a right-drag, and fitting it back with F](docs/demos/zoom.gif)
+
+`Ctrl`+wheel zooms about the pointer, a right-drag zooms too, a middle-drag
+(or `Shift`+drag) moves the image, and `F` fits it back.
+
+### Read values and measure
+
+![The value under the pointer in Hounsfield units over lung, the aorta and bone, then rulers across the heart and a vertebra](docs/demos/measure.gif)
+
+The value under the pointer shows at the bottom left, in Hounsfield units on a
+CT. `M` turns on the ruler, which measures in millimetres from the file's pixel
+spacing.
+
+### Switch series, and play a loop
+
+![Going from the scout to the axial CT, a head MR, and an echocardiogram, which plays as a loop](docs/demos/series.gif)
+
+`←` `→` go through the series of every study. `Space` plays a series as a
+loop: an ultrasound clip, or a CT run through head to foot.
+
+### Look through the tags
+
+![The tag panel opening beside the image, searched for spacing, and following the slice as it changes](docs/demos/tags.gif)
+
+`T` lists every tag of the slice shown, with sequences nested; `Ctrl+F`
+searches them by name, number, or value.
+
+### Hide the patient's details
+
+![The patient's name, birth date and study details disappearing from the image's corners with H, and coming back](docs/demos/privacy.gif)
+
+`H` clears the image's corners, where the patient's name, ID, and birth date
+are, and the window's title, for a screen share or a screenshot.
+
+### Save or copy the image
+
+![Saving the image as a PNG with Ctrl+E, and copying it with Ctrl+C](docs/demos/export.gif)
+
+`Ctrl+E` saves the image as you see it, at its true shape, as a PNG, through
+the desktop's file chooser; `Ctrl+C` copies it.
+
+### Every shortcut, on `?`
+
+![The shortcut list over the window](docs/demos/help.gif)
+
+### Your theme and language
+
+![The window following the theme as it changes to Tokyo Night, Catppuccin Latte and Everforest, and the language as it changes to Danish, Arabic, Japanese and back to English](docs/demos/theme.gif)
+
+It follows the Omarchy theme and language as they change, light themes as
+well as dark, in all 50 of Omarchy's languages, right to left where they read
+that way. Scans stay on black, as they are read.
+
 ## Shortcuts
 
 | Key | Does |
@@ -82,6 +165,7 @@ with Omarchy.
 ```sh
 bin/build                                 # build/dicolens
 bin/test                                  # the tests, offscreen
+bin/demos                                 # record docs/demos/*.gif again
 cmake --install build --prefix ~/.local   # try it in the app launcher
 ```
 
