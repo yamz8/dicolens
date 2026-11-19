@@ -32,6 +32,8 @@
 #include "backend.h"
 #include "filepicker.h"
 #include "sliceview.h"
+#include "volumeview.h"
+#include "measurestore.h"
 #include "theme.h"
 #include "thumbnails.h"
 #include "translator.h"
@@ -218,7 +220,7 @@ const std::vector<Vessel> &vessels() {
 double chest(double x, double y, double s, bool contrast = true) {
     const double blood = contrast ? 1 : 0;
     if (y > 108 && y < 116 && std::abs(x) < 175)
-        return 140;  // The table.
+        return 70;  // The table.
     const double bodyA = 126 + 26 * smoothstep(-6, 14, s), bodyB = 92 + 8 * smoothstep(-6, 10, s);
     const double body = inside(x, y, 0, 0, bodyA, bodyB);
     if (body > 1)
@@ -298,32 +300,75 @@ double chest(double x, double y, double s, bool contrast = true) {
     // Bone: sternum, ribs, and the spine.
     if (s > 3 && s < 32 && std::abs(x) < 14 && y > -91 && y < -80)
         hu = std::abs(x) > 11 || y < -89 || y > -82 ? 620 : 280;
-    if (s < 42)
-        for (int side : {-1, 1})
-            for (int k = 0; k < 7; ++k) {
-                if (std::fmod(s + k * 1.7 + (side > 0 ? 0.8 : 0), 3.0) > 1.7)
-                    continue;
-                const double phi = (35 + k * 20 + 6 * std::sin(s * 0.4 + k)) * M_PI / 180;
-                const double rx = side * bodyA * 0.79 * std::sin(phi), ry = bodyB * 0.79 * std::cos(phi);
-                const double r = inside(x, y, rx, ry, 6, 6);
-                if (r < 1)
-                    hu = r > 0.45 ? 700 : 260;
+    // Ribs: each curves round from the spine to the front, falling as it
+    // goes, so a slice cuts it at its back and again further round.
+    const double z = s * 5;
+    const double ringA = bodyA * 0.79, ringB = bodyB * 0.79;
+    const double ring = std::hypot(x / ringA, y / ringB);
+    const double phi = std::atan2(std::abs(x) / ringA, y / ringB);   // 0 at the back, π at the front.
+    const double across = (ring - 1) * (ringA + ringB) / 2;           // Millimetres out from the ring.
+    if (std::abs(across) < 6 && phi > 0.3 && phi < 2.5)
+        for (int k = 0; k < 10; ++k) {
+            const double height = 4 + k * 21 + 30 * phi / M_PI + 3 * std::sin(2 * phi);
+            const double r = std::hypot((z - height) / 6, across / 5);
+            if (r < 1) {
+                hu = r > 0.55 ? 700 : 260;
+                break;
             }
+        }
+    // The spine: vertebrae with discs between them.
+    const bool disc = std::fmod(z + 1000, 26) < 5;
     const double vertebra = inside(x, y, 0, 58, 18, 15);
     if (vertebra < 1)
-        hu = vertebra > 0.72 ? 650 : 240;
+        hu = disc ? 85 : vertebra > 0.72 ? 650 : 240;
     const double canal = inside(x, y, 0, 82, 8, 8);
     if (canal < 1)
         hu = 15;
-    else if (canal < 2.6 && y > 76)
+    else if (canal < 2.6 && y > 76 && !disc)
         hu = 560;
-    if (std::abs(x) < 4 && y > 88 && y < 106)
+    if (std::abs(x) < 4 && y > 88 && y < 106 && !disc)
         hu = 560;
     return hu;
 }
 
 // ---------------------------------------------------------------------------
 // The CD: a chest CT with its scout, a head MR, and an echo loop.
+
+// An axial series of the chest: n pixels a side, spacing mm apart, slices
+// step mm apart from the shoulders down, on top of what base() carries.
+void writeAxial(const QString &folder, const std::function<Dataset()> &base, const QString &series, const QString &name,
+                int number, int n, double spacing, int slices, double step, bool contrast, std::mt19937 &random) {
+    std::normal_distribution<double> noise(0, 1);
+    for (int k = 0; k < slices; ++k) {
+        const double s = k * step / 5;
+        std::vector<int> pixels(n * n);
+        for (int r = 0; r < n; ++r)
+            for (int c = 0; c < n; ++c) {
+                const double x = (c - (n - 1) / 2.0) * spacing, y = (r - (n - 1) / 2.0) * spacing;
+                double hu = 0;
+                for (double o : {-0.25, 0.25})
+                    hu += chest(x + o * spacing, y + o * spacing, s, contrast) / 2;
+                const double sigma = hu <= -990 ? 1 : hu < -500 ? 7 : 3.5;
+                pixels[r * n + c] = int(std::lround(hu + sigma * noise(random))) + 1024;
+            }
+        Dataset d = base();
+        d.text(0x0008103E, "LO", name)
+            .text(0x00180050, "DS", ds(step))
+            .text(0x00180060, "DS", "120")
+            .text(0x0020000E, "UI", series)
+            .text(0x00200011, "IS", QString::number(number))
+            .text(0x00200013, "IS", QString::number(k + 1))
+            .text(0x00200032, "DS", QStringLiteral("%1\\%1\\%2").arg(ds(-(n - 1) / 2.0 * spacing), ds(-k * step)))
+            .text(0x00200037, "DS", "1\\0\\0\\0\\1\\0")
+            .text(0x00201041, "DS", ds(-k * step))
+            .us(0x00280010, n).us(0x00280011, n)
+            .text(0x00280030, "DS", QStringLiteral("%1\\%1").arg(ds(spacing)))
+            .text(0x00281050, "DS", "40")
+            .text(0x00281051, "DS", "400")
+            .set(0x7FE00010, "OW", words(pixels));
+        writeDicom(QStringLiteral("%1/IM%2").arg(folder).arg(k + 1, 6, 10, QChar('0')), d);
+    }
+}
 
 // The chest CT, with a scout, or a year's earlier one without contrast to
 // compare it with. Gives back each axial slice's SOP Instance UID.
@@ -387,6 +432,9 @@ QStringList makeChestCt(const QString &root, std::mt19937 &random, bool prior = 
     }
     if (prior)
         return sops;
+
+    // The same scan made into thin slices, for looking at it in 3D.
+    writeAxial(folder + "/SE000003", base, uid(), "Axial 2 mm", 3, 512, 0.7, 118, 2, true, random);
 
     // The scout: the same chest seen from the front, as X-rays add up through it.
     const int cols = 512, rows = 400;
@@ -632,6 +680,20 @@ QString makeHeadMr(const QString &root, std::mt19937 &random) {
 // heart muscle and a nodule in the right lung take it up, the liver some.
 void makePet(const QString &root, std::mt19937 &random) {
     const QString study = uid(), series = uid(), frame = uid();
+    // The CT taken with it, lined up in one frame of reference, at the low
+    // dose a PET-CT's CT is.
+    writeAxial(root + "/ST000004/SE000002", [&] {
+        return patient(study, "20260320", "PET-CT FDG", "A1107")
+            .text(0x00080016, "UI", "1.2.840.10008.5.1.4.1.1.2")
+            .text(0x00080060, "CS", "CT")
+            .text(0x00080070, "LO", "Made-up Scanner")
+            .text(0x00200052, "UI", frame)
+            .us(0x00280002, 1)
+            .text(0x00280004, "CS", "MONOCHROME2")
+            .us(0x00280100, 16).us(0x00280101, 12).us(0x00280102, 11).us(0x00280103, 0)
+            .text(0x00281052, "DS", "-1024")
+            .text(0x00281053, "DS", "1");
+    }, uid(), "CT low dose", 2, 256, 1.4, 48, 5, false, random);
     const int n = 128, slices = 48;
     const double spacing = 2.8;
     // 370 MBq at 09:15, the series corrected to its start at 10:30.
@@ -693,7 +755,7 @@ void makePet(const QString &root, std::mt19937 &random) {
             .text(0x00541001, "CS", "BQML")
             .text(0x00541102, "CS", "START")
             .set(0x7FE00010, "OW", words(pixels));
-        writeDicom(QStringLiteral("%1/ST000003/SE000001/IM%2").arg(root).arg(s + 1, 6, 10, QChar('0')), d);
+        writeDicom(QStringLiteral("%1/ST000004/SE000001/IM%2").arg(root).arg(s + 1, 6, 10, QChar('0')), d);
     }
 }
 
@@ -983,6 +1045,8 @@ int main(int argc, char *argv[]) {
         QDir().mkpath(out);
 
     QTemporaryDir work;
+    // What the demo measures isn't kept with the user's own.
+    MeasureStore::instance().setFolder(work.filePath("measurements"));
     const QString cd = scansOnly ? QDir(app.arguments().value(2)).absoluteFilePath("DICOM") : work.filePath("DEMO_CD/DICOM");
     std::mt19937 random(2026);
     qInfo() << "Making up the scans";
@@ -1005,10 +1069,13 @@ int main(int argc, char *argv[]) {
     Picker picker(work.filePath("DEMO_CD"), work.path());
     Backend backend(&picker);
     Backend partner(&picker);
+    Backend coronal(&picker);
+    Backend sagittal(&picker);
     // The PDF report stays in the window rather than opening a viewer.
     backend.setUrlOpener([](const QUrl &) { return true; });
 
     qmlRegisterType<SliceView>("Dicolens", 1, 0, "SliceView");
+    qmlRegisterType<VolumeView>("Dicolens", 1, 0, "VolumeView");
     qmlRegisterUncreatableType<Backend>("Dicolens", 1, 0, "Backend", "The backend is given to QML as \"backend\"");
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);
@@ -1021,6 +1088,8 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("theme", &theme);
     engine.rootContext()->setContextProperty("backend", &backend);
     engine.rootContext()->setContextProperty("partner", &partner);
+    engine.rootContext()->setContextProperty("coronal", &coronal);
+    engine.rootContext()->setContextProperty("sagittal", &sagittal);
     engine.load(QUrl("qrc:/Main.qml"));
     if (engine.rootObjects().isEmpty())
         return 1;
@@ -1074,7 +1143,7 @@ int main(int argc, char *argv[]) {
              rec.key("→", Qt::Key_Right, Qt::NoModifier, 1300);
              rec.key("→", Qt::Key_Right, Qt::NoModifier, 1600);
          }},
-        {"slices", [&] { showSeries("Axial", 4); },
+        {"slices", [&] { showSeries("Axial 5 mm", 4); },
          [&] {
              const QPointF middle = at(0, 0);
              rec.moveTo(middle, 500);
@@ -1089,7 +1158,7 @@ int main(int argc, char *argv[]) {
                       Qt::LeftButton, 1800, "Drag along the bar");
              rec.hold(900);
          }},
-        {"window", [&] { showSeries("Axial", 22); },
+        {"window", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              const QPointF middle = at(0, 0);
              rec.drag(middle, middle + QPointF(-140, -90), Qt::LeftButton, 1300, "Drag");
@@ -1106,7 +1175,7 @@ int main(int argc, char *argv[]) {
              rec.key("Ctrl+Z", Qt::Key_Z, Qt::ControlModifier, 900);
              rec.key("0  The file's window", Qt::Key_0, Qt::NoModifier, 1200);
          }},
-        {"zoom", [&] { showSeries("Axial", 22); },
+        {"zoom", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              const QPointF heart = at(20, -24);
              rec.wheel(heart, -5, 1200, "Ctrl+Wheel", Qt::ControlModifier);
@@ -1117,7 +1186,7 @@ int main(int argc, char *argv[]) {
              rec.hold(600);
              rec.key("F  Fit", Qt::Key_F, Qt::NoModifier, 1200);
          }},
-        {"measure", [&] { showSeries("Axial", 22); },
+        {"measure", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              rec.moveTo(at(-70, -10), 700);
              rec.hold(900);
@@ -1145,7 +1214,7 @@ int main(int argc, char *argv[]) {
              rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 500);
              rec.key("Shift+Delete  Clear", Qt::Key_Delete, Qt::ShiftModifier, 900);
          }},
-        {"planes", [&] { showSeries("Axial", 22); },
+        {"planes", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              rec.hidePointer();
              rec.hold(900);
@@ -1168,7 +1237,7 @@ int main(int argc, char *argv[]) {
              rec.hidePointer();
              rec.key("C  Back to one", Qt::Key_C, Qt::NoModifier, 900);
          }},
-        {"oblique", [&] { showSeries("Axial", 22); },
+        {"oblique", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              // Side by side with a coronal of the same scan.
              rec.hidePointer();
@@ -1201,7 +1270,7 @@ int main(int argc, char *argv[]) {
              rec.hold(1300);
              rec.key("V  Straight again", Qt::Key_V, Qt::NoModifier, 1200);
          }},
-        {"slabs", [&] { showSeries("Axial", 22); },
+        {"slabs", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              rec.hidePointer();
              rec.hold(800);
@@ -1244,7 +1313,7 @@ int main(int argc, char *argv[]) {
              rec.key("Y  Flip top to bottom", Qt::Key_Y, Qt::NoModifier, 1300);
              rec.key("R  Reset", Qt::Key_R, Qt::NoModifier, 1200);
          }},
-        {"marks", [&] { showSeries("Axial", 22); },
+        {"marks", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              rec.hidePointer();
              rec.hold(2200);
@@ -1252,7 +1321,7 @@ int main(int argc, char *argv[]) {
              rec.key("N  Show them", Qt::Key_N, Qt::NoModifier, 1500);
              rec.key("←  Scout", Qt::Key_Left, Qt::NoModifier, 2400);
          }},
-        {"reports", [&] { showSeries("Axial", 22); },
+        {"reports", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              rec.hidePointer();
              rec.hold(900);
@@ -1262,7 +1331,7 @@ int main(int argc, char *argv[]) {
              rec.key("→  Next report", Qt::Key_Right, Qt::NoModifier, 2200);
              rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 1000);
          }},
-        {"compare", [&] { showSeries("Axial", 22); },
+        {"compare", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              rec.hold(700);
              rec.key("C  Compare with last year", Qt::Key_C, Qt::NoModifier, 400);
@@ -1302,7 +1371,7 @@ int main(int argc, char *argv[]) {
              rec.key("Space  Play", Qt::Key_Space, Qt::NoModifier, 4200);
              rec.key("Space  Pause", Qt::Key_Space, Qt::NoModifier, 900);
          }},
-        {"tags", [&] { showSeries("Axial", 22); },
+        {"tags", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              rec.hold(700);
              rec.key("T  Tags", Qt::Key_T, Qt::NoModifier, 1500);
@@ -1314,20 +1383,20 @@ int main(int argc, char *argv[]) {
              rec.key("↓", Qt::Key_Down, Qt::NoModifier, 700);
              rec.key("T", Qt::Key_T, Qt::NoModifier, 900);
          }},
-        {"privacy", [&] { showSeries("Axial", 22); },
+        {"privacy", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              rec.hold(1000);
              rec.key("H  Hide details", Qt::Key_H, Qt::NoModifier, 1700);
              rec.key("H  Show them", Qt::Key_H, Qt::NoModifier, 1200);
          }},
-        {"export", [&] { showSeries("Axial", 22); },
+        {"export", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              rec.hold(700);
              rec.key("Ctrl+E  Save as PNG", Qt::Key_E, Qt::ControlModifier, 2300);
              rec.key("Ctrl+Shift+E  Save as a video", Qt::Key_E, Qt::ControlModifier | Qt::ShiftModifier, 2800);
              rec.key("Ctrl+C  Copy", Qt::Key_C, Qt::ControlModifier, 2600);
          }},
-        {"anonymous", [&] { showSeries("Axial", 22); },
+        {"anonymous", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              rec.hidePointer();
              rec.hold(900);
@@ -1339,7 +1408,7 @@ int main(int argc, char *argv[]) {
              backend.loadPaths({work.filePath("Anonymous scans")});
              QTRY_VERIFY_WITH_TIMEOUT(backend.hasImages() && !backend.scanning(), 20000);
              for (int i = 0; i < backend.seriesList().size(); ++i)
-                 if (backend.seriesList()[i].toMap().value("title").toString().contains("Axial"))
+                 if (backend.seriesList()[i].toMap().value("title").toString().contains("Axial 5 mm"))
                      backend.selectSeries(i);
              backend.setSliceIndex(22);
              settle();
@@ -1349,7 +1418,119 @@ int main(int argc, char *argv[]) {
              backend.loadPaths({cd});
              QTRY_VERIFY_WITH_TIMEOUT(backend.hasImages() && !backend.scanning(), 20000);
          }},
-        {"help", [&] { showSeries("Axial", 22); },
+        {"3d", [&] { showSeries("Axial 2 mm", 60); },
+         [&] {
+             auto *volume = qobject_cast<VolumeView *>(findItem(window->contentItem(), "view3d"));
+             const auto ready = [&] { QTRY_VERIFY_WITH_TIMEOUT(volume->waitForPicture(20000), 30000); };
+             rec.hidePointer();
+             rec.hold(600);
+             rec.key("D  3D", Qt::Key_D, Qt::NoModifier, 0);
+             QTRY_VERIFY_WITH_TIMEOUT(volume->ready(), 30000);
+             ready();
+             rec.hold(1200);
+             const QPointF middle = volume->mapToScene(QPointF(volume->width() / 2, volume->height() / 2));
+             rec.drag(middle, middle + QPointF(260, 0), Qt::LeftButton, 2200, "Drag: turn it");
+             rec.drag(middle + QPointF(260, 0), middle + QPointF(260, -110), Qt::LeftButton, 1300, "Drag");
+             ready();
+             rec.hold(900);
+             rec.hidePointer();
+             rec.key("R  Reset", Qt::Key_R, Qt::NoModifier, 0);
+             ready();
+             rec.hold(500);
+             rec.wheel(middle, -16, 2400, "Wheel: cut into it");
+             ready();
+             rec.hold(1200);
+             rec.hidePointer();
+             rec.key("Home", Qt::Key_Home, Qt::NoModifier, 0);
+             ready();
+             for (const char *look : {"B  Vessels", "B  Skin", "B  Lungs", "B  MIP"}) {
+                 rec.key(look, Qt::Key_B, Qt::NoModifier, 0);
+                 ready();
+                 rec.hold(1300);
+             }
+             rec.key("B  Bone", Qt::Key_B, Qt::NoModifier, 0);
+             ready();
+             rec.drag(middle, middle + QPointF(-160, 0), Qt::LeftButton, 1300, "Ctrl+drag: show more or less", Qt::ControlModifier);
+             ready();
+             rec.hold(800);
+             rec.drag(middle + QPointF(-160, 0), middle, Qt::LeftButton, 900, "Ctrl+drag", Qt::ControlModifier);
+             ready();
+             rec.hidePointer();
+             rec.key("V  From the side", Qt::Key_V, Qt::NoModifier, 0);
+             ready();
+             rec.hold(1300);
+             rec.key("Space  Spin", Qt::Key_Space, Qt::NoModifier, 4200);
+             rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 0);
+             ready();
+             rec.hold(600);
+             rec.key("D  Back to slices", Qt::Key_D, Qt::NoModifier, 900);
+         }},
+        {"four", [&] { showSeries("Axial 2 mm", 60); },
+         [&] {
+             rec.hidePointer();
+             rec.hold(600);
+             rec.key("Shift+V  Four views", Qt::Key_V, Qt::ShiftModifier, 0);
+             auto *volume = qobject_cast<VolumeView *>(findItem(window->contentItem(), "quadView3d"));
+             QTRY_VERIFY_WITH_TIMEOUT(volume->ready(), 30000);
+             QTRY_VERIFY_WITH_TIMEOUT(volume->waitForPicture(20000), 30000);
+             coronal.waitForSlice(10000);
+             sagittal.waitForSlice(10000);
+             rec.hold(1500);
+             // A click anywhere moves where the planes meet in all of them.
+             rec.click(at(22, 42), "Click: the aorta");
+             coronal.waitForSlice(10000);
+             sagittal.waitForSlice(10000);
+             rec.hold(1800);
+             rec.wheel(at(22, 42), 12, 1800, "Wheel");
+             coronal.waitForSlice(10000);
+             sagittal.waitForSlice(10000);
+             rec.hold(1000);
+             rec.hidePointer();
+             rec.key("Tab  The next view", Qt::Key_Tab, Qt::NoModifier, 700);
+             rec.key("Tab", Qt::Key_Tab, Qt::NoModifier, 700);
+             rec.key("Tab", Qt::Key_Tab, Qt::NoModifier, 700);
+             const QPointF middle = volume->mapToScene(QPointF(volume->width() / 2, volume->height() / 2));
+             rec.drag(middle, middle + QPointF(180, 30), Qt::LeftButton, 1800, "Drag: turn it");
+             QTRY_VERIFY_WITH_TIMEOUT(volume->waitForPicture(20000), 30000);
+             rec.hold(1200);
+             rec.click(middle + QPointF(0, -20), "Click in 3D: the planes meet there");
+             coronal.waitForSlice(10000);
+             sagittal.waitForSlice(10000);
+             backend.waitForSlice(10000);
+             rec.hold(2000);
+             rec.hidePointer();
+             rec.key("Shift+V  Back to one", Qt::Key_V, Qt::ShiftModifier, 900);
+         }},
+        {"fusion", [&] { showSeries("CT low dose", 20); },
+         [&] {
+             rec.hidePointer();
+             rec.hold(800);
+             rec.key("U  PET over the CT", Qt::Key_U, Qt::NoModifier, 0);
+             QTRY_VERIFY_WITH_TIMEOUT(backend.fused() && !backend.fusionName().contains("…"), 30000);
+             backend.waitForSlice(10000);
+             rec.hold(1200);
+             rec.moveTo(at(22, -20, 1.4), 900);
+             rec.hold(1300);
+             rec.moveTo(at(-62, -6, 1.4), 900);
+             rec.hold(1500);
+             rec.hidePointer();
+             for (const char *strength : {"Shift+U  70%", "Shift+U  100%", "Shift+U  30%"}) {
+                 rec.key(strength, Qt::Key_U, Qt::ShiftModifier, 0);
+                 backend.waitForSlice(10000);
+                 rec.hold(1000);
+             }
+             rec.key("Shift+U  50%", Qt::Key_U, Qt::ShiftModifier, 0);
+             rec.key("Shift+V  In every plane, and 3D", Qt::Key_V, Qt::ShiftModifier, 0);
+             auto *volume = qobject_cast<VolumeView *>(findItem(window->contentItem(), "quadView3d"));
+             QTRY_VERIFY_WITH_TIMEOUT(volume->ready(), 30000);
+             QTRY_VERIFY_WITH_TIMEOUT(volume->waitForPicture(20000), 30000);
+             coronal.waitForSlice(10000);
+             sagittal.waitForSlice(10000);
+             rec.hold(2600);
+             rec.key("Shift+V", Qt::Key_V, Qt::ShiftModifier, 300);
+             rec.key("U  PET off", Qt::Key_U, Qt::NoModifier, 1300);
+         }},
+        {"help", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              rec.hold(600);
              rec.badge("?");
@@ -1357,7 +1538,7 @@ int main(int argc, char *argv[]) {
              rec.hold(3800);
              rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 800);
          }},
-        {"theme", [&] { showSeries("Axial", 22); },
+        {"theme", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              rec.hold(1200);
              const auto setTheme = [&](const QString &name, const QString &label) {

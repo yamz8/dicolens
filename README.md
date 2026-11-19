@@ -19,7 +19,9 @@ rescale come frame by frame. It shows the values under the pointer (in
 Hounsfield units on CT, and SUVs on PET), measures lengths, areas with their
 values, angles, and Cobb angles (on ultrasound too, from the scanner's
 calibration), cuts a CT or MR the other two ways, or at any angle, and into
-MIP and MinIP slabs, labels the patient directions at the image's edges,
+MIP and MinIP slabs, shows it in 3D as bone, vessels, skin, or lungs, or the
+three planes and 3D at once, puts a PET in colour over the CT taken with it,
+labels the patient directions at the image's edges,
 turns and flips the picture, plays multi-frame series as loops, and lists
 every tag. It shows the marks left on the images (overlay planes and saved
 annotations), reads the reports that came with them (structured reports and
@@ -90,7 +92,9 @@ range of the values in it, which on a CT tells fluid from fat or tissue.
 `Shift+C` measures a Cobb angle, the curve of a spine: drag a line along the
 end plate of the vertebra at one end of the curve, then along the other, and
 it gives the angle between them, whichever way each was drawn.
-Measurements stay on their slice; `Delete` removes the last one, and
+Measurements stay on their slice, and are kept with the series: open the scans
+again, even from another copy, and they're there. They're saved in Dicolens'
+own folder, never beside the scans. `Delete` removes the last one, and
 `Shift+Delete` all of the slice's.
 
 ### Cut it the other ways
@@ -113,6 +117,40 @@ side's plane about that point, to follow a vessel or a bone that runs at an
 angle. `Ctrl` and the arrows tilt the plane in view, 5° a press, up and down
 or left and right. A tilted plane is still shown the usual way up, the head
 at the top and the patient's right on the left. `V` straightens it again.
+
+### See it in 3D
+
+![A thin-slice chest CT in 3D as bone, turned by dragging, cut into from the front with the wheel, then as vessels, skin, lungs and a MIP, shifted with Ctrl and a drag, seen from the side, and spinning](docs/demos/3d.gif)
+
+`D` shows a CT or MR stack in 3D. Dragging turns it; `B` goes through bone,
+vessels, skin, lungs, and a MIP (on MR, a surface and a MIP, through the
+window); `Ctrl` and a drag shows more or less of it, as the window does on a
+slice. The wheel and the arrow keys cut into it from the front, to see
+inside, and `Home` puts the front back. `V` looks at it from the front, the
+patient's left, the back, the right, and above; `Ctrl` and the arrows turn it
+a little, `]` and `[` a quarter, and `Space` spins it. A click on it marks
+where the planes meet. `Ctrl+E` and `Ctrl+C` save or copy the picture. It's
+drawn on the processor, roughly while it moves and finely when it stops, and
+looks best from thin slices.
+
+### Four views
+
+![Four views of a chest CT: axial, coronal, sagittal and 3D, a click on the aorta moving all of them there, the wheel, Tab to the 3D view, turning it, and a click in 3D moving the planes](docs/demos/four.gif)
+
+`Shift+V` shows the series as it was scanned, cut coronally and sagittally,
+and in 3D, at once, each with a cross where the planes meet. A click in any
+of them, the 3D view too, moves the others there. `Tab` gives the keys to the
+next view, and the window follows from one to the others.
+
+### A PET over its CT
+
+![A PET-CT: U puts the PET in colour over the CT, the HU and SUV under the pointer over the heart and a nodule, Shift+U changes how strongly it shows, and Shift+V shows it in every plane and over the 3D view](docs/demos/fusion.gif)
+
+`U` puts the PET taken with a CT or MR over it, in colour, lined up by where
+each was in the scanner. It's there in every plane and over the 3D view, and
+the value under the pointer gives the PET's SUV beside the CT's HU.
+`Shift+U` shows it at 30, 50, 70 or 100 %. Open the PET itself and `U` puts
+it over the CT instead.
 
 ### Slabs: MIP and MinIP
 
@@ -238,7 +276,7 @@ that way. Scans stay on black, as they are read.
 | `PgUp` `PgDn` | Ten slices back / on |
 | `Home` `End` | First / last slice |
 | `←` `→` | Previous / next series |
-| `Space` | Play / pause the series as a loop |
+| `Space` | Play / pause the series as a loop; in 3D, spin it |
 | Drag | Window: contrast across, brightness down |
 | `1` `2` `3` `4` | CT windows: brain, soft tissue, lung, bone |
 | `0` | The file's own window |
@@ -257,6 +295,9 @@ that way. Scans stay on black, as they are read.
 | `Ctrl`+arrows | Tilt the cut |
 | Click / drag the line | Where the planes meet / turn the other side's plane |
 | `B` / `Shift+B` | Slabs: MIP, MinIP, average / their thickness |
+| `D` | The series in 3D, and back |
+| `Shift+V` | Four views: three planes and 3D (`Tab` the next) |
+| `U` / `Shift+U` | A PET over the CT taken with it / how strongly it shows |
 | `G` | Colour scales, for PET |
 | `N` | Show or hide marks left on the image |
 | `C` | Two series side by side |
