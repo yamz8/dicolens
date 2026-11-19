@@ -19,6 +19,7 @@
 #include "pixels.h"
 #include "reformat.h"
 #include "study.h"
+#include "measure.h"
 #include "volumerender.h"
 
 struct DecodeJob;
@@ -221,6 +222,10 @@ public:
     void crossingPoint(double *point) const;
     // Millimetres between pixels across and down, where the picture has them.
     bool spacingAt(double x, double y, double &across, double &down) const;
+    // How big the shown picture's pixels are, and what a measurement drawn
+    // on it comes to, as the window shows it.
+    MeasureScale measureScale() const;
+    QString measureText(const Measure &m) const;
     Q_INVOKABLE void nextColorMap();
     Q_INVOKABLE void exportImage();
     // The series (or plane) as an MP4, as shown: windowed, turned, coloured.

@@ -7,12 +7,7 @@
 #include <QSet>
 #include <QString>
 
-// A ruler, area, angle, or Cobb angle drawn on a picture.
-struct Measure {
-    int kind = 1;            // As the tool that drew it.
-    QPointF a, b, c, d;      // Image pixels; c is an angle's far end,
-                             // and c to d a Cobb angle's second line.
-};
+#include "measure.h"
 
 // Every measurement, kept with the series it was drawn on, by its UID, so
 // they come back when the scans are opened again. Each series' are saved
@@ -35,6 +30,15 @@ public:
     void add(const QString &series, int plane, int slice, const Measure &measure);
     bool removeLast(const QString &series, int plane, int slice);
     void clear(const QString &series, int plane, int slice);
+
+    // Every measurement kept with a series, by plane, then slice, then in
+    // the order they were drawn.
+    struct Placed {
+        int plane = 0;
+        int slice = 0;
+        Measure measure;
+    };
+    QList<Placed> all(const QString &series);
 
 signals:
     void changed();

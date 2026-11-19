@@ -94,3 +94,16 @@ bool sampleGrid(const VoxelGrid &grid, const double *voxel, double &value);
 // A picture with a PET over it, in colour where its values rise above low,
 // for a picture lying in the patient as plane says.
 QImage fuseSlice(const QImage &base, const ImagePlane &plane, const VoxelGrid &pet, const Overlay3D &look);
+
+// The look a series opens in, by its modality: bone for CT, a MIP for PET,
+// and a surface through the window for the rest.
+Look defaultLook(const QString &modality);
+
+// The series to put over or under one: for a PET, the CT (or else MR) it
+// was taken with; for a CT or MR, its PET. Lined up by the scanner's frame
+// of reference, or failing that taken in one study; -1 if none.
+int fusionPartner(const QList<Series> &series, int index);
+
+// The PET values from clear to full colour: SUV 1 to 6 when there are
+// SUVs, and otherwise by what its brightest parts reach.
+void petRange(const VoxelGrid &pet, bool suv, double &low, double &high);

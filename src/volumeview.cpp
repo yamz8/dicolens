@@ -128,8 +128,7 @@ void VolumeView::defaultLook() {
     const Series *s = nullptr;
     if (m_backend && m_backend->seriesIndex() >= 0 && m_backend->seriesIndex() < m_backend->scan().series.size())
         s = &m_backend->scan().series[m_backend->seriesIndex()];
-    const QString modality = s ? s->modality : QString();
-    m_view.look = modality == "CT" ? Look::Bone : modality == "PT" ? Look::Mip : Look::Surface;
+    m_view.look = ::defaultLook(s ? s->modality : QString());
     m_view.shift = 0;
 }
 

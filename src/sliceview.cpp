@@ -405,28 +405,7 @@ void SliceView::clearMeasures() {
 }
 
 QString SliceView::text(const Measure &m) const {
-    if (!m_backend)
-        return {};
-    if (m.kind == 2) {
-        const QRectF box = QRectF(m.a, m.b).normalized();
-        return m_backend->areaStats(box.x(), box.y(), box.width(), box.height());
-    }
-    if (m.kind == 3 || m.kind == 4) {
-        // Pixels needn't be square: the angle is the one in the body.
-        const double aspect = m_backend->pixelAspect();
-        const QPointF u = m.kind == 3 ? m.a - m.b : m.b - m.a, v = m.kind == 3 ? m.c - m.b : m.d - m.c;
-        const double ux = u.x() * aspect, vx = v.x() * aspect;
-        const double lu = std::hypot(ux, u.y()), lv = std::hypot(vx, v.y());
-        if (lu < 1e-9 || lv < 1e-9)
-            return {};
-        double cosine = std::clamp((ux * vx + u.y() * v.y()) / (lu * lv), -1.0, 1.0);
-        // Between two lines, whichever way each was drawn: at most 90°.
-        if (m.kind == 4)
-            cosine = std::abs(cosine);
-        const QString angle = m_backend->angleText(std::acos(cosine) * 180 / M_PI);
-        return m.kind == 4 ? tr("Cobb %1").arg(angle) : angle;
-    }
-    return m_backend->distance(m.a.x(), m.a.y(), m.b.x(), m.b.y());
+    return m_backend ? m_backend->measureText(m) : QString();
 }
 
 QStringList SliceView::measureTexts() const {

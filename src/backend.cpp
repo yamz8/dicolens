@@ -1584,32 +1584,32 @@ QString Backend::valueText(const Frame &f, int ix, int iy, const QString &where)
     return QStringLiteral("%1   %2").arg(where, value);
 }
 
-bool Backend::spacingAt(double x, double y, double &across, double &down) const {
+MeasureScale Backend::measureScale() const {
+    MeasureScale scale;
     const Series *s = currentSeries();
     if (!s)
-        return false;
+        return scale;
+    scale.aspect = pixelAspect();
     if (m_plane == 3) {
-        across = down = m_oblique.spacing;
-        return true;
+        scale.even = true;
+        scale.across = scale.down = m_oblique.spacing;
+    } else if (m_plane != 0) {
+        scale.even = true;
+        scale.across = m_volume.spacing[m_cut.horizontal];
+        scale.down = m_volume.spacing[m_cut.vertical];
+    } else if (s->hasSpacing) {
+        scale.even = true;
+        scale.across = s->spacing[1];
+        scale.down = s->spacing[0];
+    } else {
+        // Ultrasound calibrates the picture's areas, not the whole frame.
+        scale.regions = s->regions;
     }
-    if (m_plane != 0) {
-        across = m_volume.spacing[m_cut.horizontal];
-        down = m_volume.spacing[m_cut.vertical];
-        return true;
-    }
-    if (s->hasSpacing) {
-        across = s->spacing[1];
-        down = s->spacing[0];
-        return true;
-    }
-    // Ultrasound calibrates the picture's areas, not the whole frame.
-    for (const auto &r : s->regions)
-        if (r.contains(x, y)) {
-            across = r.deltaX;
-            down = r.deltaY;
-            return true;
-        }
-    return false;
+    return scale;
+}
+
+bool Backend::spacingAt(double x, double y, double &across, double &down) const {
+    return currentSeries() && measureScale().at(x, y, across, down);
 }
 
 double Backend::shownValue(double value) const {
@@ -1626,67 +1626,51 @@ QString Backend::unit() const {
     return s->modality == "CT" ? QStringLiteral("HU") : QString();
 }
 
-QString Backend::distance(double x1, double y1, double x2, double y2) const {
+QString Backend::measureText(const Measure &m) const {
     const Series *s = currentSeries();
     if (!s)
         return {};
-    auto length = [&](double mm) { return mm >= 100 ? tr("%1 cm").arg(number(mm / 10, 1)) : tr("%1 mm").arg(number(mm, 1)); };
-    double across, down;
-    if ((m_plane != 0 || s->hasSpacing) && spacingAt(x1, y1, across, down))
-        return length(std::hypot((x2 - x1) * across, (y2 - y1) * down));
-    // Ultrasound calibrates the picture's areas, not the whole frame: a
-    // line inside one area has a length; across areas, or outside, none.
-    for (const auto &r : s->regions)
-        if (r.contains(x1, y1) && r.contains(x2, y2))
-            return length(std::hypot((x2 - x1) * r.deltaX, (y2 - y1) * r.deltaY));
-    return tr("%1 px").arg(number(std::hypot(x2 - x1, y2 - y1), 0));
+    const Frame *frame = m.kind == 2 ? currentFrame() : nullptr;
+    if (m.kind == 2 && (!frame || frame->isNull() || !frame->error.isEmpty()))
+        return {};
+    const MeasureValues v = measureValues(m, measureScale(), frame, s->suv > 0 ? s->suv : 1);
+    if (!v.valid)
+        return {};
+    if (m.kind == 3 || m.kind == 4)
+        return m.kind == 4 ? tr("Cobb %1").arg(angleText(v.angle)) : angleText(v.angle);
+    if (m.kind == 1) {
+        if (!v.millimetres)
+            return tr("%1 px").arg(number(v.length, 0));
+        return v.length >= 100 ? tr("%1 cm").arg(number(v.length / 10, 1)) : tr("%1 mm").arg(number(v.length, 1));
+    }
+    const QString area = !v.millimetres ? tr("%1 px²").arg(number(v.area, 0))
+                         : v.area >= 100 ? tr("%1 cm²").arg(number(v.area / 100, 2))
+                                         : tr("%1 mm²").arg(number(v.area, 1));
+    QStringList lines{tr("Area %1").arg(area)};
+    if (v.count == 0)
+        return lines.join('\n');
+    const QString u = unit();
+    const int decimals = u == "SUV" ? 2 : (u == "HU" || (frame->slope == 1 && frame->intercept == std::floor(frame->intercept))) ? 0 : 2;
+    auto value = [&](double x, int extra = 0) { return u.isEmpty() ? number(x, decimals + extra) : number(x, decimals + extra) + " " + u; };
+    lines << tr("Mean %1  ·  SD %2").arg(value(v.mean, decimals == 0 ? 1 : 0), number(v.sd, decimals == 0 ? 1 : decimals));
+    lines << tr("Min %1  ·  Max %2").arg(value(v.low), value(v.high));
+    return lines.join('\n');
+}
+
+QString Backend::distance(double x1, double y1, double x2, double y2) const {
+    Measure m;
+    m.kind = 1;
+    m.a = QPointF(x1, y1);
+    m.b = QPointF(x2, y2);
+    return measureText(m);
 }
 
 QString Backend::areaStats(double x, double y, double width, double height) const {
-    const Frame *frame = currentFrame();
-    if (!frame || frame->isNull() || !frame->error.isEmpty() || width <= 0 || height <= 0)
-        return {};
-    const double cx = x + width / 2, cy = y + height / 2, rx = width / 2, ry = height / 2;
-    QString area;
-    if (double across, down; spacingAt(cx, cy, across, down)) {
-        const double mm2 = M_PI * rx * ry * across * down;
-        area = mm2 >= 100 ? tr("%1 cm²").arg(number(mm2 / 100, 2)) : tr("%1 mm²").arg(number(mm2, 1));
-    } else {
-        area = tr("%1 px²").arg(number(M_PI * rx * ry, 0));
-    }
-    QStringList lines{tr("Area %1").arg(area)};
-    if (frame->isColor())
-        return lines.join('\n');
-
-    // Pixels whose centres fall inside the ellipse.
-    double sum = 0, squares = 0, low = 0, high = 0;
-    qint64 count = 0;
-    const int x0 = std::max(0, int(std::floor(x))), x1 = std::min(frame->width - 1, int(std::ceil(x + width)));
-    const int y0 = std::max(0, int(std::floor(y))), y1 = std::min(frame->height - 1, int(std::ceil(y + height)));
-    for (int j = y0; j <= y1; ++j)
-        for (int i = x0; i <= x1; ++i) {
-            const double dx = (i + 0.5 - cx) / rx, dy = (j + 0.5 - cy) / ry;
-            if (dx * dx + dy * dy > 1)
-                continue;
-            const double v = shownValue(frame->value(i, j));
-            if (count == 0)
-                low = high = v;
-            low = std::min(low, v);
-            high = std::max(high, v);
-            sum += v;
-            squares += v * v;
-            ++count;
-        }
-    if (count == 0)
-        return lines.join('\n');
-    const double mean = sum / count;
-    const double sd = std::sqrt(std::max(0.0, squares / count - mean * mean));
-    const QString u = unit();
-    const int decimals = u == "SUV" ? 2 : (u == "HU" || (frame->slope == 1 && frame->intercept == std::floor(frame->intercept))) ? 0 : 2;
-    auto v = [&](double value, int extra = 0) { return u.isEmpty() ? number(value, decimals + extra) : number(value, decimals + extra) + " " + u; };
-    lines << tr("Mean %1  ·  SD %2").arg(v(mean, decimals == 0 ? 1 : 0), number(sd, decimals == 0 ? 1 : decimals));
-    lines << tr("Min %1  ·  Max %2").arg(v(low), v(high));
-    return lines.join('\n');
+    Measure m;
+    m.kind = 2;
+    m.a = QPointF(x, y);
+    m.b = QPointF(x + width, y + height);
+    return measureText(m);
 }
 
 QString Backend::angleText(double degrees) const {
@@ -1931,36 +1915,7 @@ void Backend::copyImage() {
 }
 
 int Backend::fusionPartner(int index) const {
-    if (index < 0 || index >= m_scan.series.size())
-        return -1;
-    const Series &s = m_scan.series[index];
-    const bool pet = s.modality == "PT";
-    if (!pet && s.modality != "CT" && s.modality != "MR")
-        return -1;
-    int best = -1;
-    qint64 bestScore = -1;
-    for (int i = 0; i < m_scan.series.size(); ++i) {
-        const Series &o = m_scan.series[i];
-        const bool wanted = pet ? (o.modality == "CT" || o.modality == "MR") : o.modality == "PT";
-        if (i == index || !wanted || o.color || o.slices.size() < 2)
-            continue;
-        // Lined up by the scanner, or failing a shared frame, taken in one
-        // study of one patient.
-        const bool sameFrame = !s.frame.isEmpty() && s.frame == o.frame;
-        const bool sameStudy = !s.studyUid.isEmpty() && s.studyUid == o.studyUid && s.patientId == o.patientId;
-        if (!sameFrame && !sameStudy)
-            continue;
-        // The PET has to be a volume; the series under it only has to have
-        // places for its pictures.
-        if (!makeVolume(pet ? s : o).valid)
-            continue;
-        const qint64 score = (sameFrame ? 1000000 : 0) + (o.modality == "CT" ? 100000 : 0) + o.slices.size();
-        if (score > bestScore) {
-            bestScore = score;
-            best = i;
-        }
-    }
-    return best;
+    return ::fusionPartner(m_scan.series, index);
 }
 
 QString Backend::fusionName() const {
@@ -2052,32 +2007,7 @@ void Backend::fusionDecoded(int generation, int index, const Frame &frame) {
         flash(tr("The PET can't be read whole, so it can't be put over this"));
         return;
     }
-    // In SUVs, from where uptake starts to stand out; otherwise by what
-    // the PET's brightest parts reach.
-    if (pet.suv > 0) {
-        m_fusionLow = 1;
-        m_fusionHigh = 6;
-    } else {
-        std::vector<int> counts(256, 0);
-        size_t total = 0;
-        for (quint16 v : grid->data)
-            if (v > 0) {
-                ++counts[v >> 8];
-                ++total;
-            }
-        size_t seen = 0;
-        int top = 255;
-        for (int i = 0; i < 256; ++i) {
-            seen += counts[i];
-            if (seen >= total * 0.995) {
-                top = i;
-                break;
-            }
-        }
-        const double brightest = grid->value((top + 1) * 256.0);
-        m_fusionLow = grid->low + (brightest - grid->low) * 0.2;
-        m_fusionHigh = grid->low + (brightest - grid->low) * 0.9;
-    }
+    petRange(*grid, pet.suv > 0, m_fusionLow, m_fusionHigh);
     m_fusionGrid = grid;
     rerender();
     emit fusionChanged();

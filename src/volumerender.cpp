@@ -602,3 +602,66 @@ QImage fuseSlice(const QImage &base, const ImagePlane &plane, const VoxelGrid &p
     });
     return out;
 }
+
+Look defaultLook(const QString &modality) {
+    return modality == "CT" ? Look::Bone : modality == "PT" ? Look::Mip : Look::Surface;
+}
+
+int fusionPartner(const QList<Series> &all, int index) {
+    if (index < 0 || index >= all.size())
+        return -1;
+    const Series &s = all[index];
+    const bool pet = s.modality == "PT";
+    if (!pet && s.modality != "CT" && s.modality != "MR")
+        return -1;
+    int best = -1;
+    qint64 bestScore = -1;
+    for (int i = 0; i < all.size(); ++i) {
+        const Series &o = all[i];
+        const bool wanted = pet ? (o.modality == "CT" || o.modality == "MR") : o.modality == "PT";
+        if (i == index || !wanted || o.color || o.slices.size() < 2)
+            continue;
+        const bool sameFrame = !s.frame.isEmpty() && s.frame == o.frame;
+        const bool sameStudy = !s.studyUid.isEmpty() && s.studyUid == o.studyUid && s.patientId == o.patientId;
+        if (!sameFrame && !sameStudy)
+            continue;
+        // The PET has to be a volume; the series under it only has to have
+        // places for its pictures.
+        if (!makeVolume(pet ? s : o).valid)
+            continue;
+        const qint64 score = (sameFrame ? 1000000 : 0) + (o.modality == "CT" ? 100000 : 0) + o.slices.size();
+        if (score > bestScore) {
+            bestScore = score;
+            best = i;
+        }
+    }
+    return best;
+}
+
+void petRange(const VoxelGrid &grid, bool suv, double &low, double &high) {
+    if (suv) {
+        // From where uptake starts to stand out.
+        low = 1;
+        high = 6;
+        return;
+    }
+    std::vector<int> counts(256, 0);
+    size_t total = 0;
+    for (quint16 v : grid.data)
+        if (v > 0) {
+            ++counts[v >> 8];
+            ++total;
+        }
+    size_t seen = 0;
+    int top = 255;
+    for (int i = 0; i < 256; ++i) {
+        seen += counts[i];
+        if (seen >= total * 0.995) {
+            top = i;
+            break;
+        }
+    }
+    const double brightest = grid.value((top + 1) * 256.0);
+    low = grid.low + (brightest - grid.low) * 0.2;
+    high = grid.low + (brightest - grid.low) * 0.9;
+}
