@@ -1138,6 +1138,10 @@ int main(int argc, char *argv[]) {
              rec.moveTo(at(-50, 95), 700);
              rec.click(at(-60, 100), "Click the other");
              rec.hold(1800);
+             rec.key("Shift+C  Cobb angle", Qt::Key_C, Qt::ShiftModifier, 500);
+             rec.drag(at(-112, -78), at(-52, -88), Qt::LeftButton, 900, "Drag one line");
+             rec.drag(at(-112, -52), at(-52, -40), Qt::LeftButton, 900, "Then the other");
+             rec.hold(1800);
              rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 500);
              rec.key("Shift+Delete  Clear", Qt::Key_Delete, Qt::ShiftModifier, 900);
          }},
@@ -1163,6 +1167,39 @@ int main(int argc, char *argv[]) {
              rec.wheel(at(0, 0), 10, 2400, "Wheel: the line follows");
              rec.hidePointer();
              rec.key("C  Back to one", Qt::Key_C, Qt::NoModifier, 900);
+         }},
+        {"oblique", [&] { showSeries("Axial", 22); },
+         [&] {
+             // Side by side with a coronal of the same scan.
+             rec.hidePointer();
+             rec.key("C  Side by side", Qt::Key_C, Qt::NoModifier, 300);
+             partner.waitForSlice(10000);
+             partner.selectSeries(backend.seriesIndex());
+             partner.waitForSlice(10000);
+             partner.setPlane(1);
+             partner.waitForSlice(10000);
+             QMetaObject::invokeMethod(findItem(window->contentItem(), "rightView"), "fit");
+             rec.key("Tab", Qt::Key_Tab, Qt::NoModifier, 200);
+             rec.hold(900);
+             // A click puts both through the aorta.
+             rec.click(at(22, 42), "Click: both go through it");
+             partner.waitForSlice(10000);
+             rec.hold(1800);
+             // Dragging the line turns the other side's plane about it.
+             rec.drag(at(-70, 42), at(-70, 2), Qt::LeftButton, 1800, "Drag the line: turn the other side");
+             partner.waitForSlice(10000);
+             rec.hold(1800);
+             rec.hidePointer();
+             rec.key("C  Back to one", Qt::Key_C, Qt::NoModifier, 700);
+             for (int i = 0; i < 5; ++i)
+                 rec.key("Ctrl+→  Tilt", Qt::Key_Right, Qt::ControlModifier, 260);
+             backend.waitForSlice(10000);
+             rec.hold(900);
+             for (int i = 0; i < 4; ++i)
+                 rec.key("Ctrl+↓  Tilt", Qt::Key_Down, Qt::ControlModifier, 260);
+             backend.waitForSlice(10000);
+             rec.hold(1300);
+             rec.key("V  Straight again", Qt::Key_V, Qt::NoModifier, 1200);
          }},
         {"slabs", [&] { showSeries("Axial", 22); },
          [&] {

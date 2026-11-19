@@ -65,6 +65,7 @@ Item {
             text: overlay.tool === 1 ? qsTr("Ruler: drag across the image. Delete removes the last. Esc stops.")
                 : overlay.tool === 2 ? qsTr("Area: drag a box around it. Delete removes the last. Esc stops.")
                 : overlay.tool === 3 ? qsTr("Angle: drag one arm, then click the other's end. Esc stops.")
+                : overlay.tool === 4 ? qsTr("Cobb angle: drag along one end plate, then along the other. Esc stops.")
                 : ""
             color: theme.accent
         }

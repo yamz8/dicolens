@@ -1387,6 +1387,109 @@ private slots:
         QCOMPARE(axial.sliceIndex(), 2);
     }
 
+    void setsWhereThePlanesMeetAndTiltsThem() {
+        QTemporaryDir dir;
+        QVERIFY(writeVolume(dir.path()));
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        backend.setSliceIndex(2);
+
+        // A click on column 1, row 2 of the middle slice: the coronal and
+        // sagittal planes go through it.
+        const QVariantList point = backend.pointAt(1, 2);
+        QCOMPARE(point.size(), 4);
+        QCOMPARE(point[2].toDouble(), 6.0);
+        QVERIFY(backend.goThrough(point));
+        QPointF at;
+        QVERIFY(backend.crossing(at));
+        QCOMPARE(at, QPointF(1, 2));
+        backend.setPlane(1);
+        QCOMPARE(backend.sliceIndex(), 2);
+        QVERIFY(backend.crossing(at));
+        QCOMPARE(at.y(), 2.0);   // Slice 2, at 3 mm a row.
+        backend.setPlane(2);
+        QCOMPARE(backend.sliceIndex(), 1);
+        backend.setPlane(0);
+        QCOMPARE(backend.sliceIndex(), 2);
+        // Another frame of reference is somewhere else.
+        QVERIFY(!backend.goThrough({0.0, 0.0, 0.0, QString("1.2.3")}));
+
+        // Not tilted at all, an oblique plane is the slice itself.
+        backend.tilt(0, 0);
+        QCOMPARE(backend.planeName(), QString("Axial"));
+        QVERIFY(backend.waitForSlice(10000));
+        QCOMPARE(backend.imageWidth(), 4);
+        QCOMPARE(backend.imageHeight(), 3);
+        for (const QPoint p : {QPoint(0, 0), QPoint(3, 2), QPoint(1, 1)})
+            QVERIFY2(std::abs(shownNumber(backend.valueAt(p.x() + 0.5, p.y() + 0.5)) - (200 + 10 * p.y() + p.x())) < 0.05,
+                     qPrintable(backend.valueAt(p.x() + 0.5, p.y() + 0.5)));
+        // A step is a slice.
+        backend.step(1);
+        QVERIFY(backend.waitForSlice(10000));
+        QVERIFY(std::abs(shownNumber(backend.valueAt(1.5, 1.5)) - 311) < 0.05);
+        backend.step(-1);
+
+        // 30° about the up-down axis, through where the planes meet.
+        backend.tilt(0, 30);
+        QCOMPARE(backend.planeName(), QString("Oblique"));
+        QVERIFY(backend.waitForSlice(10000));
+        QVERIFY(backend.frameReady());
+        double n[3];
+        backend.imagePlane().normal(n);
+        QVERIFY(std::abs(std::abs(n[2]) - std::cos(M_PI / 6)) < 1e-6);
+        QVERIFY(backend.crossing(at));
+        // Slabs work on it too.
+        backend.nextSlab();
+        QVERIFY(backend.waitForSlice(10000));
+        QVERIFY(backend.frameReady());
+        backend.nextSlab();
+        backend.nextSlab();
+        backend.nextSlab();
+
+        // 60° more is a quarter turn: sagittal.
+        backend.tilt(0, 60);
+        QCOMPARE(backend.planeName(), QString("Sagittal"));
+        QVERIFY(backend.waitForSlice(10000));
+        // Shown as a sagittal is, not on its side: the front on the left
+        // and the head up.
+        QCOMPARE(backend.edges(), (QStringList{"A", "P", "H", "F"}));
+        // Tipped forward a quarter turn, the axial slice is coronal, the
+        // head up rather than down.
+        backend.nextPlane();
+        backend.tilt(1, 90);
+        QCOMPARE(backend.planeName(), QString("Coronal"));
+        QCOMPARE(backend.edges(), (QStringList{"R", "L", "H", "F"}));
+        backend.tilt(1, -90);
+        QCOMPARE(backend.edges(), (QStringList{"R", "L", "A", "P"}));
+        // V goes back to the slices as scanned.
+        backend.nextPlane();
+        QCOMPARE(backend.planeName(), QString("Axial"));
+
+        // Dragging a reference line turns the other side's plane about
+        // the first's normal: a coronal plane a quarter turn about the
+        // body's long axis is sagittal.
+        backend.setPlane(1);
+        backend.beginTurn();
+        const double z[3] = {0, 0, 1};
+        backend.turnPlane(z, M_PI / 2);
+        QCOMPARE(backend.planeName(), QString("Sagittal"));
+        backend.turnPlane(z, M_PI / 4);
+        QCOMPARE(backend.planeName(), QString("Oblique"));
+        QVERIFY(backend.waitForSlice(10000));
+
+        // A series that can't be cut says so.
+        QTemporaryDir flat;
+        Writer w;
+        w.add(Tag::Modality, "CS", "CT").image(2, 2, 16, 12, false).pixels(le16({1, 2, 3, 4}));
+        QVERIFY(write(flat.filePath("one"), w.file(ExplicitLE)));
+        Backend single(nullptr);
+        single.loadPaths({flat.path()});
+        QVERIFY(single.waitForSlice(10000));
+        single.tilt(0, 10);
+        QCOMPARE(single.notice(), QString("This series can't be cut another way"));
+    }
+
     void measuresAreasAndAngles() {
         QTemporaryDir dir;
         for (int k = 0; k < 2; ++k) {
@@ -1438,6 +1541,18 @@ private slots:
         view.press(at(1, 0).x(), at(1, 0).y());
         QVERIFY(!view.drawing());
         QCOMPARE(view.measureTexts().last(), QString("90.0°"));
+
+        // A Cobb angle: two lines dragged, whichever way, the angle
+        // between them.
+        view.setTool(4);
+        view.press(at(0, 0).x(), at(0, 0).y());
+        view.release(at(4, 0).x(), at(4, 0).y());
+        QVERIFY(view.drawing());
+        view.press(at(4, 3).x(), at(4, 3).y());
+        view.drag(at(2, 2).x(), at(2, 2).y());
+        view.release(at(0, 1).x(), at(0, 1).y());
+        QVERIFY(!view.drawing());
+        QCOMPARE(view.measureTexts().last(), QString("Cobb 26.6°"));
         view.clearMeasures();
         QCOMPARE(view.measureCount(), 0);
     }
@@ -1930,6 +2045,14 @@ private slots:
         QTest::keyClick(window, 'V');
         QTest::keyClick(window, 'V');
         QCOMPARE(backend.plane(), 0);
+        // Ctrl and an arrow tilt it; V straightens it.
+        QTest::keyClick(window, Qt::Key_Right, Qt::ControlModifier);
+        QCOMPARE(backend.plane(), 3);
+        QTRY_VERIFY(backend.frameReady());
+        QTest::keyClick(window, Qt::Key_Down, Qt::ControlModifier);
+        QCOMPARE(backend.planeName(), QString("Oblique"));
+        QTest::keyClick(window, 'V');
+        QCOMPARE(backend.plane(), 0);
         QTest::keyClick(window, 'B');
         QCOMPARE(backend.slabName(), QString("MIP 10 mm"));
         QTest::keyClick(window, 'B', Qt::ShiftModifier);
@@ -1948,6 +2071,8 @@ private slots:
         QCOMPARE(view->tool(), 2);
         QTest::keyClick(window, 'M', Qt::ShiftModifier);
         QCOMPARE(view->tool(), 3);
+        QTest::keyClick(window, 'C', Qt::ShiftModifier);
+        QCOMPARE(view->tool(), 4);
         QTest::keyClick(window, 'M');
         QCOMPARE(view->tool(), 1);
         QTest::keyClick(window, Qt::Key_Escape);
@@ -1973,6 +2098,19 @@ private slots:
         QTest::keyClick(window, Qt::Key_Home);
         QCOMPARE(backend.sliceIndex(), 0);
         QCOMPARE(partner.sliceIndex(), 0);
+        // Another series picked on one side starts where the other side
+        // is, rather than taking it back to the start.
+        QTest::keyClick(window, Qt::Key_End);
+        QTest::keyClick(window, Qt::Key_Tab);
+        QTest::keyClick(window, Qt::Key_Left);
+        QCOMPARE(partner.seriesIndex(), 0);
+        QCOMPARE(backend.sliceIndex(), 2);
+        QTest::keyClick(window, Qt::Key_Right);
+        QCOMPARE(partner.seriesIndex(), 1);
+        QCOMPARE(backend.sliceIndex(), 2);
+        QCOMPARE(partner.sliceIndex(), 2);
+        QTest::keyClick(window, Qt::Key_Tab);
+        QTest::keyClick(window, Qt::Key_Home);
         QTest::keyClick(window, 'L');
         QTest::keyClick(window, Qt::Key_End);
         QCOMPARE(backend.sliceIndex(), 2);

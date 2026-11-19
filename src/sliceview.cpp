@@ -180,7 +180,7 @@ void SliceView::setTool(int tool) {
     if (tool == m_tool)
         return;
     m_tool = tool;
-    m_drawing = m_secondArm = false;
+    m_drawing = m_secondArm = m_secondLine = m_firstDone = false;
     emit toolChanged();
     emit measuresChanged();
     update();
@@ -197,25 +197,54 @@ void SliceView::press(double x, double y) {
         update();
         return;
     }
+    if (m_firstDone) {
+        // A Cobb angle's second line starts.
+        m_current.c = m_current.d = p;
+        m_secondLine = true;
+        m_firstDone = false;
+        update();
+        return;
+    }
     if (m_tool == 0)
         return;
-    m_current = {m_tool, p, p, p};
+    m_current = {m_tool, p, p, p, p};
     m_drawing = true;
     emit measuresChanged();
     update();
 }
 
 void SliceView::drag(double x, double y) {
-    if (!m_drawing || m_secondArm)
+    if (!m_drawing || m_secondArm || m_firstDone)
         return;
+    if (m_secondLine) {
+        m_current.d = toImage(x, y);
+        update();
+        return;
+    }
     m_current.b = toImage(x, y);
     m_current.c = m_current.b;
     update();
 }
 
 void SliceView::release(double x, double y) {
-    if (!m_drawing || m_secondArm)
+    if (!m_drawing || m_secondArm || m_firstDone)
         return;
+    if (m_secondLine) {
+        m_current.d = toImage(x, y);
+        const QPointF d = toItem(m_current.d.x(), m_current.d.y()) - toItem(m_current.c.x(), m_current.c.y());
+        // A click with no drag waits for a line instead.
+        if (std::hypot(d.x(), d.y()) < 3) {
+            m_secondLine = false;
+            m_firstDone = true;
+            update();
+            return;
+        }
+        m_measures[key()] << m_current;
+        m_drawing = m_secondLine = false;
+        emit measuresChanged();
+        update();
+        return;
+    }
     m_current.b = toImage(x, y);
     m_current.c = m_current.b;
     // A click with no drag measures nothing.
@@ -231,10 +260,72 @@ void SliceView::release(double x, double y) {
         update();
         return;
     }
+    if (m_current.kind == 4) {
+        m_firstDone = true;
+        update();
+        return;
+    }
     m_measures[key()] << m_current;
     m_drawing = false;
     emit measuresChanged();
     update();
+}
+
+QPointF SliceView::toMm(QPointF p) const {
+    double across = 1, down = 1;
+    if (m_backend)
+        m_backend->spacingAt(p.x(), p.y(), across, down);
+    return {p.x() * across, p.y() * down};
+}
+
+bool SliceView::nearReference(double x, double y) const {
+    QPointF a, b;
+    if (!referenceLine(a, b) || !m_reference->canReformat())
+        return false;
+    const QLineF line(toItem(a.x(), a.y()), toItem(b.x(), b.y()));
+    const QPointF p(x, y), d = line.p2() - line.p1();
+    const double length2 = d.x() * d.x() + d.y() * d.y();
+    if (length2 < 1e-9)
+        return false;
+    const double t = std::clamp(((p - line.p1()).x() * d.x() + (p - line.p1()).y() * d.y()) / length2, 0.0, 1.0);
+    const QPointF nearest = line.p1() + t * d;
+    return std::hypot(p.x() - nearest.x(), p.y() - nearest.y()) < 8;
+}
+
+void SliceView::beginTurn(double x, double y) {
+    QPointF a, b;
+    m_turning = false;
+    if (!m_backend || !referenceLine(a, b) || !m_reference->canReformat())
+        return;
+    const ImagePlane here = m_backend->imagePlane();
+    // It turns about the point on the line nearest where the planes meet,
+    // which becomes where they meet.
+    double point[3];
+    m_reference->crossingPoint(point);
+    double d[3] = {point[0] - here.origin[0], point[1] - here.origin[1], point[2] - here.origin[2]};
+    const QPointF c((d[0] * here.row[0] + d[1] * here.row[1] + d[2] * here.row[2]) / here.rowSpacing,
+                    (d[0] * here.column[0] + d[1] * here.column[1] + d[2] * here.column[2]) / here.columnSpacing);
+    const QPointF ab = b - a;
+    const double t = std::clamp(((c - a).x() * ab.x() + (c - a).y() * ab.y()) / (ab.x() * ab.x() + ab.y() * ab.y()), 0.0, 1.0);
+    m_turnPivot = a + t * ab;
+    here.point(m_turnPivot.x(), m_turnPivot.y(), point);
+    m_reference->goThrough({point[0], point[1], point[2], here.frame});
+    here.normal(m_turnAxis);
+    m_turnStart = toImage(x, y);
+    m_reference->beginTurn();
+    m_turning = true;
+}
+
+void SliceView::turnTo(double x, double y) {
+    if (!m_turning || !m_reference)
+        return;
+    const QPointF u = toMm(m_turnStart) - toMm(m_turnPivot), v = toMm(toImage(x, y)) - toMm(m_turnPivot);
+    if (std::hypot(u.x(), u.y()) < 1e-6 || std::hypot(v.x(), v.y()) < 1e-6)
+        return;
+    // Turning by θ about the normal takes the row toward the column, as
+    // the angle grows from x toward y in the picture.
+    const double angle = std::atan2(v.y(), v.x()) - std::atan2(u.y(), u.x());
+    m_reference->turnPlane(m_turnAxis, angle);
 }
 
 void SliceView::hover(double x, double y) {
@@ -246,7 +337,7 @@ void SliceView::hover(double x, double y) {
 
 bool SliceView::removeLast() {
     if (m_drawing) {
-        m_drawing = m_secondArm = false;
+        m_drawing = m_secondArm = m_secondLine = m_firstDone = false;
     } else {
         auto it = m_measures.find(key());
         if (it == m_measures.end() || it->isEmpty())
@@ -260,7 +351,7 @@ bool SliceView::removeLast() {
 
 void SliceView::clearMeasures() {
     m_measures.remove(key());
-    m_drawing = m_secondArm = false;
+    m_drawing = m_secondArm = m_secondLine = m_firstDone = false;
     emit measuresChanged();
     update();
 }
@@ -272,16 +363,20 @@ QString SliceView::text(const Measure &m) const {
         const QRectF box = QRectF(m.a, m.b).normalized();
         return m_backend->areaStats(box.x(), box.y(), box.width(), box.height());
     }
-    if (m.kind == 3) {
+    if (m.kind == 3 || m.kind == 4) {
         // Pixels needn't be square: the angle is the one in the body.
         const double aspect = m_backend->pixelAspect();
-        const QPointF u = m.a - m.b, v = m.c - m.b;
+        const QPointF u = m.kind == 3 ? m.a - m.b : m.b - m.a, v = m.kind == 3 ? m.c - m.b : m.d - m.c;
         const double ux = u.x() * aspect, vx = v.x() * aspect;
         const double lu = std::hypot(ux, u.y()), lv = std::hypot(vx, v.y());
         if (lu < 1e-9 || lv < 1e-9)
             return {};
-        const double cosine = std::clamp((ux * vx + u.y() * v.y()) / (lu * lv), -1.0, 1.0);
-        return m_backend->angleText(std::acos(cosine) * 180 / M_PI);
+        double cosine = std::clamp((ux * vx + u.y() * v.y()) / (lu * lv), -1.0, 1.0);
+        // Between two lines, whichever way each was drawn: at most 90°.
+        if (m.kind == 4)
+            cosine = std::abs(cosine);
+        const QString angle = m_backend->angleText(std::acos(cosine) * 180 / M_PI);
+        return m.kind == 4 ? tr("Cobb %1").arg(angle) : angle;
     }
     return m_backend->distance(m.a.x(), m.a.y(), m.b.x(), m.b.y());
 }
@@ -310,6 +405,8 @@ void SliceView::paintMeasure(QPainter *painter, const QTransform &t, const Measu
             painter->drawLine(a, b);
             if (m.kind == 3 && (m_secondArm || !active))
                 painter->drawLine(b, c);
+            if (m.kind == 4 && (m_secondLine || !active))
+                painter->drawLine(c, t.map(m.d));
             // Short ticks across a ruler's ends.
             const QPointF d = b - a;
             const double length = std::hypot(d.x(), d.y());
@@ -320,8 +417,12 @@ void SliceView::paintMeasure(QPainter *painter, const QTransform &t, const Measu
             }
         }
     }
-    if (m.kind == 3 && active && !m_secondArm)
+    if ((m.kind == 3 && active && !m_secondArm) || (m.kind == 4 && active && !m_secondLine))
         return;
+    if (m.kind == 4) {
+        paintLabel(painter, t.map(m.d) + QPointF(12, -4), text(m));
+        return;
+    }
     QPointF at = m.kind == 2 ? QPointF(std::max({a.x(), b.x()}) + 8, std::min({a.y(), b.y()}) + 4)
                              : b + QPointF(12, -4);
     paintLabel(painter, at, text(m));
@@ -362,6 +463,18 @@ void SliceView::paint(QPainter *painter) {
         QPen pen(color, 1.5, Qt::DashLine);
         painter->setPen(pen);
         painter->drawLine(t.map(ra), t.map(rb));
+    }
+    // Where the planes meet, once a click has set it.
+    if (QPointF at; m_backend->crossing(at)) {
+        painter->setRenderHint(QPainter::Antialiasing);
+        const QPointF c = t.map(at);
+        for (const QPen &pen : {QPen(QColor(0, 0, 0, 160), 4), QPen(m_accent, 2)}) {
+            painter->setPen(pen);
+            painter->drawLine(c - QPointF(9, 0), c - QPointF(3, 0));
+            painter->drawLine(c + QPointF(3, 0), c + QPointF(9, 0));
+            painter->drawLine(c - QPointF(0, 9), c - QPointF(0, 3));
+            painter->drawLine(c + QPointF(0, 3), c + QPointF(0, 9));
+        }
     }
 
     for (const auto &m : m_measures.value(key()))

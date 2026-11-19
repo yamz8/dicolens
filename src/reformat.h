@@ -76,3 +76,48 @@ ImagePlane cutPlane(const Volume &volume, const Cut &cut, int index);
 // "Axial", "Coronal", "Sagittal", or "Oblique", in English, by which way
 // the plane faces.
 const char *planeName(const ImagePlane &plane);
+
+// A plane at any angle through a volume, and the stack of planes parallel
+// to it that cross the whole volume, a step apart.
+struct Oblique {
+    bool valid = false;
+    double center[3] = {0, 0, 0};   // A point the middle plane goes through.
+    double row[3] = {1, 0, 0};
+    double column[3] = {0, 1, 0};
+    double normal[3] = {0, 0, 1};
+    double spacing = 1;             // Between pixels, both ways.
+    double step = 1;                // Between planes.
+    double left = 0, top = 0;       // The picture's corner, from the centre, in mm.
+    int width = 0;
+    int height = 0;
+    int count = 0;
+    int middle = 0;                 // The plane through the centre.
+    QString frame;
+
+    ImagePlane plane(int index) const;
+    // The plane nearest a point.
+    int indexAt(const double *point) const;
+};
+
+// The planes along row and column (made square to each other) through a
+// point, sized to take in the whole volume.
+Oblique obliqueThrough(const Volume &volume, const double *point, const double *row, const double *column);
+
+// One oblique picture, or the slab half planes either side of it,
+// interpolated between voxels. low and high are the volume's value range;
+// outside it is low.
+Frame resample(const Volume &volume, const Oblique &oblique, int index, const QVector<Frame> &slices, double low,
+               double high, int half = 0, Projection projection = Projection::Max);
+
+// From patient millimetres to the volume's voxel indices, and back.
+void toVoxel(const Volume &volume, const double *point, double *voxel);
+void toPatient(const Volume &volume, const double *voxel, double *point);
+
+// The row and column a plane facing along normal is shown with, as
+// radiologists lay pictures out: nearer axial, the back down and the
+// patient's right on the left; otherwise the head up, and the patient's
+// right, or front, on the left.
+void upright(const double *normal, double *row, double *column);
+
+// Turns a vector about an axis, right-handed, by an angle in radians.
+void turnAbout(const double *axis, double angle, double *v);

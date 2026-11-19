@@ -16,7 +16,7 @@ class SliceView : public QQuickPaintedItem {
     Q_PROPERTY(Backend *source READ backend WRITE setBackend NOTIFY backendChanged)
     Q_PROPERTY(double zoom READ zoom NOTIFY viewChanged)
     Q_PROPERTY(QColor accent READ accent WRITE setAccent NOTIFY accentChanged)
-    // 0 looks, 1 draws rulers, 2 areas, 3 angles.
+    // 0 looks, 1 draws rulers, 2 areas, 3 angles, 4 Cobb angles.
     Q_PROPERTY(int tool READ tool WRITE setTool NOTIFY toolChanged)
     // How many measurements the shown slice has, and whether one is
     // being drawn.
@@ -57,6 +57,11 @@ public:
     Q_INVOKABLE void drag(double x, double y);
     Q_INVOKABLE void release(double x, double y);
     Q_INVOKABLE void hover(double x, double y);
+    // Whether a point is on the reference line, and dragging it, which
+    // turns the other view's plane about where the planes meet.
+    Q_INVOKABLE bool nearReference(double x, double y) const;
+    Q_INVOKABLE void beginTurn(double x, double y);
+    Q_INVOKABLE void turnTo(double x, double y);
     // Drops the one being drawn, or else the slice's last one.
     Q_INVOKABLE bool removeLast();
     Q_INVOKABLE void clearMeasures();
@@ -82,7 +87,8 @@ private:
 
     struct Measure {
         int kind = 1;            // As the tool that drew it.
-        QPointF a, b, c;         // Image pixels; c is an angle's far end.
+        QPointF a, b, c, d;      // Image pixels; c is an angle's far end,
+                                 // and c to d a Cobb angle's second line.
     };
     QString text(const Measure &m) const;
     void paintMeasure(QPainter *painter, const QTransform &t, const Measure &m, bool active);
@@ -99,4 +105,11 @@ private:
     Measure m_current;
     bool m_drawing = false;
     bool m_secondArm = false;     // An angle waiting for its far end.
+    bool m_secondLine = false;    // A Cobb angle drawing its second line.
+    bool m_firstDone = false;     // A Cobb angle with its first line drawn.
+    QPointF m_turnPivot, m_turnStart;
+    double m_turnAxis[3] = {0, 0, 1};
+    bool m_turning = false;
+    // From image pixels to millimetres across and down, for angles.
+    QPointF toMm(QPointF p) const;
 };

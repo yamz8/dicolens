@@ -189,6 +189,28 @@ public:
     // The area of the ellipse in a box of image pixels, and what's in it.
     Q_INVOKABLE QString areaStats(double x, double y, double width, double height) const;
     Q_INVOKABLE QString angleText(double degrees) const;
+    // The patient point at an image position, with the frame of reference
+    // it's in, as [x, y, z, frame]; empty when the picture has no place.
+    Q_INVOKABLE QVariantList pointAt(double x, double y) const;
+    // Makes every plane go through a point, and shows the one through it
+    // that this view cuts, when it's in the given frame of reference.
+    Q_INVOKABLE bool goThrough(const QVariantList &point);
+    // Tilts the cut by some degrees about the picture's up-down axis (0)
+    // or its left-right one (1), making it oblique.
+    Q_INVOKABLE void tilt(int axis, double degrees);
+
+    // Where the planes meet, in this picture's pixels, when it was set by
+    // a click and lies in this plane.
+    bool crossing(QPointF &at) const;
+    // Turning this plane about an axis through where the planes meet, from
+    // where it was when the turn began: dragging another view's reference
+    // line.
+    void beginTurn();
+    void turnPlane(const double *axis, double radians);
+    // The patient point where the planes meet.
+    void crossingPoint(double *point) const;
+    // Millimetres between pixels across and down, where the picture has them.
+    bool spacingAt(double x, double y, double &across, double &down) const;
     Q_INVOKABLE void nextColorMap();
     Q_INVOKABLE void exportImage();
     // The series (or plane) as an MP4, as shown: windowed, turned, coloured.
@@ -252,7 +274,6 @@ private:
     void saveVideo(const QString &path);
     void saveAnonymous(const QString &folder);
     // Millimetres a pixel across and down at a point, if the image says.
-    bool spacingAt(double x, double y, double &across, double &down) const;
     // What a value means: Hounsfield units, an SUV, or itself.
     double shownValue(double value) const;
     QString unit() const;
@@ -300,6 +321,13 @@ private:
     int m_slab = 0;            // 0 thin, then MIP, MinIP, and average.
     double m_slabMm = 10;
     int m_cursor[3] = {0, 0, 0};   // A voxel the planes meet at.
+    bool m_crossingShown = false;  // Set by a click, so drawn.
+    Oblique m_oblique;             // Plane 3: at any angle.
+    double m_turnRow[3] = {1, 0, 0}, m_turnColumn[3] = {0, 1, 0};
+    double m_low = 0, m_high = 0;  // The volume's values, once it's all read.
+    bool m_rangeKnown = false;
+    void becomeOblique(const double *center, const double *row, const double *column);
+    void slabFor(double step, int &half, Projection &projection) const;
     Frame m_built;
     QString m_buildError;
 

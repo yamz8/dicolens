@@ -472,7 +472,9 @@ void Backend::follow(Backend *other) {
     if (!parallel && here.valid && there.valid && !here.frame.isEmpty() && here.frame == there.frame)
         return;
     int best = -1;
-    if (parallel && m_plane != 0) {
+    if (parallel && m_plane == 3) {
+        best = m_oblique.indexAt(there.origin);
+    } else if (parallel && m_plane != 0) {
         const int f = m_cut.fixed;
         double along = 0;
         for (int i = 0; i < 3; ++i)
@@ -553,6 +555,8 @@ const Frame *Backend::currentFrame() const {
 
 int Backend::sliceCount() const {
     const Series *s = currentSeries();
+    if (s && m_plane == 3)
+        return m_oblique.count;
     if (s && m_plane != 0)
         return m_cut.count(m_volume);
     return s ? s->slices.size() : 0;
@@ -568,22 +572,191 @@ void Backend::build() {
     // Every slice goes into the picture, so it waits for them all.
     if (!built() || !m_volume.valid || m_decodedCount < m_frames.size())
         return;
-    const Cut cut = m_plane != 0 ? m_cut : cutAcross(m_volume, 2);
     int half = 0;
     Projection projection = Projection::Max;
-    if (m_slab != 0) {
-        half = std::max(1, int(std::lround(m_slabMm / m_volume.spacing[cut.fixed] / 2)));
-        projection = m_slab == 1 ? Projection::Max : m_slab == 2 ? Projection::Min : Projection::Mean;
+    if (m_plane == 3) {
+        if (!m_rangeKnown) {
+            bool first = true;
+            for (const Frame &f : std::as_const(m_frames)) {
+                if (f.isNull() || f.isColor())
+                    continue;
+                double low, high;
+                f.range(low, high);
+                m_low = first ? low : std::min(m_low, low);
+                m_high = first ? high : std::max(m_high, high);
+                first = false;
+            }
+            m_rangeKnown = !first;
+        }
+        slabFor(m_oblique.step, half, projection);
+        m_built = resample(m_volume, m_oblique, m_sliceIndex, m_frames, m_low, m_high, half, projection);
+    } else {
+        const Cut cut = m_plane != 0 ? m_cut : cutAcross(m_volume, 2);
+        slabFor(m_volume.spacing[cut.fixed], half, projection);
+        m_built = reformat(m_volume, cut, m_sliceIndex, m_frames, half, projection);
     }
-    m_built = reformat(m_volume, cut, m_sliceIndex, m_frames, half, projection);
     if (m_built.isNull())
         m_buildError = QT_TRANSLATE_NOOP("dicolens", "Some slices can't be read, so this picture can't be made");
+}
+
+void Backend::slabFor(double step, int &half, Projection &projection) const {
+    half = 0;
+    projection = Projection::Max;
+    if (m_slab == 0)
+        return;
+    half = std::max(1, int(std::lround(m_slabMm / step / 2)));
+    projection = m_slab == 1 ? Projection::Max : m_slab == 2 ? Projection::Min : Projection::Mean;
+}
+
+void Backend::crossingPoint(double *point) const {
+    const double voxel[3] = {double(m_cursor[0]), double(m_cursor[1]), double(m_cursor[2])};
+    toPatient(m_volume, voxel, point);
+}
+
+bool Backend::crossing(QPointF &at) const {
+    if (!m_crossingShown || !m_volume.valid)
+        return false;
+    const ImagePlane p = imagePlane();
+    if (!p.valid)
+        return false;
+    double point[3], n[3], d[3];
+    crossingPoint(point);
+    p.normal(n);
+    for (int i = 0; i < 3; ++i)
+        d[i] = point[i] - p.origin[i];
+    // Only in the plane, give or take the voxel it was rounded to.
+    const double off = std::abs(d[0] * n[0] + d[1] * n[1] + d[2] * n[2]);
+    if (off > std::max({m_volume.spacing[0], m_volume.spacing[1], m_volume.spacing[2]}))
+        return false;
+    at = QPointF((d[0] * p.row[0] + d[1] * p.row[1] + d[2] * p.row[2]) / p.rowSpacing,
+                 (d[0] * p.column[0] + d[1] * p.column[1] + d[2] * p.column[2]) / p.columnSpacing);
+    return true;
+}
+
+QVariantList Backend::pointAt(double x, double y) const {
+    const ImagePlane p = imagePlane();
+    if (!p.valid || p.frame.isEmpty() || x < -0.5 || y < -0.5 || x > p.width - 0.5 || y > p.height - 0.5)
+        return {};
+    double point[3];
+    p.point(x, y, point);
+    return {point[0], point[1], point[2], p.frame};
+}
+
+bool Backend::goThrough(const QVariantList &point) {
+    const Series *s = currentSeries();
+    if (!s || point.size() != 4 || s->frame.isEmpty() || point[3].toString() != s->frame)
+        return false;
+    const double p[3] = {point[0].toDouble(), point[1].toDouble(), point[2].toDouble()};
+    if (!m_volume.valid) {
+        // A plain stack: the slice nearest the point.
+        int best = -1;
+        double nearest = 0;
+        for (int i = 0; i < s->slices.size(); ++i) {
+            const ImagePlane plane = slicePlane(*s, i);
+            if (!plane.valid)
+                continue;
+            double n[3];
+            plane.normal(n);
+            const double d = std::abs((p[0] - plane.origin[0]) * n[0] + (p[1] - plane.origin[1]) * n[1] + (p[2] - plane.origin[2]) * n[2]);
+            if (best < 0 || d < nearest) {
+                best = i;
+                nearest = d;
+            }
+        }
+        if (best >= 0)
+            setSliceIndex(best);
+        return best >= 0;
+    }
+    double voxel[3];
+    toVoxel(m_volume, p, voxel);
+    for (int a = 0; a < 3; ++a)
+        m_cursor[a] = std::clamp(int(std::lround(voxel[a])), 0, m_volume.size[a] - 1);
+    m_crossingShown = true;
+    const int index = m_plane == 3 ? m_oblique.indexAt(p) : m_plane != 0 ? m_cursor[m_cut.fixed] : m_cursor[2];
+    if (index != m_sliceIndex) {
+        // Moving along keeps the point; setSliceIndex would round it.
+        const int keep[3] = {m_cursor[0], m_cursor[1], m_cursor[2]};
+        setSliceIndex(index);
+        std::copy(keep, keep + 3, m_cursor);
+    }
+    emit sliceChanged();
+    return true;
+}
+
+void Backend::becomeOblique(const double *center, const double *row, const double *column) {
+    // Shown the usual way up, whichever way it was turned to face.
+    const double n[3] = {row[1] * column[2] - row[2] * column[1], row[2] * column[0] - row[0] * column[2],
+                         row[0] * column[1] - row[1] * column[0]};
+    double r[3] = {row[0], row[1], row[2]}, c[3] = {column[0], column[1], column[2]};
+    upright(n, r, c);
+    const Oblique o = obliqueThrough(m_volume, center, r, c);
+    if (!o.valid)
+        return;
+    stop();
+    m_oblique = o;
+    m_plane = 3;
+    m_sliceIndex = o.middle;
+    m_image = QImage();
+    build();
+    updateInfo();
+    emit sliceChanged();
+    emit orientationChanged();
+    showSlice();
+}
+
+void Backend::tilt(int axis, double degrees) {
+    if (!currentSeries())
+        return;
+    if (!m_volume.valid) {
+        flash(tr("This series can't be cut another way"));
+        return;
+    }
+    const ImagePlane p = imagePlane();
+    if (!p.valid)
+        return;
+    double row[3] = {p.row[0], p.row[1], p.row[2]}, column[3] = {p.column[0], p.column[1], p.column[2]};
+    // Up-down turns the row about the column; left-right the column
+    // about the row.
+    const double radians = degrees * M_PI / 180;
+    if (axis == 0)
+        turnAbout(p.column, radians, row);
+    else
+        turnAbout(p.row, radians, column);
+    // Through the point the planes meet at, moved into this plane.
+    double center[3], n[3];
+    crossingPoint(center);
+    p.normal(n);
+    const double off = (center[0] - p.origin[0]) * n[0] + (center[1] - p.origin[1]) * n[1] + (center[2] - p.origin[2]) * n[2];
+    for (int i = 0; i < 3; ++i)
+        center[i] -= off * n[i];
+    becomeOblique(center, row, column);
+    flash(planeName());
+}
+
+void Backend::beginTurn() {
+    const ImagePlane p = imagePlane();
+    std::copy(p.row, p.row + 3, m_turnRow);
+    std::copy(p.column, p.column + 3, m_turnColumn);
+}
+
+void Backend::turnPlane(const double *axis, double radians) {
+    if (!m_volume.valid || !imagePlane().valid)
+        return;
+    double row[3], column[3], center[3];
+    std::copy(m_turnRow, m_turnRow + 3, row);
+    std::copy(m_turnColumn, m_turnColumn + 3, column);
+    turnAbout(axis, radians, row);
+    turnAbout(axis, radians, column);
+    crossingPoint(center);
+    becomeOblique(center, row, column);
 }
 
 ImagePlane Backend::imagePlane() const {
     const Series *s = currentSeries();
     if (!s)
         return {};
+    if (m_plane == 3)
+        return m_oblique.plane(m_sliceIndex);
     if (m_plane != 0)
         return cutPlane(m_volume, m_cut, m_sliceIndex);
     return slicePlane(*s, m_sliceIndex);
@@ -591,7 +764,17 @@ ImagePlane Backend::imagePlane() const {
 
 QString Backend::planeName() const {
     const ImagePlane p = imagePlane();
-    return p.valid ? tr(::planeName(p)) : QString();
+    if (!p.valid)
+        return {};
+    // A cut the user tilted is oblique once it's off the body's axes,
+    // though a scanner's slices are named by the axis they're nearest.
+    if (m_plane == 3) {
+        double n[3];
+        p.normal(n);
+        if (std::max({std::abs(n[0]), std::abs(n[1]), std::abs(n[2])}) < 0.9998)
+            return tr("Oblique");
+    }
+    return tr(::planeName(p));
 }
 
 QString Backend::slabName() const {
@@ -611,7 +794,7 @@ void Backend::nextPlane() {
         flash(tr("This series can't be cut another way"));
         return;
     }
-    setPlane((m_plane + 1) % 3);
+    setPlane(m_plane == 3 ? 0 : (m_plane + 1) % 3);
     flash(planeName());
 }
 
@@ -620,7 +803,9 @@ void Backend::setPlane(int plane) {
         return;
     stop();
     // The planes meet at one point, which stays where it is.
-    if (m_plane != 0)
+    if (m_plane == 3)
+        ;   // Kept as the oblique plane moved.
+    else if (m_plane != 0)
         m_cursor[m_cut.fixed] = m_sliceIndex;
     else
         m_cursor[2] = m_sliceIndex;
@@ -703,6 +888,8 @@ bool Backend::color() const {
 
 double Backend::pixelAspect() const {
     const Series *s = currentSeries();
+    if (s && m_plane == 3)
+        return 1.0;
     if (s && m_plane != 0)
         return m_volume.spacing[m_cut.horizontal] / m_volume.spacing[m_cut.vertical];
     return s ? s->pixelAspect() : 1.0;
@@ -938,6 +1125,9 @@ void Backend::selectSeries(int index) {
     m_cursor[0] = chosen.columns / 2;
     m_cursor[1] = chosen.rows / 2;
     m_cursor[2] = 0;
+    m_crossingShown = false;
+    m_oblique = Oblique();
+    m_rangeKnown = false;
     m_built = Frame();
     m_buildError.clear();
     startDecoding();
@@ -1045,10 +1235,24 @@ void Backend::setSliceIndex(int index) {
     if (index == m_sliceIndex && m_seriesIndex >= 0 && !m_image.isNull())
         return;
     m_sliceIndex = index;
-    if (m_plane != 0)
+    if (m_plane == 3) {
+        // The point moves along with the plane.
+        double point[3], voxel[3];
+        const ImagePlane p = m_oblique.plane(index);
+        crossingPoint(point);
+        double n[3];
+        p.normal(n);
+        const double off = (point[0] - p.origin[0]) * n[0] + (point[1] - p.origin[1]) * n[1] + (point[2] - p.origin[2]) * n[2];
+        for (int i = 0; i < 3; ++i)
+            point[i] -= off * n[i];
+        toVoxel(m_volume, point, voxel);
+        for (int a = 0; a < 3; ++a)
+            m_cursor[a] = std::clamp(int(std::lround(voxel[a])), 0, m_volume.size[a] - 1);
+    } else if (m_plane != 0) {
         m_cursor[m_cut.fixed] = index;
-    else
+    } else {
         m_cursor[2] = index;
+    }
     if (m_job)
         m_job->wanted = acquiredSlice();
     build();
@@ -1252,6 +1456,10 @@ bool Backend::spacingAt(double x, double y, double &across, double &down) const 
     const Series *s = currentSeries();
     if (!s)
         return false;
+    if (m_plane == 3) {
+        across = down = m_oblique.spacing;
+        return true;
+    }
     if (m_plane != 0) {
         across = m_volume.spacing[m_cut.horizontal];
         down = m_volume.spacing[m_cut.vertical];
@@ -1414,6 +1622,8 @@ void Backend::saveVideo(const QString &path) {
         QVector<Frame> frames;
         Volume volume;
         Cut cut;
+        Oblique oblique;
+        double low = 0, high = 0;
         bool built = false;
         int count = 0, half = 0, colorMap = 0, rotation = 0;
         Projection projection = Projection::Max;
@@ -1422,13 +1632,15 @@ void Backend::saveVideo(const QString &path) {
     } v;
     v.frames = m_frames;
     v.volume = m_volume;
-    v.cut = m_plane != 0 ? m_cut : cutAcross(m_volume, 2);
+    v.cut = m_plane != 0 && m_plane != 3 ? m_cut : cutAcross(m_volume, 2);
+    if (m_plane == 3) {
+        v.oblique = m_oblique;
+        v.low = m_low;
+        v.high = m_high;
+    }
     v.built = built();
     v.count = sliceCount();
-    if (m_slab != 0) {
-        v.half = std::max(1, int(std::lround(m_slabMm / m_volume.spacing[v.cut.fixed] / 2)));
-        v.projection = m_slab == 1 ? Projection::Max : m_slab == 2 ? Projection::Min : Projection::Mean;
-    }
+    slabFor(m_plane == 3 ? m_oblique.step : m_volume.spacing[v.cut.fixed], v.half, v.projection);
     v.colorMap = m_colorMap;
     v.rotation = m_rotation;
     v.flipped = m_flipped;
@@ -1443,7 +1655,9 @@ void Backend::saveVideo(const QString &path) {
     auto locker = std::make_shared<QEventLoopLocker>();
     QThreadPool::globalInstance()->start([self, v, path, locker] {
         auto picture = [&v](int i) {
-            const Frame f = v.built ? reformat(v.volume, v.cut, i, v.frames, v.half, v.projection) : v.frames.value(i);
+            const Frame f = !v.built ? v.frames.value(i)
+                            : v.oblique.valid ? resample(v.volume, v.oblique, i, v.frames, v.low, v.high, v.half, v.projection)
+                                              : reformat(v.volume, v.cut, i, v.frames, v.half, v.projection);
             if (f.isNull() || !f.error.isEmpty())
                 return QImage();
             QImage image = render(f, v.center, v.width, v.inverted);
@@ -1592,7 +1806,8 @@ void Backend::updateInfo() {
     QString size = QStringLiteral("%1 × %2").arg(QLocale().toString(s->columns), QLocale().toString(s->rows));
     if (m_plane != 0) {
         geometry << planeName();
-        size = QStringLiteral("%1 × %2").arg(QLocale().toString(m_cut.width(m_volume)), QLocale().toString(m_cut.height(m_volume)));
+        size = m_plane == 3 ? QStringLiteral("%1 × %2").arg(QLocale().toString(m_oblique.width), QLocale().toString(m_oblique.height))
+                            : QStringLiteral("%1 × %2").arg(QLocale().toString(m_cut.width(m_volume)), QLocale().toString(m_cut.height(m_volume)));
     } else {
         if (slice.hasLocation)
             geometry << tr("Location %1 mm").arg(number(slice.location, 1));

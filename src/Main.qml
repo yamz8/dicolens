@@ -72,10 +72,22 @@ ApplicationWindow {
         }
     }
 
-    // While linked, the pane not in use follows the one that is.
+    // While linked, the pane not in use follows the one that is; a series
+    // just picked on either side starts where the other side is instead.
+    property int leftSeries: -1
+    property int rightSeries: -1
     Connections {
         target: backend
-        function onSliceChanged() { if (win.comparing && win.linked && !win.rightActive) partner.follow(backend) }
+        function onSliceChanged() {
+            const picked = backend.seriesIndex !== win.leftSeries
+            win.leftSeries = backend.seriesIndex
+            if (!win.comparing || !win.linked)
+                return
+            if (picked)
+                backend.follow(partner)
+            else if (!win.rightActive)
+                partner.follow(backend)
+        }
         function onOpened() {
             if (!win.comparing)
                 return
@@ -86,7 +98,16 @@ ApplicationWindow {
     }
     Connections {
         target: partner
-        function onSliceChanged() { if (win.comparing && win.linked && win.rightActive) backend.follow(partner) }
+        function onSliceChanged() {
+            const picked = partner.seriesIndex !== win.rightSeries
+            win.rightSeries = partner.seriesIndex
+            if (!win.comparing || !win.linked)
+                return
+            if (picked)
+                partner.follow(backend)
+            else if (win.rightActive)
+                backend.follow(partner)
+        }
     }
 
     Shortcut { sequence: "?"; enabled: !win.typing; onActivated: win.helpVisible = !win.helpVisible }
@@ -112,6 +133,11 @@ ApplicationWindow {
     Shortcut { sequence: "M"; enabled: win.keys; onActivated: win.useTool(1) }
     Shortcut { sequence: "E"; enabled: win.keys; onActivated: win.useTool(2) }
     Shortcut { sequence: "Shift+M"; enabled: win.keys; onActivated: win.useTool(3) }
+    Shortcut { sequence: "Shift+C"; enabled: win.keys; onActivated: win.useTool(4) }
+    Shortcut { sequence: "Ctrl+Left"; enabled: win.keys; onActivated: win.inUse.tilt(0, -5) }
+    Shortcut { sequence: "Ctrl+Right"; enabled: win.keys; onActivated: win.inUse.tilt(0, 5) }
+    Shortcut { sequence: "Ctrl+Up"; enabled: win.keys; onActivated: win.inUse.tilt(1, -5) }
+    Shortcut { sequence: "Ctrl+Down"; enabled: win.keys; onActivated: win.inUse.tilt(1, 5) }
     Shortcut { sequences: ["Delete", "Backspace"]; enabled: win.keys; onActivated: win.inUseView.removeLast() }
     Shortcut { sequence: "Shift+Delete"; enabled: win.keys; onActivated: win.inUseView.clearMeasures() }
     Shortcut { sequence: "G"; enabled: win.keys; onActivated: win.inUse.nextColorMap() }

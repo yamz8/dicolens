@@ -56,10 +56,12 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
         hoverEnabled: true
         enabled: pane.source.hasImages
-        cursorShape: win.tool !== 0 ? Qt.CrossCursor : drag === "pan" ? Qt.ClosedHandCursor : Qt.ArrowCursor
+        cursorShape: win.tool !== 0 ? Qt.CrossCursor : drag === "pan" ? Qt.ClosedHandCursor
+                   : drag === "turn" || overLine ? Qt.SizeAllCursor : Qt.ArrowCursor
         LayoutMirroring.enabled: false
 
         property string drag: ""
+        property bool overLine: false
         property point start
         property point last
         property real wheelRest: 0
@@ -75,9 +77,13 @@ Item {
             else if (win.tool !== 0 || view.drawing) {
                 drag = "measure"
                 view.press(event.x, event.y)
+            } else if (view.nearReference(event.x, event.y)) {
+                // The other side's plane turns about where they meet.
+                drag = "turn"
+                view.beginTurn(event.x, event.y)
             } else {
-                drag = "window"
-                pane.source.beginWindowDrag()
+                // A drag sets the window; a click, where the planes meet.
+                drag = "click"
             }
         }
         onPositionChanged: (event) => {
@@ -88,16 +94,32 @@ Item {
                 view.zoomAt(start.x, start.y, Math.pow(1.01, last.y - event.y))
             else if (drag === "measure")
                 view.drag(event.x, event.y)
-            else if (drag === "window")
+            else if (drag === "turn")
+                view.turnTo(event.x, event.y)
+            else if (drag === "click" && Math.hypot(event.x - start.x, event.y - start.y) >= 3) {
+                drag = "window"
+                pane.source.beginWindowDrag()
+            }
+            if (drag === "window")
                 pane.source.dragWindow(event.x - start.x, event.y - start.y)
-            else
+            else if (drag === "")
                 view.hover(event.x, event.y)
+            overLine = drag === "" && win.tool === 0 && view.nearReference(event.x, event.y)
             last = Qt.point(event.x, event.y)
             pane.refreshHover()
         }
         onReleased: (event) => {
             if (drag === "measure")
                 view.release(event.x, event.y)
+            else if (drag === "click") {
+                const p = view.toImage(event.x, event.y)
+                const point = pane.source.pointAt(p.x, p.y)
+                if (point.length > 0) {
+                    pane.source.goThrough(point)
+                    if (win.comparing)
+                        (pane.second ? backend : partner).goThrough(point)
+                }
+            }
             drag = ""
         }
         onExited: { pane.hoverPoint = Qt.point(-1, -1); pane.refreshHover() }

@@ -33,9 +33,12 @@ Rectangle {
                                     ["L", qsTr("Scroll the sides together or apart")],
                                     ["P", qsTr("Read the reports that came with the scans")],
                                     ["← →", qsTr("Other reports, while reading")]]],
-        [qsTr("Measure and cut"), [["M", qsTr("Ruler")], ["E", qsTr("Area, with its values")], ["Shift+M", qsTr("Angle")],
+        [qsTr("Measure and cut"), [["M", qsTr("Ruler")], ["E", qsTr("Area, with its values")], ["Shift+M", qsTr("Angle")], ["Shift+C", qsTr("Cobb angle, between two lines")],
                                    ["Delete", qsTr("Remove the last measurement")], ["Shift+Delete", qsTr("Remove this slice's measurements")],
-                                   ["V", qsTr("Cut the series another way")], ["B", qsTr("Slabs: MIP, MinIP, average")],
+                                   ["V", qsTr("Cut the series another way")], ["Ctrl+← → ↑ ↓", qsTr("Tilt the cut")],
+                                   [qsTr("Click"), qsTr("Where the planes meet")],
+                                   [qsTr("Drag the line"), qsTr("Turn the other side's plane")],
+                                   ["B", qsTr("Slabs: MIP, MinIP, average")],
                                    ["Shift+B", qsTr("Slab thickness")]]],
     ]
 
