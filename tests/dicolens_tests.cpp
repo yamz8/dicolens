@@ -847,6 +847,36 @@ private slots:
         QCOMPARE(backend.windowCenter(), -600.0);
     }
 
+    void fileWindowBelongsToTheSeriesShown() {
+        // Two series with windows of their own: after a visit to the second,
+        // 0 on the first goes back to the first's, not the one seen last.
+        QTemporaryDir dir;
+        for (int series = 0; series < 2; ++series) {
+            Writer w;
+            w.image(2, 2, 16, 12, false)
+                .add(Tag::Modality, "CT", "CT")
+                .add(0x0020000E, "UI", series ? "1.2.3.2" : "1.2.3.1")
+                .add(Tag::SeriesNumber, "IS", QByteArray::number(series + 1))
+                .add(Tag::WindowCenter, "DS", series ? "500" : "40")
+                .add(Tag::WindowWidth, "DS", series ? "2000" : "400")
+                .pixels(le16({0, 1, 2, 3}));
+            QVERIFY(write(dir.filePath(QString("IM%1").arg(series)), w.file(ExplicitLE)));
+        }
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        QCOMPARE(backend.windowCenter(), 40.0);
+        backend.selectSeries(1);
+        QVERIFY(backend.waitForSlice(10000));
+        QCOMPARE(backend.windowCenter(), 500.0);
+        backend.selectSeries(0);
+        QVERIFY(backend.waitForSlice(10000));
+        backend.preset(3);
+        backend.fileWindow();
+        QCOMPARE(backend.windowCenter(), 40.0);
+        QCOMPARE(backend.windowWidth(), 400.0);
+    }
+
     void backendSaysWhenNothingIsThere() {
         QTemporaryDir dir;
         QVERIFY(write(dir.filePath("notes.txt"), "not a scan"));

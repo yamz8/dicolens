@@ -265,6 +265,7 @@ void Backend::scanFinished(int generation, const Scan &scan, const QString &focu
     m_job.reset();
     m_scan = scan;
     m_seriesWindows.clear();
+    m_seriesFileWindows.clear();
     {
         QMutexLocker lock(&m_thumbnailMutex);
         m_thumbnails.clear();
@@ -413,6 +414,7 @@ void Backend::selectSeries(int index) {
         m_center = w.center;
         m_width = w.width;
         m_inverted = w.inverted;
+        m_fileWindow = m_seriesFileWindows.value(index);
         emit windowChanged();
     }
     m_image = QImage();
@@ -529,6 +531,7 @@ void Backend::showSlice() {
         // The first slice seen sets the window for the whole series, so
         // scrolling doesn't flicker between each file's own.
         m_fileWindow = {frame->windowCenter, frame->windowWidth, false};
+        m_seriesFileWindows.insert(m_seriesIndex, m_fileWindow);
         m_center = frame->windowCenter;
         m_width = frame->windowWidth;
         m_windowSet = true;

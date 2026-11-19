@@ -203,6 +203,8 @@ private:
     WindowState m_fileWindow;
     WindowState m_dragStart;
     QHash<int, WindowState> m_seriesWindows;
+    // Each series' own window, which 0 goes back to after a return to it.
+    QHash<int, WindowState> m_seriesFileWindows;
     QList<WindowState> m_undo;
     QList<WindowState> m_redo;
 
