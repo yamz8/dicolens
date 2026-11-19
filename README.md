@@ -94,8 +94,9 @@ end plate of the vertebra at one end of the curve, then along the other, and
 it gives the angle between them, whichever way each was drawn.
 Measurements stay on their slice, and are kept with the series: open the scans
 again, even from another copy, and they're there. They're saved in Dicolens'
-own folder, never beside the scans. `Delete` removes the last one, and
-`Shift+Delete` all of the slice's.
+own folder, never beside the scans, and `dicolens measurements` lists them
+with what each comes to. `Delete` removes the last one, and `Shift+Delete`
+all of the slice's.
 
 ### Cut it the other ways
 
@@ -323,6 +324,9 @@ dicolens info <file|folder>...                    # series, patient, study
 dicolens tags <file>                              # every tag, sequences nested
 dicolens export <file|folder> out.png --series 2 --slice 40 --window 40,400
 dicolens export <file|folder> frames/ --all       # a whole series, 0001.png on
+dicolens export <file|folder> 3d.png --3d --look vessels --from left --cut 40
+dicolens export <file|folder> out.png --series 5 --slice 20 --pet  # the PET over the CT
+dicolens measurements <file|folder>               # what was measured in the viewer
 dicolens report <file|folder> --report 1          # a structured report as text
 dicolens report <file|folder> --out report.pdf    # or a PDF report, saved
 dicolens anonymize <file|folder|zip> --out shared/  # a copy without the patient's identity

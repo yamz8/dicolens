@@ -1785,6 +1785,110 @@ private slots:
         QCOMPARE(coronal.windowName(), QString("Bone"));
     }
 
+    void answersMeasurementsAndDrawsIn3dFromTheCommandLine() {
+        QTemporaryDir dir, data;
+        // A CT, 10 HU brighter each pixel to the right, and its PET.
+        QVERIFY(writeSeries(dir.path(), "CT", "1.2.77.10", "1.2.77.200", 16, 8, 1.5, 1.5,
+                            [](int i, int, int) { return 1024 + 10 * i; }, 0));
+        QVERIFY(writeSeries(dir.path(), "PT", "1.2.77.11", "1.2.77.200", 8, 4, 3, 3,
+                            [](int i, int j, int k) {
+                                const int away = std::abs(i - 4) + std::abs(j - 4) + std::abs(k - 2);
+                                return away == 0 ? 1000 : away == 1 ? 500 : 20;
+                            }));
+        // Measurements as the viewer keeps them, where the command looks.
+        MeasureStore::instance().setFolder(data.filePath("dicolens/measurements"));
+        Measure ruler, area, cobb;
+        ruler.b = QPointF(4, 0);
+        area.kind = 2;
+        area.b = QPointF(4, 4);
+        cobb.kind = 4;
+        cobb.b = QPointF(4, 0);
+        cobb.d = QPointF(4, 4);
+        MeasureStore::instance().add("1.2.77.10", 1, 3, cobb);   // On a coronal plane.
+        MeasureStore::instance().add("1.2.77.10", 0, 2, ruler);
+        MeasureStore::instance().add("1.2.77.10", 0, 2, area);
+
+        const QString app = QCoreApplication::applicationDirPath() + "/dicolens";
+        QByteArray errors;
+        auto run = [&](const QStringList &args, int *code, QByteArray *output = nullptr) {
+            QProcess p;
+            QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+            env.insert("QT_QPA_PLATFORM", "offscreen");
+            env.insert("XDG_DATA_HOME", data.path());
+            p.setProcessEnvironment(env);
+            p.start(app, args);
+            p.waitForFinished(30000);
+            *code = p.exitCode();
+            errors = p.readAllStandardError();
+            const QByteArray text = p.readAllStandardOutput();
+            if (output)
+                *output = text;
+            return QJsonDocument::fromJson(text).object();
+        };
+        int code = -1;
+        int ct = 0, pet = 0;
+        for (const QJsonValue &v : run({"info", dir.path(), "--json"}, &code).value("series").toArray())
+            (v.toObject().value("modality").toString() == "CT" ? ct : pet) = v.toObject().value("index").toInt();
+        QVERIFY(ct > 0 && pet > 0);
+
+        // Every measurement, with what it comes to; only the CT has any.
+        const QJsonObject kept = run({"measurements", dir.path(), "--json"}, &code);
+        QCOMPARE(code, 0);
+        const QJsonArray series = kept.value("series").toArray();
+        QCOMPARE(series.size(), 1);
+        QCOMPARE(series[0].toObject().value("index").toInt(), ct);
+        const QJsonArray list = series[0].toObject().value("measurements").toArray();
+        QCOMPARE(list.size(), 3);
+        const QJsonObject first = list[0].toObject(), second = list[1].toObject(), third = list[2].toObject();
+        QCOMPARE(first.value("kind").toString(), QString("ruler"));
+        QCOMPARE(first.value("slice").toInt(), 3);
+        QCOMPARE(first.value("plane").toString(), QString("scanned"));
+        QCOMPARE(first.value("length").toDouble(), 6.0);   // 4 pixels of 1.5 mm.
+        QCOMPARE(first.value("unit").toString(), QString("mm"));
+        QCOMPARE(second.value("kind").toString(), QString("area"));
+        QVERIFY(std::abs(second.value("area").toDouble() - M_PI * 3 * 3) < 1e-6);
+        QCOMPARE(second.value("mean").toDouble(), 15.0);   // 0 to 30 HU, evenly.
+        QCOMPARE(second.value("valueUnit").toString(), QString("HU"));
+        QCOMPARE(third.value("kind").toString(), QString("cobb"));
+        QCOMPARE(third.value("plane").toString(), QString("coronal"));
+        QVERIFY(std::abs(third.value("degrees").toDouble() - 45) < 1e-6);
+        QByteArray text;
+        run({"measurements", dir.path()}, &code, &text);
+        QCOMPARE(code, 0);
+        QVERIFY2(text.contains("ruler  6.0 mm"), text.constData());
+        QVERIFY2(text.contains("slice 4 (coronal)  Cobb angle  45.0°"), text.constData());
+        const QJsonObject none = run({"measurements", dir.path(), "--series", QString::number(pet), "--json"}, &code);
+        QCOMPARE(code, 0);
+        QVERIFY(none.value("series").toArray()[0].toObject().value("measurements").toArray().isEmpty());
+
+        // The CT in 3D, with the PET over it, from the PET's own number too.
+        const QString picture = dir.filePath("3d.png");
+        const QJsonObject drawn = run({"export", dir.path(), picture, "--3d", "--series", QString::number(pet),
+                                       "--pet", "--from", "left", "--size", "64x48", "--json"}, &code);
+        QCOMPARE(code, 0);
+        QCOMPARE(drawn.value("series").toInt(), ct);
+        QCOMPARE(drawn.value("pet").toInt(), pet);
+        QCOMPARE(drawn.value("look").toString(), QString("bone"));
+        QCOMPARE(QImage(picture).size(), QSize(64, 48));
+        run({"export", dir.path(), picture, "--3d", "--look", "glass", "--json"}, &code);
+        QCOMPARE(code, 1);
+        QVERIFY(QJsonDocument::fromJson(errors).object().value("error").toString().contains("--look"));
+
+        // A slice with the PET over it, 6 mm up: colour beside the hot spot
+        // (whose middle is white hot), grey away from it.
+        const QString slice = dir.filePath("slice.png");
+        run({"export", dir.path(), slice, "--series", QString::number(ct), "--slice", "5", "--pet", "--json"}, &code);
+        QCOMPARE(code, 0);
+        const QImage fused(slice);
+        const QColor hot = fused.pixelColor(6, 8), cold = fused.pixelColor(1, 14);
+        QVERIFY(hot.red() != hot.blue());
+        QCOMPARE(cold.red(), cold.blue());
+        // Over the PET's own slices it can't go; it says which series to use.
+        run({"export", dir.path(), slice, "--series", QString::number(pet), "--pet"}, &code);
+        QCOMPARE(code, 1);
+        QVERIFY(errors.contains(QStringLiteral("--series %1").arg(ct).toUtf8()));
+    }
+
     void keepsMeasurementsWithTheSeries() {
         QTemporaryDir dir;
         QVERIFY(writeVolume(dir.path()));

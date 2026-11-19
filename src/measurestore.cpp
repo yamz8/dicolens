@@ -8,6 +8,7 @@
 #include <QJsonObject>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <algorithm>
 
 MeasureStore &MeasureStore::instance() {
     static MeasureStore store;
@@ -107,6 +108,20 @@ bool MeasureStore::removeLast(const QString &series, int plane, int slice) {
     save(series);
     emit changed();
     return true;
+}
+
+QList<MeasureStore::Placed> MeasureStore::all(const QString &series) {
+    load(series);
+    QList<Placed> list;
+    const auto &byPicture = m_series.value(series);
+    for (auto it = byPicture.begin(); it != byPicture.end(); ++it)
+        for (const Measure &m : it.value())
+            list << Placed{it.key().section('/', 0, 0).toInt(), it.key().section('/', 1, 1).toInt(), m};
+    // Within a picture the order is kept: the sort is stable.
+    std::stable_sort(list.begin(), list.end(), [](const Placed &x, const Placed &y) {
+        return x.plane != y.plane ? x.plane < y.plane : x.slice < y.slice;
+    });
+    return list;
 }
 
 void MeasureStore::clear(const QString &series, int plane, int slice) {
