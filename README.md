@@ -16,13 +16,15 @@ JPEG 2000 and HTJ2K, and MPEG/H.264/HEVC video, the last few through
 `ffmpeg`; grey images of 1 to 32 bits, signed or not, and RGB, YBR, and
 palette colour; enhanced multi-frame files, whose spacing, position, and
 rescale come frame by frame. It shows the values under the pointer (in
-Hounsfield units on CT), measures in millimetres (on ultrasound too, from the
-scanner's calibration), labels the patient directions at the image's edges,
+Hounsfield units on CT, and SUVs on PET), measures lengths, areas with their
+values, and angles (on ultrasound too, from the scanner's calibration), cuts a
+CT or MR the other two ways and into MIP and MinIP slabs, labels the patient directions at the image's edges,
 turns and flips the picture, plays multi-frame series as loops, and lists
 every tag. It shows the marks left on the images (overlay planes and saved
 annotations), reads the reports that came with them (structured reports and
 PDFs), and puts two series side by side, this year's beside last year's,
-scrolling together.
+scrolling together. It saves a series as a video, and an anonymous copy of the
+scans to send for a second opinion.
 
 Dicolens is for looking at your own scans. It's not for diagnosis.
 
@@ -32,11 +34,13 @@ Dicolens is for looking at your own scans. It's not for diagnosis.
 dicolens                  # then press O, or drop files on the window
 dicolens /run/media/$USER/CDROM
 dicolens IM0001.dcm       # opens the rest of its folder too, at that slice
+dicolens scans.zip        # a hospital portal's download, unpacked as it's read
 ```
 
 A folder is read with everything under it, so a CD's root works; `DICOMDIR`
 isn't needed. Files are grouped into series and studies and sorted head to
-foot by where each slice is.
+foot by where each slice is. A zip file is unpacked into a folder of the
+app's own (with `bsdtar`), which goes when the app closes.
 
 ## What it does
 
@@ -75,11 +79,42 @@ range, `I` inverts, and `Ctrl+Z` undoes any of it.
 
 ### Read values and measure
 
-![The value under the pointer in Hounsfield units over lung, the aorta and bone, then rulers across the heart and a vertebra](docs/demos/measure.gif)
+![The value under the pointer in Hounsfield units over lung, the aorta and bone, then rulers across the heart and a vertebra, an area around the aorta with its mean and range, and an angle](docs/demos/measure.gif)
 
 The value under the pointer shows at the bottom left, in Hounsfield units on a
-CT. `M` turns on the ruler, which measures in millimetres from the file's pixel
-spacing.
+CT. `M` draws rulers, which measure in millimetres from the file's pixel
+spacing. `E` draws an ellipse and gives its area and the mean, spread, and
+range of the values in it, which on a CT tells fluid from fat or tissue.
+`Shift+M` measures an angle: drag one arm, then click where the other ends.
+Measurements stay on their slice; `Delete` removes the last one, and
+`Shift+Delete` all of the slice's.
+
+### Cut it the other ways
+
+![An axial chest CT cut coronally and sagittally with V, then shown beside its coronal plane, the dashed line on each side showing where the other cuts it](docs/demos/planes.gif)
+
+`V` rebuilds a CT or MR stack as coronal and sagittal planes, and back as it
+was scanned, through the same point. Side by side, a dashed line on each side
+shows where the other side's picture cuts it. It takes a stack of evenly
+spaced, parallel slices, which most CT and MR series are.
+
+### Slabs: MIP and MinIP
+
+![A chest CT as a 10 mm MIP, then 20 mm, then in the lung window as a MinIP and an average](docs/demos/slabs.gif)
+
+`B` shows a slab of slices as one picture: its brightest value at each point
+(a MIP, which brings out vessels and lung nodules), its darkest (a MinIP, for
+the airways), or their average. `Shift+B` makes it 5, 10, 20, or 40 mm thick.
+It works on the other planes too.
+
+### PET: colours and SUVs
+
+![A PET of the chest in colour, the SUV under the pointer over a nodule, an area around it with its maximum, then the hot iron, rainbow and grey scales](docs/demos/pet.gif)
+
+PET opens in colour, and shows standardised uptake values (by body weight)
+under the pointer and in areas, worked out from the dose, the time it was
+given, and the patient's weight in the file. `G` goes through the colour
+scales, for nuclear medicine too.
 
 ### Measure on ultrasound
 
@@ -147,10 +182,24 @@ are, and the window's title, for a screen share or a screenshot.
 
 ### Save or copy the image
 
-![Saving the image as a PNG with Ctrl+E, and copying it with Ctrl+C](docs/demos/export.gif)
+![Saving the image as a PNG with Ctrl+E, the series as a video with Ctrl+Shift+E, and copying the image with Ctrl+C](docs/demos/export.gif)
 
 `Ctrl+E` saves the image as you see it, at its true shape, as a PNG, through
-the desktop's file chooser; `Ctrl+C` copies it.
+the desktop's file chooser; `Ctrl+C` copies it. `Ctrl+Shift+E` saves the
+whole series (or plane, or slab) as an MP4, as it's shown.
+
+### Save an anonymous copy
+
+![Saving an anonymous copy of the CD with Ctrl+Shift+S, then opening it: the same scans, with the name replaced](docs/demos/anonymous.gif)
+
+`Ctrl+Shift+S` copies every image into a new folder, "Anonymous scans",
+without the patient's name, IDs, birth date, address, or the people and
+institution who saw them, and with new UIDs, following DICOM's Basic
+Confidentiality Profile. Dates, age, sex, and weight stay, as reading the scans
+needs them. Reports are left out, as their text names the patient. Some
+images, ultrasound and screen captures especially, can show the name in the
+picture itself, which no copy can take out; Dicolens says how many might, so
+you can look before sending them.
 
 ### Every shortcut, on `?`
 
@@ -185,7 +234,11 @@ that way. Scans stay on black, as they are read.
 | `F` / `R` | Fit / reset the view and window |
 | `]` / `[` | Turn right / left |
 | `X` / `Y` | Flip left to right / top to bottom |
-| `M` | Measure: drag a ruler (`Esc` clears it) |
+| `M` / `E` / `Shift+M` | Measure a length / an area and its values / an angle |
+| `Delete` / `Shift+Delete` | Remove the last measurement / the slice's |
+| `V` | Cut the series another way: coronal, sagittal, as scanned |
+| `B` / `Shift+B` | Slabs: MIP, MinIP, average / their thickness |
+| `G` | Colour scales, for PET |
 | `N` | Show or hide marks left on the image |
 | `C` | Two series side by side |
 | `Tab` | The other side |
@@ -195,6 +248,8 @@ that way. Scans stay on black, as they are read.
 | `Ctrl+F` | Search the tags |
 | `H` | Hide or show the patient's details |
 | `Ctrl+E` / `Ctrl+C` | Save the image as a PNG / copy it |
+| `Ctrl+Shift+E` | Save the series as a video |
+| `Ctrl+Shift+S` | Save an anonymous copy of the scans |
 | `?` | Every shortcut |
 | `Q` | Quit |
 
@@ -210,6 +265,7 @@ dicolens export <file|folder> out.png --series 2 --slice 40 --window 40,400
 dicolens export <file|folder> frames/ --all       # a whole series, 0001.png on
 dicolens report <file|folder> --report 1          # a structured report as text
 dicolens report <file|folder> --out report.pdf    # or a PDF report, saved
+dicolens anonymize <file|folder|zip> --out shared/  # a copy without the patient's identity
 dicolens skill install                            # teach Claude Code to use these
 ```
 
