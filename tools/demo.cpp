@@ -1,4 +1,4 @@
-// Records what Dicolens does as short GIFs for the README: it makes up a
+// Records what Dicolens does as short GIFs for docs/features.md: it makes up a
 // hospital CD (a chest CT with its scout, a head MR, and an echo loop), opens
 // the real window offscreen with a made-up theme and language, and drives it
 // with keys and the mouse, drawing the pointer and each key pressed onto the
