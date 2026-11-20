@@ -137,6 +137,10 @@ dicolens measurements <file|folder>               # what was measured in the vie
 dicolens report <file|folder> --report 1          # a structured report as text
 dicolens report <file|folder> --out report.pdf    # or a PDF report, saved
 dicolens anonymize <file|folder|zip> --out shared/  # a copy without the patient's identity
+dicolens anonymize <file|folder|zip> --dry-run      # what such a copy would remove and keep
+dicolens anonymize <file|folder|zip> --out shared/ --keep-descriptions --blackout 2:0,0,640,48
+                                                  # keeping the series' descriptions, with the top
+                                                  # of series 2's pictures blacked out
 dicolens skill install                            # teach Claude Code to use these
 ```
 
@@ -150,7 +154,12 @@ bin/build                                 # build/dicolens
 bin/test                                  # the tests, offscreen
 bin/demos                                 # record the GIFs in docs/demos again
 cmake --install build --prefix ~/.local   # try it in the app launcher
+uv run tools/standard.py                  # src/data again, from a new edition of DICOM
 ```
+
+What tags are called, how implicit files are read, and what an anonymous copy
+does to each attribute come from the DICOM standard's own tables (Part 6 and
+Part 15's Table E.1-1), kept in `src/data` as the edition they were made from.
 
 The package's recipe lives in
 [omarchy-pkgs](https://github.com/omacom/omarchy-pkgs), which is also where CI

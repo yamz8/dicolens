@@ -41,12 +41,33 @@ the folder inside it.
   report that came with the scans (`info` lists them under `reports`). A
   structured report comes back as its findings (`content`, headings and
   name/value lines); a PDF report is saved to `--out`, to be read from there.
-- `dicolens anonymize <file|folder|zip>... --out <folder> --json`: copies the
+- `dicolens anonymize <file|folder|zip>... --out <folder> [--keep-descriptions]
+  [--blackout SERIES:X,Y,WIDTH,HEIGHT]... [--dry-run] --json`: copies the
   images into a new folder "Anonymous scans" inside `--out`, without the
-  patient's name, IDs, birth date, or institution, with new UIDs (PS3.15 Basic
-  Profile, keeping dates and age, sex, and weight). Reports are left out.
-  `mayShowDetailsInPicture` counts images, such as ultrasound, whose picture
-  itself may show the name; tell the user to check those before sharing.
+  patient's name, IDs, birth date, or institution, with new UIDs: DICOM
+  PS3.15's Basic Confidentiality Profile, attribute by attribute from its
+  table (`standard` says which edition), keeping dates and age, sex, size,
+  and weight. Reports and annotation files are left out. `summary` lists what
+  was `removed`, `emptied`, `replaced`, and `kept`, by tag and name, with how
+  many files.
+  - Every copy is read back and searched for the names, IDs, birth date,
+    institution, addresses, phone and serial numbers its sources held. One
+    that still has any isn't kept: it's in `verificationFailures` (the file,
+    the tag, and what was found), `failed` counts it, and the command exits 1.
+  - The profile removes study, series, and protocol descriptions, as people
+    type anything into them. `--keep-descriptions` keeps those three so the
+    series can be told apart; the copy then says so (`basicProfile` is false).
+    If one of them names the patient, that copy fails as above: run again
+    without the option.
+  - `--blackout 2:0,0,640,48` blacks out a rectangle (in image pixels, from
+    the top left) in every image of series 2, as `info` numbers them; repeat
+    it for more. Those images are written uncompressed. `blackedOut` counts
+    them. Videos and 32-bit images are refused, with the reason.
+  - `mayShowDetailsInPicture` counts images, such as ultrasound and screen
+    captures, whose picture itself may show the name. Export one, look where
+    the name is, black that out, and tell the user to check before sharing.
+  - `--dry-run` writes nothing and needs no `--out`: the same JSON, with
+    `wouldWrite` for `written`, to show the user before copying.
 
 CT windows in Hounsfield units: brain 40,80; soft tissue 40,400; lung
 -600,1500; bone 400,1800.
