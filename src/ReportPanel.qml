@@ -33,7 +33,7 @@ Rectangle {
                 text: backend.reportTitle
                 color: win.text
                 font.bold: true
-                font.pixelSize: 20
+                font.pixelSize: win.px(20)
                 elide: Text.ElideRight
                 Layout.fillWidth: true
             }
@@ -94,7 +94,7 @@ Rectangle {
                     wrapMode: Text.Wrap
                     textFormat: Text.PlainText
                     font.bold: modelData.heading
-                    font.pixelSize: modelData.heading ? 16 : 15
+                    font.pixelSize: win.px(modelData.heading ? 16 : 15)
                     color: modelData.heading ? theme.accent : win.text
                     text: modelData.heading || !modelData.name ? (modelData.heading ? modelData.name : modelData.value)
                                                                : modelData.name + ": " + modelData.value
@@ -112,7 +112,7 @@ Rectangle {
             Layout.alignment: Qt.AlignHCenter
             text: qsTr("This report is a PDF.")
             color: win.text
-            font.pixelSize: 16
+            font.pixelSize: win.px(16)
         }
         Button {
             id: openButton

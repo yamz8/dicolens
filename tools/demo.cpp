@@ -36,6 +36,7 @@
 #include "qmlmodule.h"
 #include "volumeview.h"
 #include "measurestore.h"
+#include "textsize.h"
 #include "theme.h"
 #include "thumbnails.h"
 #include "translator.h"
@@ -1078,6 +1079,7 @@ int main(int argc, char *argv[]) {
     Translator translator(work.filePath("omarchy/language"));
     app.installTranslator(&translator);
     Theme theme(work.filePath("state"));
+    TextSize textSize(work.filePath("shell.toml"), work.filePath("state"));
     Picker picker(work.filePath("DEMO_CD"), work.path());
     Backend backend(&picker);
     Backend partner(&picker);
@@ -1097,6 +1099,7 @@ int main(int argc, char *argv[]) {
     engine.addImageProvider("thumbnails", new ThumbnailProvider(&backend));
     engine.rootContext()->setContextProperty("translator", &translator);
     engine.rootContext()->setContextProperty("theme", &theme);
+    engine.rootContext()->setContextProperty("textSize", &textSize);
     engine.rootContext()->setContextProperty("backend", &backend);
     engine.rootContext()->setContextProperty("partner", &partner);
     engine.rootContext()->setContextProperty("coronal", &coronal);

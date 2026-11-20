@@ -11,7 +11,7 @@ ColumnLayout {
         Layout.alignment: Qt.AlignHCenter
         text: qsTr("Open a scan")
         color: win.text
-        font.pixelSize: 26
+        font.pixelSize: win.px(26)
         font.bold: true
     }
     Label {
@@ -21,7 +21,7 @@ ColumnLayout {
         wrapMode: Text.Wrap
         text: qsTr("A DICOM file, a folder of them, or a hospital CD. Drop it here, or:")
         color: win.muted
-        font.pixelSize: 15
+        font.pixelSize: win.px(15)
     }
     RowLayout {
         Layout.alignment: Qt.AlignHCenter
@@ -56,6 +56,6 @@ ColumnLayout {
         Layout.topMargin: 18
         text: qsTr("? shows every shortcut")
         color: win.muted
-        font.pixelSize: 13
+        font.pixelSize: win.px(13)
     }
 }

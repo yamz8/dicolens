@@ -50,6 +50,7 @@ Item {
         reference: pane.reference
         secondReference: pane.secondReference
         accent: theme.accent
+        textScale: textSize.scale
         LayoutMirroring.enabled: false
     }
 
@@ -208,7 +209,7 @@ Item {
         visible: pane.source.hasImages && text !== ""
         text: pane.threeD ? (volumeView.busy ? "" : volumeView.status) : pane.source.frameError
         color: "#ff8a80"  // On the black canvas.
-        font.pixelSize: 15
+        font.pixelSize: win.px(15)
     }
 
     BusyIndicator {

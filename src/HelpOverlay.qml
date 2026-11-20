@@ -104,7 +104,7 @@ Rectangle {
                                 text: section.group[0]
                                 color: theme.accent
                                 font.bold: true
-                                font.pixelSize: 16
+                                font.pixelSize: win.px(16)
                                 horizontalAlignment: Text.AlignLeft
                                 Layout.fillWidth: true
                                 Layout.bottomMargin: 4
@@ -119,7 +119,7 @@ Rectangle {
                                         color: win.text
                                         font.family: "monospace"
                                         font.bold: true
-                                        Layout.preferredWidth: grid.count === 3 ? 118 : 150
+                                        Layout.preferredWidth: win.px(grid.count === 3 ? 118 : 150)
                                         Layout.alignment: Qt.AlignTop
                                         horizontalAlignment: Text.AlignLeft
                                         wrapMode: Text.Wrap

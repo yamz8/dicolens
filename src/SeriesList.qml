@@ -75,7 +75,7 @@ Rectangle {
                                 // Kinds of file, kept as they are in every language.
                                 text: reportRow.modelData.pdf ? "PDF" : "SR"
                                 color: win.muted
-                                font.pixelSize: 12
+                                font.pixelSize: win.px(12)
                                 font.bold: true
                             }
                         }
@@ -93,7 +93,7 @@ Rectangle {
                             Label {
                                 text: [reportRow.modelData.study, reportRow.modelData.date].filter(x => x).map(x => "\u2068" + x + "\u2069").join("  ·  ")
                                 color: win.muted
-                                font.pixelSize: 12
+                                font.pixelSize: win.px(12)
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                                 visible: text !== ""
@@ -139,14 +139,15 @@ Rectangle {
                     Label {
                         text: row.modelData.studyDate
                         color: win.muted
-                        font.pixelSize: 12
+                        font.pixelSize: win.px(12)
                         visible: text !== ""
                     }
                 }
 
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 76
+                    // Room for a title on two lines at any text size.
+                    Layout.preferredHeight: Math.max(76, seriesText.implicitHeight + 16)
                     color: row.current ? win.selected : hover.hovered ? win.hover : "transparent"
 
                     Rectangle {
@@ -182,12 +183,13 @@ Rectangle {
                                 anchors.centerIn: parent
                                 text: row.modelData.modality
                                 color: win.muted
-                                font.pixelSize: 12
+                                font.pixelSize: win.px(12)
                                 visible: thumb.status !== Image.Ready || thumb.implicitWidth <= 1
                             }
                         }
 
                         ColumnLayout {
+                            id: seriesText
                             Layout.fillWidth: true
                             spacing: 2
                             Label {
@@ -202,14 +204,14 @@ Rectangle {
                             Label {
                                 text: [row.modelData.modality, qsTr("%Ln images", "", row.modelData.count)].filter(x => x).join("  ·  ")
                                 color: win.muted
-                                font.pixelSize: 12
+                                font.pixelSize: win.px(12)
                                 Layout.fillWidth: true
                                 elide: Text.ElideRight
                             }
                             Label {
                                 text: qsTr("Can't be decoded")
                                 color: win.error
-                                font.pixelSize: 12
+                                font.pixelSize: win.px(12)
                                 visible: !row.modelData.decodable
                             }
                         }

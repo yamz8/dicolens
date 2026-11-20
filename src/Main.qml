@@ -18,6 +18,11 @@ ApplicationWindow {
     Material.background: theme.background
     Material.foreground: theme.foreground
 
+    // Type follows the desktop's text size: the controls take the window's
+    // font, and sizes given in pixels go through px().
+    font.pixelSize: px(14)
+    function px(size) { return Math.round(size * textSize.scale) }
+
     // The window's shades, mixed from the theme so they read on light
     // themes as well as dark ones.
     function mix(base, over, amount) { return Qt.tint(base, Qt.rgba(over.r, over.g, over.b, amount)) }
@@ -330,7 +335,7 @@ ApplicationWindow {
             anchors.top: parent.top
             anchors.bottom: parent.bottom
             anchors.left: parent.left
-            width: visible ? 248 : 0
+            width: visible ? win.px(248) : 0
             visible: win.seriesVisible && backend.hasImages
         }
 
@@ -473,7 +478,7 @@ ApplicationWindow {
                     text: backend.scanTotal > 0 ? qsTr("Reading %1 of %2 files").arg(backend.scanDone.toLocaleString(Qt.locale(), 'f', 0)).arg(backend.scanTotal.toLocaleString(Qt.locale(), 'f', 0))
                                                 : qsTr("Looking for scans…")
                     color: win.text
-                    font.pixelSize: 16
+                    font.pixelSize: win.px(16)
                 }
                 ProgressBar {
                     Layout.preferredWidth: 280

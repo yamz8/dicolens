@@ -135,6 +135,14 @@ void SliceView::setAccent(const QColor &accent) {
     update();
 }
 
+void SliceView::setTextScale(double scale) {
+    if (scale <= 0 || scale == m_textScale)
+        return;
+    m_textScale = scale;
+    emit accentChanged();
+    update();
+}
+
 QTransform SliceView::transform() const {
     if (!m_backend || m_backend->image().isNull())
         return {};
@@ -525,7 +533,7 @@ void SliceView::paint(QPainter *painter) {
 
 void SliceView::paintLabel(QPainter *painter, QPointF at, const QString &text) {
     QFont font = painter->font();
-    font.setPixelSize(14);
+    font.setPixelSize(qRound(14 * m_textScale));
     font.setBold(true);
     painter->setFont(font);
     const QFontMetricsF metrics(font);

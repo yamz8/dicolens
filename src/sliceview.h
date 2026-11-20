@@ -19,6 +19,9 @@ class SliceView : public QQuickPaintedItem {
     Q_PROPERTY(Backend *source READ backend WRITE setBackend NOTIFY backendChanged)
     Q_PROPERTY(double zoom READ zoom NOTIFY viewChanged)
     Q_PROPERTY(QColor accent READ accent WRITE setAccent NOTIFY accentChanged)
+    // The desktop's text size against its default, for what's written on
+    // the picture.
+    Q_PROPERTY(double textScale READ textScale WRITE setTextScale NOTIFY accentChanged)
     // 0 looks, 1 draws rulers, 2 areas, 3 angles, 4 Cobb angles.
     Q_PROPERTY(int tool READ tool WRITE setTool NOTIFY toolChanged)
     // How many measurements the shown slice has, and whether one is
@@ -38,6 +41,8 @@ public:
     void setBackend(Backend *backend);
     double zoom() const { return m_zoom; }
     QColor accent() const { return m_accent; }
+    double textScale() const { return m_textScale; }
+    void setTextScale(double scale);
     void setAccent(const QColor &accent);
     Backend *reference() const { return m_reference; }
     void setReference(Backend *reference);
@@ -111,6 +116,7 @@ private:
     double m_zoom = 1;
     QPointF m_pan;
     QColor m_accent = QColor("#FFD60A");
+    double m_textScale = 1;
     int m_tool = 0;
     Measure m_current;
     bool m_drawing = false;

@@ -57,7 +57,7 @@ Rectangle {
                 id: row
                 required property var modelData
                 width: list.width
-                height: Math.max(26, value.implicitHeight + 8)
+                height: Math.max(win.px(26), value.implicitHeight + 8)
 
                 RowLayout {
                     anchors.fill: parent
@@ -70,8 +70,8 @@ Rectangle {
                         visible: !row.modelData.item
                         color: win.muted
                         font.family: "monospace"
-                        font.pixelSize: 12
-                        Layout.preferredWidth: 92
+                        font.pixelSize: win.px(12)
+                        Layout.preferredWidth: win.px(92)
                         Layout.alignment: Qt.AlignTop
                         Layout.topMargin: 4
                     }
@@ -79,10 +79,10 @@ Rectangle {
                         text: row.modelData.item ? row.modelData.name
                               : (row.modelData.name || qsTr("Unknown")) + "  " + row.modelData.vr
                         color: row.modelData.item ? theme.accent : row.modelData.name ? win.secondary : win.muted
-                        font.pixelSize: 12
+                        font.pixelSize: win.px(12)
                         font.bold: row.modelData.item
                         elide: Text.ElideRight
-                        Layout.preferredWidth: row.modelData.item ? -1 : Math.max(110, list.width * 0.36 - row.modelData.depth * 12)
+                        Layout.preferredWidth: row.modelData.item ? -1 : Math.max(win.px(110), list.width * 0.36 - row.modelData.depth * 12)
                         Layout.fillWidth: row.modelData.item
                         Layout.alignment: Qt.AlignTop
                         Layout.topMargin: 4
@@ -92,7 +92,7 @@ Rectangle {
                         text: row.modelData.value
                         visible: !row.modelData.item
                         color: win.text
-                        font.pixelSize: 12
+                        font.pixelSize: win.px(12)
                         wrapMode: Text.WrapAnywhere
                         maximumLineCount: 4
                         elide: Text.ElideRight

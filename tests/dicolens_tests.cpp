@@ -31,6 +31,7 @@
 #include "volumeview.h"
 #include "measurestore.h"
 #include "study.h"
+#include "textsize.h"
 #include "theme.h"
 #include "thumbnails.h"
 #include "translator.h"
@@ -2216,6 +2217,32 @@ private slots:
         QTRY_COMPARE(theme.radius(), 8);
     }
 
+    void textSizeFollowsTheDesktop() {
+        // The shell's default without a word from anyone, then the theme's
+        // size, then the user's own over it, as each is written.
+        QTemporaryDir dir;
+        TextSize size(dir.path() + "/config/shell.toml", dir.path());
+        QCOMPARE(size.size(), 12);
+        QCOMPARE(size.scale(), 1.0);
+
+        QVERIFY(QDir(dir.path()).mkpath("theme"));
+        QVERIFY(write(dir.path() + "/theme/shell.toml", "[bar]\nbase-size = 99\n\n[font]\nfamily = \"x\"\nbase-size = 14\n"));
+        QTRY_COMPARE(size.size(), 14);
+
+        // The slider's first use makes the folder and the file.
+        QVERIFY(QDir(dir.path()).mkpath("config"));
+        QVERIFY(write(dir.path() + "/config/shell.toml", "[font]\nbase-size = 18 # big\n"));
+        QTRY_COMPARE(size.size(), 18);
+        QCOMPARE(size.scale(), 1.5);
+
+        // Back to the theme's when the user's own is taken out, and never
+        // a size the window can't be laid out at.
+        QVERIFY(write(dir.path() + "/config/shell.toml", "[font]\n"));
+        QTRY_COMPARE(size.size(), 14);
+        QVERIFY(write(dir.path() + "/config/shell.toml", "[font]\nbase-size = 400\n"));
+        QTRY_COMPARE(size.size(), 24);
+    }
+
     void translatorFallsBackToEnglish() {
         QTemporaryDir dir;
         Translator translator(dir.path() + "/language", dir.path());
@@ -2285,6 +2312,16 @@ private slots:
         QVERIFY2(problems.isEmpty(), qPrintable(problems.join('\n')));
     }
 
+    void everyCatalogIsCompiledIn() {
+        // A catalog the resources don't list never reaches the app, and its
+        // language stays English without a word of complaint.
+        const QString folder = QFileInfo(QFINDTESTDATA("../src/i18n/en.json")).absolutePath();
+        const QStringList catalogs = QDir(folder).entryList({"*.json"}, QDir::Files);
+        QCOMPARE(catalogs.size(), 50);
+        for (const QString &name : catalogs)
+            QVERIFY2(QFile::exists(":/i18n/" + name), qPrintable(name));
+    }
+
     void catalogsMatchTheEnglishOne() {
         // A catalog may lack a string (it shows in English meanwhile), but what
         // it has translates something in en.json, with the same placeholders,
@@ -2338,6 +2375,7 @@ private slots:
         Translator translator(dir.path() + "/language");
         QCoreApplication::installTranslator(&translator);
         Theme theme(dir.path());
+        TextSize textSize(dir.path() + "/shell.toml", dir.path());
         Backend backend(nullptr);
         Backend partner(nullptr);
         Backend coronal(nullptr);
@@ -2354,6 +2392,7 @@ private slots:
         engine.addImageProvider("thumbnails", new ThumbnailProvider(&backend));
         engine.rootContext()->setContextProperty("translator", &translator);
         engine.rootContext()->setContextProperty("theme", &theme);
+        engine.rootContext()->setContextProperty("textSize", &textSize);
         engine.rootContext()->setContextProperty("backend", &backend);
         engine.rootContext()->setContextProperty("partner", &partner);
         engine.rootContext()->setContextProperty("coronal", &coronal);

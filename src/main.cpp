@@ -17,6 +17,7 @@
 #include "cli.h"
 #include "portalfilepicker.h"
 #include "qmlmodule.h"
+#include "textsize.h"
 #include "theme.h"
 #include "thumbnails.h"
 #include "translator.h"
@@ -51,6 +52,7 @@ int main(int argc, char *argv[]) {
     app.installTranslator(&translator);
 
     Theme theme;
+    TextSize textSize;
     PortalFilePicker picker;
     Backend backend(&picker);
     // The second pane, side by side, showing the same scans.
@@ -73,6 +75,7 @@ int main(int argc, char *argv[]) {
     engine.addImageProvider("thumbnails", new ThumbnailProvider(&backend));
     engine.rootContext()->setContextProperty("translator", &translator);
     engine.rootContext()->setContextProperty("theme", &theme);
+    engine.rootContext()->setContextProperty("textSize", &textSize);
     engine.rootContext()->setContextProperty("backend", &backend);
     engine.rootContext()->setContextProperty("partner", &partner);
     engine.rootContext()->setContextProperty("coronal", &coronal);

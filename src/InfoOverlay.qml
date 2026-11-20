@@ -29,7 +29,7 @@ Item {
         color: win.canvasText
         style: Text.Outline
         styleColor: "#b0000000"
-        font.pixelSize: 13
+        font.pixelSize: win.px(13)
         visible: text !== ""
         elide: Text.ElideRight
         Layout.maximumWidth: overlay.width * 0.45
@@ -41,7 +41,7 @@ Item {
         anchors.left: parent.left
         spacing: 2
         visible: !overlay.compact
-        Line { text: overlay.source.info.patient || ""; font.bold: true; font.pixelSize: 15 }
+        Line { text: overlay.source.info.patient || ""; font.bold: true; font.pixelSize: win.px(15) }
         Line { text: overlay.source.info.patientDetails || ""; color: win.canvasDim }
         Line { text: overlay.source.info.study || "" }
         Line { text: overlay.source.info.date || ""; color: win.canvasDim }
