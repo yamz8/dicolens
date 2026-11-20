@@ -64,16 +64,25 @@ add_executable(hostile_tests tests/hostile_tests.cpp)
 target_link_libraries(hostile_tests PRIVATE dicolens_core Qt6::Test)
 add_test(NAME hostile_tests COMMAND hostile_tests)
 
+# Pictures that decoded wrongly, one test for each that bin/conformance found.
+add_executable(decode_tests tests/decode_tests.cpp)
+target_link_libraries(decode_tests PRIVATE dicolens_core Qt6::Test)
+add_test(NAME decode_tests COMMAND decode_tests)
+
 set(test_environment QT_QPA_PLATFORM=offscreen)
 if(DICOLENS_SANITIZE)
   list(APPEND test_environment
     LSAN_OPTIONS=suppressions=${CMAKE_SOURCE_DIR}/tests/sanitizers/lsan.supp:print_suppressions=0)
 endif()
-set_tests_properties(dicolens_tests hostile_tests PROPERTIES ENVIRONMENT "${test_environment}")
+set_tests_properties(dicolens_tests hostile_tests decode_tests PROPERTIES ENVIRONMENT "${test_environment}")
 
 # bin/demos records the GIFs in docs/features.md with this; a plain build leaves it out.
 add_executable(dicolens_demo EXCLUDE_FROM_ALL tools/demo.cpp src/resources.qrc)
 target_link_libraries(dicolens_demo PRIVATE dicolens_core Qt6::Test)
+
+# bin/conformance compares what this prints with a reference decoder's.
+add_executable(dicolens_pixeldump EXCLUDE_FROM_ALL tools/pixeldump.cpp)
+target_link_libraries(dicolens_pixeldump PRIVATE dicolens_core)
 
 if(DICOLENS_FUZZ)
   add_subdirectory(fuzz)

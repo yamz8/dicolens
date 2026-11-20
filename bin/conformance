@@ -1,0 +1,12 @@
+#!/bin/bash
+set -euo pipefail
+
+# Compares what Dicolens decodes with a reference decoder (pydicom and its
+# codecs) over public test files, and prints a table by transfer syntax.
+# Needs uv, which fetches the Python packages; the test files are downloaded
+# once into ~/.cache/dicolens-conformance/. Arguments go to
+# tools/conformance.py (--help lists them).
+root="$(cd "$(dirname "$0")/.." && pwd)"
+"$root/bin/build"
+cmake --build "$root/build" --target dicolens_pixeldump -j"$(nproc)"
+exec uv run --script "$root/tools/conformance.py" "$@"

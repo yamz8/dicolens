@@ -32,6 +32,15 @@ QString demuxerFor(const QString &uid) {
 
 bool isRle(const QString &uid) { return uid == "1.2.840.10008.1.2.5"; }
 
+// The transfer syntaxes whose pictures come back nearly, not exactly, as
+// they went in: JPEG's lossy processes, near-lossless JPEG-LS, and the
+// JPEG 2000 ones that aren't "lossless only".
+bool isLossy(const QString &uid) {
+    static const QList<QString> lossy{"1.2.840.10008.1.2.4.50", "1.2.840.10008.1.2.4.51", "1.2.840.10008.1.2.4.81",
+                                      "1.2.840.10008.1.2.4.91", "1.2.840.10008.1.2.4.93", "1.2.840.10008.1.2.4.203"};
+    return lossy.contains(uid);
+}
+
 QString ffmpeg() {
     static const QString path = QStandardPaths::findExecutable("ffmpeg");
     return path;
@@ -107,16 +116,27 @@ Frame applyPalette(const Frame &indices, const DicomFile &file) {
 // bit pattern; signed values are told apart by the top stored bit, as in
 // uncompressed data. A decoder that shifted signed samples up to make them
 // unsigned says by how much in levelShift.
-Frame monoFrame(const ImageFormat &format, qint64 pixels, int levelShift, auto sampleAt) {
+//
+// Bits above the stored ones aren't the picture's, and are masked off. But
+// a lossy codestream is deeper than the values in it as often as not (ten
+// bits of X-ray in a 12-bit JPEG), and comes back a little off: a white of
+// 1023 as 1024, which masked would be 0, a black speck in the white. Those
+// are held at the ends of the stored range instead.
+Frame monoFrame(const ImageFormat &format, qint64 pixels, int levelShift, bool lossy, auto sampleAt) {
     const int bits = std::clamp(format.bitsStored, 1, 16);
     const quint32 mask = bits >= 16 ? 0xFFFF : (1u << bits) - 1;
+    const int top = levelShift ? (1 << (bits - 1)) - 1 : int(mask), bottom = levelShift ? -(1 << (bits - 1)) : 0;
+    // (Signed values in a stream that doesn't know they are signed have no
+    // ends to hold them at: a pattern past the top bit is a negative value.)
+    const bool hold = lossy && (levelShift || !format.isSigned);
     Frame frame;
     frame.width = format.columns;
     frame.height = format.rows;
     frame.mono.resize(pixels);
     frame.isSigned = format.isSigned;
     for (qint64 i = 0; i < pixels; ++i) {
-        quint32 v = quint32(int(sampleAt(i)) - levelShift);
+        const int value = int(sampleAt(i)) - levelShift;
+        quint32 v = quint32(hold ? std::clamp(value, bottom, top) : value);
         v &= mask;
         if (format.isSigned && bits < 16 && (v & (1u << (bits - 1))))
             v |= ~mask;
@@ -163,18 +183,71 @@ int codestreamPrecision(const QByteArray &codestream, const QString &demuxer, bo
     return 0;
 }
 
+// Whether a JPEG's three components are red, green and blue as they stand,
+// in a file that says its picture is RGB. ffmpeg takes a JPEG's components
+// for Y, Cb and Cr unless the stream itself says otherwise (an Adobe marker,
+// or components named R, G, B), and turns them into colours that were never
+// there. A JFIF stream is YCbCr by definition, whatever the file says, and
+// components at different resolutions are never RGB: those are ffmpeg's to
+// convert, as are the streams that say for themselves.
+bool jpegStoresRgb(const QByteArray &codestream) {
+    const auto *p = reinterpret_cast<const uchar *>(codestream.constData());
+    const qint64 size = codestream.size();
+    for (qint64 i = 2; i + 4 <= size;) {
+        const uchar marker = p[i + 1];
+        if (p[i] != 0xFF || marker == 0xFF) {
+            ++i;
+            continue;
+        }
+        if (marker == 0xD8 || marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
+            i += 2;
+            continue;
+        }
+        const qint64 length = (p[i + 2] << 8) | p[i + 3];
+        const uchar *segment = p + i + 4;
+        if (length < 2 || i + 2 + length > size)
+            return false;
+        if (marker == 0xE0 && length >= 7 && std::memcmp(segment, "JFIF", 5) == 0)
+            return false;
+        if (marker == 0xEE && length >= 14 && std::memcmp(segment, "Adobe", 5) == 0)
+            return false;
+        if (marker == 0xC0 || marker == 0xC1 || marker == 0xC2) {
+            // Eight bits, three components, each an id, its sampling, and
+            // its table.
+            if (length < 17 || segment[0] != 8 || segment[5] != 3)
+                return false;
+            const uchar *c = segment + 6;
+            if (c[0] == 'R' && c[3] == 'G' && c[6] == 'B')
+                return false;
+            return c[1] == c[4] && c[1] == c[7];
+        }
+        if (marker == 0xDA || marker == 0xD9)
+            return false;
+        i += 2 + length;
+    }
+    return false;
+}
+
 Frame runFfmpeg(const QByteArray &codestream, const QString &demuxer, const ImageFormat &format) {
     if (ffmpeg().isEmpty())
         return failed(QT_TRANSLATE_NOOP("dicolens", "ffmpeg isn't installed, and this image needs it"));
 
-    QStringList arguments{"-v", "error", "-threads", "1"};
+    // A decoder that meets something it can't decode (a JPEG-LS scan with
+    // its colours interleaved sample by sample, in ffmpeg's) otherwise goes
+    // on and hands back a black picture as if it were the file's.
+    QStringList arguments{"-v", "error", "-threads", "1", "-err_detect", "explode"};
     if (!demuxer.isEmpty())
         arguments << "-f" << demuxer;
     arguments << "-i" << "-" << "-frames:v" << "1" << "-f" << "rawvideo";
     // Grey images come out in the decoder's own format so 12-bit values
     // aren't stretched to 16; colour is converted to RGB, which also undoes
-    // the YCbCr a JPEG keeps colour in.
-    if (format.samples > 1)
+    // the YCbCr a JPEG keeps colour in. A JPEG that keeps RGB is asked for
+    // as the three planes it holds, in whichever of the names ffmpeg has for
+    // them unconverted.
+    const bool asStored = demuxer == Jpeg && format.samples == 3 && format.photometric == "RGB" && jpegStoresRgb(codestream);
+    if (asStored)
+        arguments << "-vf" << "format=yuvj444p|yuv444p";
+    else if (format.samples > 1)
         arguments << "-pix_fmt" << "rgb24";
     arguments << "-";
 
@@ -203,8 +276,17 @@ Frame runFfmpeg(const QByteArray &codestream, const QString &demuxer, const Imag
         frame.color = QImage(frame.width, frame.height, QImage::Format_RGB888);
         if (frame.color.isNull())
             return tooBig(frame.width, frame.height);
-        for (int y = 0; y < frame.height; ++y)
-            std::memcpy(frame.color.scanLine(y), output.constData() + qint64(y) * frame.width * 3, frame.width * 3);
+        for (int y = 0; y < frame.height; ++y) {
+            uchar *line = frame.color.scanLine(y);
+            if (!asStored) {
+                std::memcpy(line, output.constData() + qint64(y) * frame.width * 3, frame.width * 3);
+                continue;
+            }
+            const auto *plane = reinterpret_cast<const uchar *>(output.constData()) + qint64(y) * frame.width;
+            for (int x = 0; x < frame.width; ++x)
+                for (int c = 0; c < 3; ++c)
+                    line[3 * x + c] = plane[c * pixels + x];
+        }
         return frame;
     }
 
@@ -242,9 +324,10 @@ Frame runFfmpeg(const QByteArray &codestream, const QString &demuxer, const Imag
         }
     }
     const int shift = demuxer == Jpeg2000 && signedSamples && precision > 0 ? 1 << (precision - 1) : 0;
+    const bool lossy = isLossy(format.transferSyntax);
     if (bytes == 1)
-        return monoFrame(format, pixels, shift, [p, down](qint64 i) { return p[i] >> down; });
-    return monoFrame(format, pixels, shift, [p, down](qint64 i) { return qFromLittleEndian<quint16>(p + 2 * i) >> down; });
+        return monoFrame(format, pixels, shift, lossy, [p, down](qint64 i) { return p[i] >> down; });
+    return monoFrame(format, pixels, shift, lossy, [p, down](qint64 i) { return qFromLittleEndian<quint16>(p + 2 * i) >> down; });
 }
 
 Frame decodeLossless(const QByteArray &codestream, const ImageFormat &format) {
@@ -258,7 +341,7 @@ Frame decodeLossless(const QByteArray &codestream, const ImageFormat &format) {
     const qint64 pixels = qint64(jpeg.width) * jpeg.height;
     const quint16 *samples = jpeg.samples.constData();
     if (jpeg.components == 1)
-        return monoFrame(format, pixels, 0, [samples](qint64 i) { return samples[i]; });
+        return monoFrame(format, pixels, 0, false, [samples](qint64 i) { return samples[i]; });
     // Colour is three samples a pixel; two or four aren't a picture to show.
     if (jpeg.components != 3)
         return failed(QT_TRANSLATE_NOOP("dicolens", "This JPEG image's layout isn't supported"));
@@ -672,7 +755,19 @@ Frame decodeFrame(const DicomFile &file, int frameIndex, const QList<QByteArray>
         const qint64 offset = qint64(frameIndex) * frameBytes;
         if (offset + frameBytes > file.pixelLength())
             return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
-        const QByteArray data = file.readPixels(offset, frameBytes);
+        QByteArray data;
+        if (!f.littleEndian && f.bitsAllocated == 8 && file.pixelVr() == "OW") {
+            // 8-bit pixels written as 16-bit words: a big-endian file swaps
+            // each word's bytes like any other word's, so the pixels lie in
+            // pairs the wrong way round, whichever byte a frame starts on.
+            const qint64 from = offset - offset % 2;
+            QByteArray words = file.readPixels(from, offset + frameBytes + 1 - from);
+            for (qsizetype i = 0; i + 1 < words.size(); i += 2)
+                std::swap(words[i], words[i + 1]);
+            data = words.mid(offset - from, frameBytes);
+        } else {
+            data = file.readPixels(offset, frameBytes);
+        }
         // Big-endian files store 8-bit pixels as bytes, which need no swap.
         ImageFormat native = f;
         if (file.pixelVr() == "OB")

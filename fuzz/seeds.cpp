@@ -194,11 +194,14 @@ void files() {
         .add(Tag::RescaleIntercept, "DS", "-1024").add(Tag::RescaleSlope, "DS", "1")
         .add(Tag::PixelSpacing, "DS", "0.5\\0.5").add(Tag::PixelPaddingValue, "US", QByteArray("\x00\x00", 2))
         .pixels(ramp(12, 300));
-    Writer implicit, big;
+    Writer implicit, big, bigWords;
     implicit.explicitVr = false;
     implicit.add(Tag::PatientName, "PN", "Implicit^Demo").image(2, 2, 16, 16, true).pixels(le16({1, 65535, 3, 4}));
     big.bigEndian = true;
     big.add(Tag::PatientName, "PN", "Big^Endian").image(2, 2, 16, 12, false).pixels(QByteArray("\x00\x01\x00\x02\x0F\xFF\x00\x04", 8));
+    // 8-bit pixels in 16-bit words, three to a frame, so one starts mid-word.
+    bigWords.bigEndian = true;
+    bigWords.image(1, 3, 8, 8, false).add(Tag::NumberOfFrames, "IS", "2").pixels(bytes(6), "OW");
     Writer wide, bits, rgb, planar, ybr, palette, inverse, signed8;
     wide.image(2, 2, 32, 32, true).pixels(QByteArray("\x00\x00\x01\x00\xFF\xFF\xFF\xFF\x10\x27\x00\x00\x00\x00\x00\x80", 16), "OB");
     bits.image(3, 5, 1, 1, false).add(Tag::NumberOfFrames, "IS", "2").pixels(QByteArray("\xA5\x5A\xC3\x3C", 4), "OB");
@@ -241,6 +244,7 @@ void files() {
         {"implicit", implicit.file(ImplicitLE)},
         {"bare", implicit.body},
         {"big-endian", big.file(ExplicitBE)},
+        {"big-endian-words", bigWords.file(ExplicitBE)},
         {"deflated", deflated(grey)},
         {"32-bit", wide.file(ExplicitLE)},
         {"1-bit", bits.file(ExplicitLE)},
