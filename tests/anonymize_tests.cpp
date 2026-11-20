@@ -845,7 +845,7 @@ private slots:
         row("a birth date with dashes", Description, "LO", "born 1970-01-02", "1970-01-02");
         row("a birth date day first", 0x00204000, "LT", "geb. 02.01.1970", "02.01.1970");
         row("a birth date in a date of its own", Tag::PatientBirthDate, "DA", "19700102", "19700102");
-        row("a birth date in a date and time", 0x00100032 - 2 + 0x1FE, "DT", "19700102103000", "19700102");
+        row("a birth date in a date and time", Unregistered, "DT", "19700102103000", "19700102");
         row("a phone number written otherwise", Description, "LO", "tel 1-555-123-4567", "+1 (555) 123-4567");
         row("an institution", Description, "LO", "SAINT ELSEWHERE CT1", "Saint Elsewhere");
         row("a town of the address", 0x00081030, "LO", "Springfield protocol", "Springfield");
@@ -864,6 +864,7 @@ private slots:
         row("an ID inside a longer number", Description, "LO", "A10245 and 21024", "");
         row("the small words of a name", Description, "LO", "IRM de la jambe", "");
         row("a study on the birthday", Tag::StudyDate, "DA", "19700102", "");
+        row("a study on the birthday, as older files write it", Tag::StudyDate, "DA", "1970.01.02", "");
         row("a time that reads like the ID", Tag::StudyTime, "TM", "1024", "");
         row("a patient ID too short to mean anything", Description, "LO", "42 slices", "");
         row("the model a station is named after", Tag::ManufacturerModel, "LO", "Aquilion ONE", "");
@@ -1498,6 +1499,7 @@ private slots:
             {"0,0,1,1", "--blackout takes"},
             {"two:0,0,1,1", "--blackout takes"},
             {"2:-1,0,1,1", "--blackout takes"},
+            {"2:0,0,2000000000,2000000000", "--blackout takes"},
         };
         for (const auto &[region, message] : wrong) {
             p = run({"anonymize", dir.path(), "--out", out.path(), "--blackout", region});

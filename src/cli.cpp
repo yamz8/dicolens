@@ -812,7 +812,8 @@ int anonymize(QStringList args) {
             n << text.toInt(&number);
             ok = ok && number;
         }
-        if (!ok || n[1] < 0 || n[2] < 0 || n[3] < 1 || n[4] < 1)
+        // No picture is a million pixels across; more is a slip of the hand.
+        if (!ok || n[1] < 0 || n[2] < 0 || n[3] < 1 || n[4] < 1 || *std::max_element(n.begin() + 1, n.end()) > 1000000)
             return fail(regionUsage, json);
         if (n[0] < 1 || n[0] > scan.series.size())
             return fail(QStringLiteral("there are %1 series; --blackout counts them from 1, as info lists them").arg(scan.series.size()), json);

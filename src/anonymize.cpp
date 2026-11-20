@@ -602,7 +602,9 @@ bool redraw(const DicomFile &file, const QList<QRect> &rectangles, QList<DicomEl
     const int highest = f.isSigned ? (1 << (bits - 1)) - 1 : (1 << bits) - 1;
 
     QByteArray &out = picture.redrawn;
-    out.reserve(count * bytes * f.frames + 1);
+    // Room for what the header promises, within reason: a damaged one can
+    // promise anything, and each frame is only added once it has decoded.
+    out.reserve(qMin(count * bytes * qMin(f.frames, 4096), qint64(1) << 28));
     for (int index = 0; index < f.frames; ++index) {
         Frame frame = decodeFrame(file, index, file.encapsulated() ? &fragments : nullptr);
         if (frame.error.isEmpty() && (frame.width != f.columns || frame.height != f.rows
@@ -926,7 +928,6 @@ QString whatIs(Identifier::Kind kind) {
 }
 
 // A date or time the Retain Longitudinal Temporal Information option keeps.
-// The day of a study stays even when the patient was born on it.
 bool keptDate(quint32 tag) {
     const Row *row = rowFor(tag);
     return row && row->action[FullDates] == "K";
@@ -982,10 +983,13 @@ void look(const DicomFile &copy, const QList<DicomElement> &elements, const Anon
             if (coded && (id.kind == Identifier::Kind::Name || id.match == Identifier::Match::Word
                           || id.match == Identifier::Match::Squeezed))
                 continue;
+            // The day of a study stays, by the option that keeps dates, even
+            // when the patient was born on it.
+            if (numeric && id.kind == Identifier::Kind::BirthDate && keptDate(e.tag))
+                continue;
             if (numeric && number) {
-                // But a birth date left in a date of its own is one.
-                const bool date = id.kind == Identifier::Kind::BirthDate && (vr == "DA" || vr == "DT")
-                                  && !keptDate(e.tag) && id.text.size() == 8;
+                // But a birth date left in another date of its own is one.
+                const bool date = id.kind == Identifier::Kind::BirthDate && (vr == "DA" || vr == "DT") && id.text.size() == 8;
                 if (!date || !text.contains(id.text))
                     continue;
                 fail(id.found, whatIs(id.kind));
