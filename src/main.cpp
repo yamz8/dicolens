@@ -8,6 +8,7 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QQuickWindow>
+#include <QThreadPool>
 #include <QTimer>
 #include <QUrl>
 
@@ -15,29 +16,15 @@
 #include "backend.h"
 #include "cli.h"
 #include "portalfilepicker.h"
-#include "sliceview.h"
 #include "qmlmodule.h"
-#include "volumeview.h"
-#include "thumbnails.h"
 #include "theme.h"
+#include "thumbnails.h"
 #include "translator.h"
 
-namespace {
-
-bool isCommand(int argc, char *argv[]) {
-    if (argc < 2)
-        return false;
-    const QByteArray first = argv[1];
-    return first == "info" || first == "tags" || first == "export" || first == "skill" || first == "help" ||
-           first == "--help" || first == "-h" || first == "--version";
-}
-
-}
-
 int main(int argc, char *argv[]) {
-    // Commands run without a display.
-    const bool command = isCommand(argc, argv);
-    if (command)
+    // Commands run without a display, which QGuiApplication would abort
+    // for before the arguments are read.
+    if (needsNoWindow(argc, argv))
         qputenv("QT_QPA_PLATFORM", "offscreen");
 
     QGuiApplication app(argc, argv);
@@ -72,9 +59,7 @@ int main(int argc, char *argv[]) {
     Backend coronal(&picker);
     Backend sagittal(&picker);
 
-
     keepQmlModule();
-
 
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);
@@ -130,6 +115,9 @@ int main(int argc, char *argv[]) {
 
     Archive::cleanUp(false);
     const int status = app.exec();
+    // Q quits under a video or an anonymous copy still being saved, which
+    // may be reading a zip's unpacked files: they finish before those go.
+    QThreadPool::globalInstance()->waitForDone();
     Archive::cleanUp(true);
     return status;
 }

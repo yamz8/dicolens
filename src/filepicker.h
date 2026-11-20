@@ -13,10 +13,12 @@ public:
     explicit FilePicker(QObject *parent = nullptr) : QObject(parent) {}
     virtual ~FilePicker() = default;
 
-    // suggestedName is the file name a save starts with.
-    virtual void choose(Purpose purpose, const QString &suggestedName = {}) = 0;
+    // The panes share one picker, so each says who is asking and takes only
+    // the answers that come back for it; a dialog that is cancelled answers
+    // nobody. suggestedName is the file name a save starts with.
+    virtual void choose(QObject *asker, Purpose purpose, const QString &suggestedName = {}) = 0;
 
 signals:
-    void selected(FilePicker::Purpose purpose, const QList<QUrl> &urls);
-    void failed(const QString &message);
+    void selected(QObject *asker, FilePicker::Purpose purpose, const QList<QUrl> &urls);
+    void failed(QObject *asker, const QString &message);
 };

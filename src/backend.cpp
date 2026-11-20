@@ -112,10 +112,10 @@ QString age(const QString &value) {
     if (!ok)
         return value;
     switch (value.back().toUpper().unicode()) {
-    case 'Y': return tr("%n years old", nullptr, n);
-    case 'M': return tr("%n months old", nullptr, n);
-    case 'W': return tr("%n weeks old", nullptr, n);
-    case 'D': return tr("%n days old", nullptr, n);
+    case 'Y': return tr("%Ln years old", nullptr, n);
+    case 'M': return tr("%Ln months old", nullptr, n);
+    case 'W': return tr("%Ln weeks old", nullptr, n);
+    case 'D': return tr("%Ln days old", nullptr, n);
     }
     return value;
 }
@@ -182,11 +182,12 @@ Backend::Backend(FilePicker *picker, QObject *parent) : QObject(parent), m_picke
             setSliceIndex(next);
     });
     if (m_picker) {
-        // Both panes share the picker; each answers only what it asked.
-        connect(m_picker, &FilePicker::selected, this, [this](FilePicker::Purpose purpose, const QList<QUrl> &urls) {
-            if (!m_asked)
+        // The panes share the picker; each takes only the answers to what
+        // it asked.
+        connect(m_picker, &FilePicker::selected, this,
+                [this](QObject *asker, FilePicker::Purpose purpose, const QList<QUrl> &urls) {
+            if (asker != this || urls.isEmpty())
                 return;
-            m_asked = false;
             if (purpose == FilePicker::Purpose::SaveImage) {
                 saveImage(urls.first().toLocalFile());
                 return;
@@ -204,11 +205,9 @@ Backend::Backend(FilePicker *picker, QObject *parent) : QObject(parent), m_picke
                 list << url;
             load(list);
         });
-        connect(m_picker, &FilePicker::failed, this, [this](const QString &message) {
-            if (!m_asked)
-                return;
-            m_asked = false;
-            setProblem(message);
+        connect(m_picker, &FilePicker::failed, this, [this](QObject *asker, const QString &message) {
+            if (asker == this)
+                setProblem(message);
         });
     }
 }
@@ -229,15 +228,13 @@ Backend::~Backend() {
 void Backend::open() {
     if (!m_picker)
         return;
-    m_asked = true;
-    m_picker->choose(FilePicker::Purpose::OpenScan);
+    m_picker->choose(this, FilePicker::Purpose::OpenScan);
 }
 
 void Backend::openFolder() {
     if (!m_picker)
         return;
-    m_asked = true;
-    m_picker->choose(FilePicker::Purpose::OpenFolder);
+    m_picker->choose(this, FilePicker::Purpose::OpenFolder);
 }
 
 void Backend::load(const QVariantList &urlsOrPaths) {
@@ -339,18 +336,19 @@ void Backend::scanFinished(int generation, const Scan &scan, const QString &focu
         return;
     }
 
+    // The file that was opened is the slice shown, among its folder's.
     int series = 0, slice = 0;
-    for (int s = 0; s < m_scan.series.size() && !focusPath.isEmpty(); ++s)
-        for (int i = 0; i < m_scan.series[s].slices.size(); ++i)
-            if (m_scan.series[s].slices[i].path == focusPath) {
+    for (int s = 0; s < scan.series.size() && !focusPath.isEmpty(); ++s)
+        for (int i = 0; i < scan.series[s].slices.size(); ++i)
+            if (scan.series[s].slices[i].path == focusPath) {
                 series = s;
                 slice = i;
-                s = m_scan.series.size();
+                s = scan.series.size();
                 break;
             }
     showScan(scan, series, slice);
     if (!scan.unreadable.isEmpty())
-        setProblem(tr("%n files couldn't be read", nullptr, int(scan.unreadable.size())) + " — " + scan.unreadable.first());
+        setProblem(tr("%Ln files couldn't be read", nullptr, int(scan.unreadable.size())) + " — " + scan.unreadable.first());
 
     // A thumbnail a series, from its middle slice.
     if (m_thumbnailCancel)
@@ -848,6 +846,19 @@ ImagePlane Backend::imagePlane() const {
     if (m_plane != 0)
         return cutPlane(m_volume, m_cut, m_sliceIndex);
     return slicePlane(*s, m_sliceIndex);
+}
+
+QString Backend::cutKey() const {
+    if (m_plane != 3)
+        return {};
+    // Where the stack's first plane lies and how it's turned, to the
+    // hundredth of a millimetre, which a tilt of any size moves.
+    const ImagePlane p = m_oblique.plane(0);
+    QStringList parts;
+    for (const double *vector : {p.origin, p.row, p.column})
+        for (int i = 0; i < 3; ++i)
+            parts << QString::number(std::round(vector[i] * 100) / 100 + 0.0, 'f', 2);
+    return parts.join(',');
 }
 
 QString Backend::planeName() const {
@@ -1684,8 +1695,7 @@ void Backend::exportImage() {
         return;
     QString name = s->description.isEmpty() ? s->modality : s->description;
     name.replace(QRegularExpression("[^\\w\\-]+"), "-");
-    m_asked = true;
-    m_picker->choose(FilePicker::Purpose::SaveImage,
+    m_picker->choose(this, FilePicker::Purpose::SaveImage,
                      QStringLiteral("%1-%2.png").arg(name.isEmpty() ? QStringLiteral("scan") : name).arg(m_sliceIndex + 1));
 }
 
@@ -1696,6 +1706,7 @@ void Backend::saveImage(const QString &path) {
     // Written beside the target and renamed over it, so a failure never
     // leaves half a file.
     QSaveFile file(path);
+    file.setDirectWriteFallback(false);
     if (!file.open(QIODevice::WriteOnly) || ![&] {
             if (!picture.isNull())
                 return picture.save(&file, "PNG");
@@ -1728,8 +1739,7 @@ void Backend::exportVideo() {
     if (m_plane != 0)
         name += "-" + QString::fromLatin1(::planeName(imagePlane()));
     name.replace(QRegularExpression("[^\\w\\-]+"), "-");
-    m_asked = true;
-    m_picker->choose(FilePicker::Purpose::SaveVideo, (name.isEmpty() ? QStringLiteral("scan") : name) + ".mp4");
+    m_picker->choose(this, FilePicker::Purpose::SaveVideo, (name.isEmpty() ? QStringLiteral("scan") : name) + ".mp4");
 }
 
 void Backend::saveVideo(const QString &path) {
@@ -1853,8 +1863,7 @@ void Backend::saveVideo(const QString &path) {
 void Backend::exportAnonymous() {
     if (!hasImages() || !m_picker)
         return;
-    m_asked = true;
-    m_picker->choose(FilePicker::Purpose::SaveFolder);
+    m_picker->choose(this, FilePicker::Purpose::SaveFolder);
 }
 
 void Backend::saveAnonymous(const QString &folder) {
@@ -1873,15 +1882,15 @@ void Backend::saveAnonymous(const QString &folder) {
                 self->setProblem(tr("The anonymous copy couldn't be saved: %1").arg(result.errors.value(0)));
                 return;
             }
-            self->flash(tr("Saved %n files in %1", nullptr, result.written).arg(QFileInfo(result.folder).fileName()));
+            self->flash(tr("Saved %Ln files in %1", nullptr, result.written).arg(QFileInfo(result.folder).fileName()));
             // What the copy can't promise is said where it stays up.
             QStringList warnings;
             if (result.showDetails > 0)
-                warnings << tr("%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.", nullptr, result.showDetails);
+                warnings << tr("%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.", nullptr, result.showDetails);
             if (result.skipped > 0)
                 warnings << tr("Reports were left out, as their text names the patient.");
             if (!result.errors.isEmpty())
-                warnings << tr("%n files couldn't be copied.", nullptr, result.errors.size());
+                warnings << tr("%Ln files couldn't be copied.", nullptr, result.errors.size());
             if (!warnings.isEmpty())
                 self->setProblem(warnings.join(' '));
         }, Qt::QueuedConnection);
@@ -1895,8 +1904,7 @@ void Backend::exportPicture(const QImage &picture) {
     QString name = s->description.isEmpty() ? s->modality : s->description;
     name.replace(QRegularExpression("[^\\w\\-]+"), "-");
     m_picture = picture;
-    m_asked = true;
-    m_picker->choose(FilePicker::Purpose::SaveImage, QStringLiteral("%1-3D.png").arg(name.isEmpty() ? QStringLiteral("scan") : name));
+    m_picker->choose(this, FilePicker::Purpose::SaveImage, QStringLiteral("%1-3D.png").arg(name.isEmpty() ? QStringLiteral("scan") : name));
 }
 
 void Backend::copyPicture(const QImage &picture) {
@@ -2132,7 +2140,7 @@ void Backend::updateTags() {
                                       {"value", value}, {"item", false}};
             // Per-frame groups hold one item a frame; only the shown
             // frame's is worth reading.
-            const bool perFrame = e.tag == 0x52009230;
+            const bool perFrame = e.tag == Tag::PerFrameGroups;
             for (int i = 0; i < e.items.size(); ++i) {
                 if (perFrame && i != slice.frame)
                     continue;

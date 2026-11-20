@@ -117,6 +117,8 @@ public:
     bool canReformat() const { return m_volume.valid; }
     // 0 is the plane as scanned; 1 and 2 the others.
     int plane() const { return m_plane; }
+    // Which cut a tilted plane is, told from any other; empty otherwise.
+    QString cutKey() const;
     // The slab the picture is made of, such as "MIP 10 mm", or nothing.
     QString slabName() const;
     // Where in the patient the shown picture lies, for reference lines.
@@ -338,7 +340,6 @@ private:
     int acquiredSlice() const;
 
     FilePicker *m_picker;
-    bool m_asked = false;   // Waiting on the picker for this backend.
     QThreadPool m_pool;
     QThreadPool m_thumbnailPool;
     int m_scanGeneration = 0;

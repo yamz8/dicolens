@@ -12,6 +12,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPdfWriter>
+#include <QPointer>
 #include <QProcess>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
@@ -824,11 +825,13 @@ void makeEcho(const QString &root, std::mt19937 &random) {
 class Picker : public FilePicker {
 public:
     Picker(const QString &folder, const QString &saves) : m_folder(folder), m_saves(saves) {}
-    void choose(Purpose purpose, const QString &suggestedName) override {
+    void choose(QObject *asker, Purpose purpose, const QString &suggestedName) override {
         const QString path = purpose == Purpose::SaveImage || purpose == Purpose::SaveVideo ? m_saves + "/" + suggestedName
                              : purpose == Purpose::SaveFolder                             ? m_saves
                                                                                           : m_folder;
-        QTimer::singleShot(0, this, [this, purpose, path] { emit selected(purpose, {QUrl::fromLocalFile(path)}); });
+        QTimer::singleShot(0, this, [this, asker = QPointer<QObject>(asker), purpose, path] {
+            emit selected(asker, purpose, {QUrl::fromLocalFile(path)});
+        });
     }
 
 private:

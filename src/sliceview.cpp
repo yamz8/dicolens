@@ -8,6 +8,14 @@
 
 #include "backend.h"
 
+namespace {
+
+// A plane counts its pixels from the middle of the first, as DICOM places
+// an image; the picture drawn counts from that pixel's corner.
+const QPointF Half(0.5, 0.5);
+
+}
+
 SliceView::SliceView(QQuickItem *parent) : QQuickPaintedItem(parent) {
     setAntialiasing(true);
     connect(this, &QQuickItem::widthChanged, this, [this] { update(); });
@@ -28,14 +36,16 @@ void SliceView::setBackend(Backend *backend) {
     if (m_backend) {
         connect(m_backend, &Backend::imageChanged, this, [this] { update(); });
         // Measurements stay on their slice, and come back with it.
+        // One half drawn is dropped whole, or a Cobb angle's first line
+        // would wait for its second on another slice.
         connect(m_backend, &Backend::sliceChanged, this, [this] {
-            m_drawing = m_secondArm = false;
+            m_drawing = m_secondArm = m_secondLine = m_firstDone = false;
             emit measuresChanged();
             update();
         });
         // A new scan starts fitted, with what was measured on it before.
         connect(m_backend, &Backend::opened, this, [this] {
-            m_drawing = m_secondArm = false;
+            m_drawing = m_secondArm = m_secondLine = m_firstDone = false;
             emit measuresChanged();
             fit();
         });
@@ -201,13 +211,14 @@ QString SliceView::seriesUid() const {
 
 QList<Measure> SliceView::measures() const {
     const QString uid = seriesUid();
-    return uid.isEmpty() ? QList<Measure>() : MeasureStore::instance().at(uid, m_backend->plane(), m_backend->sliceIndex());
+    return uid.isEmpty() ? QList<Measure>()
+                         : MeasureStore::instance().at(uid, m_backend->plane(), m_backend->sliceIndex(), m_backend->cutKey());
 }
 
 void SliceView::keep(const Measure &m) {
     const QString uid = seriesUid();
     if (!uid.isEmpty())
-        MeasureStore::instance().add(uid, m_backend->plane(), m_backend->sliceIndex(), m);
+        MeasureStore::instance().add(uid, m_backend->plane(), m_backend->sliceIndex(), m, m_backend->cutKey());
 }
 
 void SliceView::setTool(int tool) {
@@ -319,7 +330,7 @@ Backend *SliceView::referenceNear(double x, double y) const {
         QPointF a, b;
         if (!other || !lineTo(other, a, b) || !other->canReformat())
             continue;
-        const QLineF line(toItem(a.x(), a.y()), toItem(b.x(), b.y()));
+        const QLineF line(toItem(a.x() + Half.x(), a.y() + Half.y()), toItem(b.x() + Half.x(), b.y() + Half.y()));
         const QPointF p(x, y), d = line.p2() - line.p1();
         const double length2 = d.x() * d.x() + d.y() * d.y();
         if (length2 < 1e-9)
@@ -359,7 +370,7 @@ void SliceView::beginTurn(double x, double y) {
     here.point(m_turnPivot.x(), m_turnPivot.y(), point);
     m_turnTarget->goThrough({point[0], point[1], point[2], here.frame});
     here.normal(m_turnAxis);
-    m_turnStart = toImage(x, y);
+    m_turnStart = toImage(x, y) - Half;
     m_turnTarget->beginTurn();
     m_turning = true;
 }
@@ -367,7 +378,7 @@ void SliceView::beginTurn(double x, double y) {
 void SliceView::turnTo(double x, double y) {
     if (!m_turning || !m_turnTarget)
         return;
-    const QPointF u = toMm(m_turnStart) - toMm(m_turnPivot), v = toMm(toImage(x, y)) - toMm(m_turnPivot);
+    const QPointF u = toMm(m_turnStart) - toMm(m_turnPivot), v = toMm(toImage(x, y) - Half) - toMm(m_turnPivot);
     if (std::hypot(u.x(), u.y()) < 1e-6 || std::hypot(v.x(), v.y()) < 1e-6)
         return;
     // Turning by θ about the normal takes the row toward the column, as
@@ -388,7 +399,8 @@ bool SliceView::removeLast() {
         m_drawing = m_secondArm = m_secondLine = m_firstDone = false;
     } else {
         const QString uid = seriesUid();
-        if (uid.isEmpty() || !MeasureStore::instance().removeLast(uid, m_backend->plane(), m_backend->sliceIndex()))
+        if (uid.isEmpty()
+            || !MeasureStore::instance().removeLast(uid, m_backend->plane(), m_backend->sliceIndex(), m_backend->cutKey()))
             return false;
     }
     emit measuresChanged();
@@ -398,7 +410,7 @@ bool SliceView::removeLast() {
 
 void SliceView::clearMeasures() {
     if (const QString uid = seriesUid(); !uid.isEmpty())
-        MeasureStore::instance().clear(uid, m_backend->plane(), m_backend->sliceIndex());
+        MeasureStore::instance().clear(uid, m_backend->plane(), m_backend->sliceIndex(), m_backend->cutKey());
     m_drawing = m_secondArm = m_secondLine = m_firstDone = false;
     emit measuresChanged();
     update();
@@ -490,12 +502,12 @@ void SliceView::paint(QPainter *painter) {
             color.setAlpha(200);
             QPen pen(color, 1.5, Qt::DashLine);
             painter->setPen(pen);
-            painter->drawLine(t.map(ra), t.map(rb));
+            painter->drawLine(t.map(ra + Half), t.map(rb + Half));
         }
     // Where the planes meet, once a click has set it.
     if (QPointF at; m_backend->crossing(at)) {
         painter->setRenderHint(QPainter::Antialiasing);
-        const QPointF c = t.map(at);
+        const QPointF c = t.map(at + Half);
         for (const QPen &pen : {QPen(QColor(0, 0, 0, 160), 4), QPen(m_accent, 2)}) {
             painter->setPen(pen);
             painter->drawLine(c - QPointF(9, 0), c - QPointF(3, 0));

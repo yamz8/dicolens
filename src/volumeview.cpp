@@ -142,6 +142,11 @@ void VolumeView::prepare() {
                             : QString();
     if (key != m_key) {
         m_key = key;
+        // A picture still being drawn is of the series before.
+        ++m_generation;
+        if (m_cancel)
+            *m_cancel = true;
+        m_dirty = false;
         m_full.reset();
         m_half.reset();
         m_image = QImage();

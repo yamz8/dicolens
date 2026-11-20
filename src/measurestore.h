@@ -25,11 +25,12 @@ public:
     QString folder() const { return m_folder; }
 
     // A picture's measurements: a series, a plane of it (0 as scanned, 3
-    // tilted), and a slice of that plane.
-    QList<Measure> at(const QString &series, int plane, int slice);
-    void add(const QString &series, int plane, int slice, const Measure &measure);
-    bool removeLast(const QString &series, int plane, int slice);
-    void clear(const QString &series, int plane, int slice);
+    // tilted), and a slice of that plane. A tilted plane also says which
+    // cut it is, so what was measured on one doesn't show on another.
+    QList<Measure> at(const QString &series, int plane, int slice, const QString &cut = {});
+    void add(const QString &series, int plane, int slice, const Measure &measure, const QString &cut = {});
+    bool removeLast(const QString &series, int plane, int slice, const QString &cut = {});
+    void clear(const QString &series, int plane, int slice, const QString &cut = {});
 
     // Every measurement kept with a series, by plane, then slice, then in
     // the order they were drawn.
@@ -48,7 +49,9 @@ private:
     QString path(const QString &series) const;
     void load(const QString &series);
     void save(const QString &series);
-    static QString slot(int plane, int slice) { return QStringLiteral("%1/%2").arg(plane).arg(slice); }
+    static QString slot(int plane, int slice, const QString &cut) {
+        return QStringLiteral("%1/%2").arg(plane).arg(slice) + (cut.isEmpty() ? QString() : "/" + cut);
+    }
 
     QString m_folder;
     QHash<QString, QHash<QString, QList<Measure>>> m_series;

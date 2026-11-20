@@ -116,9 +116,14 @@ PortalFilePicker::PortalFilePicker(QObject *parent) : FilePicker(parent) {
     registerPortalFilterTypes();
 }
 
-void PortalFilePicker::choose(Purpose purpose, const QString &suggestedName) {
-    if (m_pending)
-        return;
+void PortalFilePicker::choose(QObject *asker, Purpose purpose, const QString &suggestedName) {
+    // A request whose Response never arrives (the portal crashed or was
+    // killed with the dialog up) must not wedge every later dialog behind
+    // it: close the stuck one best-effort and replace it.
+    if (m_pending) {
+        closePendingRequest();
+        clearPending();
+    }
 
     QVariantMap options;
     options.insert(QStringLiteral("modal"), true);
@@ -163,7 +168,7 @@ void PortalFilePicker::choose(Purpose purpose, const QString &suggestedName) {
                           QStringLiteral("org.freedesktop.portal.FileChooser"),
                           bus);
     if (!portal.isValid()) {
-        emit failed(QCoreApplication::translate("dicolens", "The desktop's file chooser isn't available"));
+        emit failed(asker, QCoreApplication::translate("dicolens", "The desktop's file chooser isn't available"));
         return;
     }
 
@@ -179,26 +184,33 @@ void PortalFilePicker::choose(Purpose purpose, const QString &suggestedName) {
 
     m_pending = true;
     m_purpose = purpose;
+    m_asker = asker;
     if (!connectToRequestPath(predictedPath)) {
         clearPending();
-        emit failed(QCoreApplication::translate("dicolens", "The desktop's file chooser didn't answer"));
+        emit failed(asker, QCoreApplication::translate("dicolens", "The desktop's file chooser didn't answer"));
         return;
     }
 
+    const int generation = ++m_pendingGeneration;
     auto *watcher = new QDBusPendingCallWatcher(
         portal.asyncCall(method, QString(), title, options), this);
+    m_pendingWatcher = watcher;
 
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher]() {
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, watcher, generation]() {
         QDBusPendingReply<QDBusObjectPath> reply = *watcher;
         watcher->deleteLater();
+        if (m_pendingWatcher == watcher)
+            m_pendingWatcher = nullptr;
 
-        // A response may already have been handled while the reply was in flight.
-        if (!m_pending)
+        // Superseded by a newer request, or a response may already have
+        // been handled while the reply was in flight.
+        if (generation != m_pendingGeneration || !m_pending)
             return;
 
         if (reply.isError()) {
+            QObject *asker = m_asker;
             clearPending();
-            emit failed(QCoreApplication::translate("dicolens", "The desktop's file chooser failed: %1").arg(reply.error().message()));
+            emit failed(asker, QCoreApplication::translate("dicolens", "The desktop's file chooser failed: %1").arg(reply.error().message()));
             return;
         }
 
@@ -211,11 +223,21 @@ void PortalFilePicker::choose(Purpose purpose, const QString &suggestedName) {
                 QStringLiteral("org.freedesktop.portal.Request"), QStringLiteral("Response"),
                 this, SLOT(handleResponse(uint,QVariantMap)));
             if (!connectToRequestPath(actualPath)) {
+                QObject *asker = m_asker;
                 clearPending();
-                emit failed(QCoreApplication::translate("dicolens", "The desktop's file chooser didn't answer"));
+                emit failed(asker, QCoreApplication::translate("dicolens", "The desktop's file chooser didn't answer"));
             }
         }
     });
+}
+
+void PortalFilePicker::closePendingRequest() {
+    if (m_pendingPath.isEmpty())
+        return;
+    QDBusInterface request(QStringLiteral("org.freedesktop.portal.Desktop"), m_pendingPath,
+                           QStringLiteral("org.freedesktop.portal.Request"),
+                           QDBusConnection::sessionBus());
+    request.asyncCall(QStringLiteral("Close"));
 }
 
 bool PortalFilePicker::connectToRequestPath(const QString &path) {
@@ -228,6 +250,7 @@ bool PortalFilePicker::connectToRequestPath(const QString &path) {
 
 void PortalFilePicker::handleResponse(uint response, const QVariantMap &results) {
     const Purpose purpose = m_purpose;
+    QObject *asker = m_asker;
     clearPending();
 
     if (response != 0)
@@ -237,10 +260,16 @@ void PortalFilePicker::handleResponse(uint response, const QVariantMap &results)
     for (const auto &uri : results.value(QStringLiteral("uris")).toStringList())
         urls << QUrl(uri);
     if (!urls.isEmpty())
-        emit selected(purpose, urls);
+        emit selected(asker, purpose, urls);
 }
 
 void PortalFilePicker::clearPending() {
+    // A caller that never gets its reply must not outlive the request it
+    // belonged to (repeated stuck requests would otherwise pile them up).
+    if (m_pendingWatcher) {
+        m_pendingWatcher->deleteLater();
+        m_pendingWatcher = nullptr;
+    }
     if (!m_pendingPath.isEmpty()) {
         QDBusConnection::sessionBus().disconnect(
             QStringLiteral("org.freedesktop.portal.Desktop"), m_pendingPath,
@@ -250,4 +279,5 @@ void PortalFilePicker::clearPending() {
 
     m_pendingPath.clear();
     m_pending = false;
+    m_asker.clear();
 }

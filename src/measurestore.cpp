@@ -54,7 +54,7 @@ void MeasureStore::load(const QString &series) {
         m.b = QPointF(p[2].toDouble(), p[3].toDouble());
         m.c = QPointF(p[4].toDouble(), p[5].toDouble());
         m.d = QPointF(p[6].toDouble(), p[7].toDouble());
-        byPicture[slot(o.value("plane").toInt(), o.value("slice").toInt())] << m;
+        byPicture[slot(o.value("plane").toInt(), o.value("slice").toInt(), {})] << m;
     }
 }
 
@@ -87,21 +87,21 @@ void MeasureStore::save(const QString &series) {
     }
 }
 
-QList<Measure> MeasureStore::at(const QString &series, int plane, int slice) {
+QList<Measure> MeasureStore::at(const QString &series, int plane, int slice, const QString &cut) {
     load(series);
-    return m_series.value(series).value(slot(plane, slice));
+    return m_series.value(series).value(slot(plane, slice, cut));
 }
 
-void MeasureStore::add(const QString &series, int plane, int slice, const Measure &measure) {
+void MeasureStore::add(const QString &series, int plane, int slice, const Measure &measure, const QString &cut) {
     load(series);
-    m_series[series][slot(plane, slice)] << measure;
+    m_series[series][slot(plane, slice, cut)] << measure;
     save(series);
     emit changed();
 }
 
-bool MeasureStore::removeLast(const QString &series, int plane, int slice) {
+bool MeasureStore::removeLast(const QString &series, int plane, int slice, const QString &cut) {
     load(series);
-    auto &list = m_series[series][slot(plane, slice)];
+    auto &list = m_series[series][slot(plane, slice, cut)];
     if (list.isEmpty())
         return false;
     list.removeLast();
@@ -124,9 +124,9 @@ QList<MeasureStore::Placed> MeasureStore::all(const QString &series) {
     return list;
 }
 
-void MeasureStore::clear(const QString &series, int plane, int slice) {
+void MeasureStore::clear(const QString &series, int plane, int slice, const QString &cut) {
     load(series);
-    if (m_series[series].remove(slot(plane, slice)) == 0)
+    if (m_series[series].remove(slot(plane, slice, cut)) == 0)
         return;
     save(series);
     emit changed();

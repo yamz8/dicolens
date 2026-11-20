@@ -13,7 +13,9 @@ the folder inside it.
 - `dicolens info <file|folder>... --json`: every series found, with modality,
   description, image count, size, pixel spacing, transfer syntax, whether it
   can be decoded, and the patient and study. Series are numbered from 1.
-- `dicolens tags <file> --json`: every tag in one file; sequences hold `items`.
+- `dicolens tags <file> [--frame N] --json`: every tag in one file; sequences
+  hold `items`. A multi-frame file keeps an item a frame in (5200,9230);
+  `--frame` gives only that frame's.
 - `dicolens export <file|folder> <out.png> [--series N] [--slice N]
   [--window CENTER,WIDTH] [--invert] --json`: one slice as a PNG or JPEG,
   windowed as the file says unless `--window` is given.

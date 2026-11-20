@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -196,14 +197,21 @@ int info(QStringList args) {
     return scan.series.isEmpty() ? 1 : 0;
 }
 
-QJsonArray tagsJson(const DicomFile &file, const QList<DicomElement> &elements) {
+// Per-frame functional groups hold one item a frame: with a frame chosen
+// (from 0), only that frame's is given, as the viewer shows them.
+bool otherFrame(const DicomElement &e, int item, int frame) {
+    return e.tag == Tag::PerFrameGroups && frame >= 0 && item != frame;
+}
+
+QJsonArray tagsJson(const DicomFile &file, const QList<DicomElement> &elements, int frame) {
     QJsonArray array;
     for (const auto &e : elements) {
         QJsonObject o{{"tag", tagText(e.tag)}, {"vr", QString::fromLatin1(e.vr)}, {"name", Dictionary::name(e.tag)}};
         if (!e.items.isEmpty() || e.vr == "SQ") {
             QJsonArray items;
-            for (const auto &item : e.items)
-                items << tagsJson(file, item);
+            for (int i = 0; i < e.items.size(); ++i)
+                if (!otherFrame(e, i, frame))
+                    items << tagsJson(file, e.items[i], frame);
             o["items"] = items;
         } else {
             o["value"] = file.display(e);
@@ -213,31 +221,41 @@ QJsonArray tagsJson(const DicomFile &file, const QList<DicomElement> &elements) 
     return array;
 }
 
-void printTags(const DicomFile &file, const QList<DicomElement> &elements, int depth) {
+void printTags(const DicomFile &file, const QList<DicomElement> &elements, int depth, int frame) {
     for (const auto &e : elements) {
         const QString indent(depth * 2, ' ');
         out() << indent << tagText(e.tag) << " " << e.vr << " " << Dictionary::name(e.tag).leftJustified(36 - depth * 2)
               << " " << (e.items.isEmpty() && e.vr != "SQ" ? file.display(e) : QString::number(e.items.size()) + " items")
               << "\n";
         for (int i = 0; i < e.items.size(); ++i) {
+            if (otherFrame(e, i, frame))
+                continue;
             out() << indent << "  > item " << i + 1 << "\n";
-            printTags(file, e.items[i], depth + 2);
+            printTags(file, e.items[i], depth + 2, frame);
         }
     }
 }
 
 int tags(QStringList args) {
     const bool json = flag(args, "--json");
+    const QString frameText = option(args, "--frame");
     if (args.size() != 1)
         return fail("tags needs one file", json);
     QString error;
     const DicomFile file = DicomFile::read(args.first(), &error);
     if (!file.isValid())
         return fail(QStringLiteral("%1: %2").arg(args.first(), error), json);
+    int frame = -1;
+    if (!frameText.isEmpty()) {
+        const int frames = std::max(1, file.integer(Tag::NumberOfFrames, 1));
+        frame = frameText.toInt() - 1;
+        if (frame < 0 || frame >= frames)
+            return fail(QStringLiteral("the file has %1 frames; --frame counts from 1").arg(frames), json);
+    }
     if (json)
-        out() << QJsonDocument(tagsJson(file, file.elements())).toJson(QJsonDocument::Indented);
+        out() << QJsonDocument(tagsJson(file, file.elements(), frame)).toJson(QJsonDocument::Indented);
     else
-        printTags(file, file.elements(), 0);
+        printTags(file, file.elements(), 0, frame);
     out().flush();
     return 0;
 }
@@ -246,6 +264,7 @@ bool save(const QImage &image, const QString &path, QString *error) {
     // Written beside the target and renamed over it, so a failure never
     // leaves half a file.
     QSaveFile file(path);
+    file.setDirectWriteFallback(false);
     const QByteArray format = QFileInfo(path).suffix().toLower() == "jpg" || QFileInfo(path).suffix().toLower() == "jpeg"
                                   ? "JPG" : "PNG";
     if (!file.open(QIODevice::WriteOnly) || !image.save(&file, format) || !file.commit()) {
@@ -782,6 +801,7 @@ int skill(QStringList args) {
     const QString directory = QDir::homePath() + "/.claude/skills/dicolens";
     QDir().mkpath(directory);
     QSaveFile file(directory + "/SKILL.md");
+    file.setDirectWriteFallback(false);
     if (!file.open(QIODevice::WriteOnly) || file.write(bundled.readAll()) < 0 || !file.commit())
         return fail(file.errorString(), json);
     if (json)
@@ -792,6 +812,24 @@ int skill(QStringList args) {
     return 0;
 }
 
+// Every command by name: the one list runCli runs from and needsNoWindow
+// answers from, so a new command can't be left out of either.
+const QHash<QString, int (*)(QStringList)> &commands() {
+    static const QHash<QString, int (*)(QStringList)> table{
+        {"info", info},     {"tags", tags},                 {"export", exportImages}, {"skill", skill},
+        {"report", report}, {"measurements", measurements}, {"anonymize", anonymize},
+    };
+    return table;
+}
+
+}
+
+bool needsNoWindow(int argc, char *argv[]) {
+    if (argc < 2)
+        return false;
+    // An option is --help, --version, or a mistake the usage answers.
+    const QString first = QString::fromLocal8Bit(argv[1]);
+    return first.startsWith('-') || first == "help" || commands().contains(first);
 }
 
 int runCli(const QStringList &arguments, QStringList &open) {
@@ -807,20 +845,8 @@ int runCli(const QStringList &arguments, QStringList &open) {
         out().flush();
         return 0;
     }
-    if (command == "info")
-        return info(args.mid(1));
-    if (command == "tags")
-        return tags(args.mid(1));
-    if (command == "export")
-        return exportImages(args.mid(1));
-    if (command == "report")
-        return report(args.mid(1));
-    if (command == "measurements")
-        return measurements(args.mid(1));
-    if (command == "anonymize")
-        return anonymize(args.mid(1));
-    if (command == "skill")
-        return skill(args.mid(1));
+    if (const auto run = commands().value(command))
+        return run(args.mid(1));
     if (command == "open")
         args.removeFirst();
     for (const auto &arg : args)

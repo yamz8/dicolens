@@ -118,7 +118,7 @@ Each of these is shown with a short recording in
 | `Ctrl+E` / `Ctrl+C` | Save the image as a PNG / copy it |
 | `Ctrl+Shift+E` | Save the series as a video |
 | `Ctrl+Shift+S` | Save an anonymous copy of the scans |
-| `?` | Every shortcut |
+| `?` | Every shortcut (`↑` `↓` to move through them) |
 | `Q` | Quit |
 
 ## For agents and scripts
@@ -128,7 +128,7 @@ and 1 on failure with the error on stderr.
 
 ```sh
 dicolens info <file|folder>...                    # series, patient, study
-dicolens tags <file>                              # every tag, sequences nested
+dicolens tags <file> --frame 3                    # every tag, sequences nested; of one frame
 dicolens export <file|folder> out.png --series 2 --slice 40 --window 40,400
 dicolens export <file|folder> frames/ --all       # a whole series, 0001.png on
 dicolens export <file|folder> 3d.png --3d --look vessels --from left --cut 40
@@ -159,4 +159,4 @@ reads the dependencies from.
 ## License
 
 MIT. The theme watching and the portal file chooser follow
-[Omacut](https://github.com/omacom-io/omacut).
+[Omacut](https://github.com/omacom/omacut).

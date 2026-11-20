@@ -411,9 +411,11 @@ class FakePicker : public FilePicker {
 public:
     QString answer;
     Purpose asked = Purpose::OpenScan;
-    void choose(Purpose purpose, const QString &) override {
+    void choose(QObject *asker, Purpose purpose, const QString &) override {
         asked = purpose;
-        emit selected(purpose, {QUrl::fromLocalFile(answer)});
+        // A dialog that is cancelled answers nobody.
+        if (!answer.isEmpty())
+            emit selected(asker, purpose, {QUrl::fromLocalFile(answer)});
     }
 };
 
@@ -986,6 +988,119 @@ private slots:
         QCOMPARE(backend.windowCenter(), -600.0);
     }
 
+    void opensAFileAtItsOwnSlice() {
+        // One file opens with the rest of its folder, at the slice it is.
+        QTemporaryDir dir;
+        QVERIFY(writeVolume(dir.path()));
+        Backend backend(nullptr);
+        backend.loadPaths({dir.filePath("1.2.9.1-3")});
+        QVERIFY(backend.waitForSlice(10000));
+        QCOMPARE(backend.sliceCount(), 5);
+        QCOMPARE(backend.sliceIndex(), 3);
+        QVERIFY(backend.valueAt(0, 0).contains("300"));
+
+        // And again over a scan already open, whose slices are other ones.
+        QTemporaryDir other;
+        QVERIFY(writeVolume(other.path(), "1.2.9.2"));
+        backend.loadPaths({other.filePath("1.2.9.2-1")});
+        QVERIFY(backend.waitForSlice(10000));
+        QCOMPARE(backend.sliceIndex(), 1);
+    }
+
+    void panesTakeOnlyTheirOwnAnswers() {
+        // Two panes share the file chooser. One asks and cancels; what the
+        // other then picks is the other's alone.
+        QTemporaryDir dir;
+        QVERIFY(writeVolume(dir.path()));
+        FakePicker picker;
+        Backend left(&picker), right(&picker);
+        left.open();   // Cancelled: the fake has no answer yet.
+        picker.answer = dir.path();
+        right.openFolder();
+        QVERIFY(right.waitForSlice(10000));
+        QVERIFY(right.hasImages());
+        QVERIFY(!left.hasImages() && !left.scanning());
+
+        // A save from one pane isn't written by the other as well.
+        left.loadPaths({dir.path()});
+        QVERIFY(left.waitForSlice(10000));
+        left.setSliceIndex(4);
+        QVERIFY(left.waitForSlice(10000));
+        picker.answer.clear();
+        left.exportImage();   // Cancelled.
+        picker.answer = dir.filePath("right.png");
+        right.exportImage();
+        QTRY_COMPARE(right.notice(), QString("Saved right.png"));
+        QCOMPARE(left.notice(), QString());
+    }
+
+    void commandsNeedNoDisplay() {
+        // Every command runs where there is no display to open a window on,
+        // as an agent's shell or a server has none; without one, an
+        // application made the usual way aborts before it reads a word.
+        const QString app = QCoreApplication::applicationDirPath() + "/dicolens";
+        QTemporaryDir dir;
+        QVERIFY(writeVolume(dir.path()));
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        for (const char *name : {"QT_QPA_PLATFORM", "WAYLAND_DISPLAY", "DISPLAY"})
+            env.remove(name);
+        const QList<QStringList> commands{
+            {"--version"}, {"--help"}, {"help"}, {"--no-such-option"}, {"skill"},
+            {"info", dir.path()}, {"tags", dir.filePath("1.2.9.1-0")},
+            {"export", dir.path(), dir.filePath("slice.png")}, {"report", dir.path()},
+            {"measurements", dir.path()}, {"anonymize", dir.path(), "--out", dir.filePath("copy")},
+        };
+        for (const QStringList &arguments : commands) {
+            QProcess p;
+            p.setProcessEnvironment(env);
+            p.start(app, arguments);
+            QVERIFY(p.waitForFinished(30000));
+            const QByteArray said = arguments.join(' ').toUtf8() + ": " + p.readAllStandardError();
+            QVERIFY2(p.exitStatus() == QProcess::NormalExit, said.constData());
+            QVERIFY2(p.exitCode() == 0 || p.exitCode() == 1, said.constData());
+        }
+    }
+
+    void tagsOfOneFrame() {
+        // An enhanced file's per-frame groups hold an item a frame; --frame
+        // gives the one asked for.
+        const QString app = QCoreApplication::applicationDirPath() + "/dicolens";
+        QTemporaryDir dir;
+        QList<Writer> frames;
+        for (const char *position : {"0\\0\\0", "0\\0\\5"}) {
+            Writer plane, group;
+            plane.add(Tag::ImagePosition, "DS", position);
+            group.sequence(0x00209113, {plane});
+            frames << group;
+        }
+        Writer w;
+        w.image(2, 2, 16, 12, false)
+            .add(Tag::NumberOfFrames, "IS", "2")
+            .sequence(Tag::PerFrameGroups, frames)
+            .pixels(le16({1, 2, 3, 4, 5, 6, 7, 8}));
+        QVERIFY(write(dir.filePath("ENHANCED"), w.file(ExplicitLE)));
+
+        auto run = [&](const QStringList &arguments, int *code) {
+            QProcess p;
+            p.start(app, arguments);
+            p.waitForFinished(20000);
+            *code = p.exitCode();
+            for (const QJsonValue &v : QJsonDocument::fromJson(p.readAllStandardOutput()).array())
+                if (v.toObject().value("tag").toString() == "(5200,9230)")
+                    return v.toObject().value("items").toArray();
+            return QJsonArray();
+        };
+        int code = -1;
+        QCOMPARE(run({"tags", dir.filePath("ENHANCED"), "--json"}, &code).size(), 2);
+        QCOMPARE(code, 0);
+        const QJsonArray second = run({"tags", dir.filePath("ENHANCED"), "--frame", "2", "--json"}, &code);
+        QCOMPARE(code, 0);
+        QCOMPARE(second.size(), 1);
+        QVERIFY(QJsonDocument(second).toJson().contains("0 \\\\ 0 \\\\ 5"));
+        run({"tags", dir.filePath("ENHANCED"), "--frame", "3", "--json"}, &code);
+        QCOMPARE(code, 1);
+    }
+
     void fileWindowBelongsToTheSeriesShown() {
         // Two series with windows of their own: after a visit to the second,
         // 0 on the first goes back to the first's, not the one seen last.
@@ -1175,6 +1290,118 @@ private slots:
         QVERIFY(backend.hasMarks());
         backend.toggleMarks();
         QVERIFY(!backend.marksShown());
+    }
+
+    void survivesFilesThatLie() {
+        // Sizes a file gives are its own word, and a damaged or hostile one
+        // may say anything: none of it is read past what's there.
+        QTemporaryDir dir;
+        // An overlay "two thousand million" rows and columns big, of 16 bytes.
+        Writer w;
+        w.image(4, 4, 16, 12, false)
+            .add(Tag::NumberOfFrames, "IS", "8")
+            .ul(0x60000010, 0x7FFFFFFF).ul(0x60000011, 0x7FFFFFFF).add(0x60000015, "IS", "8")
+            .us(0x60000100, 1).add(0x60003000, "OW", QByteArray(16, char(0xFF)))
+            .pixels(le16(QList<int>(16 * 8, 0)));
+        const DicomFile overlaid = DicomFile::parse(w.file(ExplicitLE));
+        QVERIFY(overlaid.isValid());
+        for (int frame : {0, 3, 7})
+            QVERIFY(Marks::overlay(overlaid, frame, 4, 4).isNull());
+
+        // A lossless JPEG that ends in the middle of its frame header, and
+        // one whose header promises far more than its few bytes hold.
+        const QByteArray whole = losslessJpeg(QVector<quint16>(20, 7), 5, 4, 1, 16, 1, 0);
+        LosslessJpeg out;
+        QString error;
+        QVERIFY(decodeLosslessJpeg(whole, out, &error));
+        const qsizetype frame = whole.indexOf(QByteArray("\xFF\xC3", 2));
+        QVERIFY(frame > 0);
+        QByteArray cut = whole.left(frame + 2) + QByteArray("\x00\x02", 2);
+        QVERIFY(!decodeLosslessJpeg(cut, out, &error));
+        QByteArray huge = whole;
+        huge.replace(frame + 5, 4, QByteArray("\xFF\xFF\xFF\xFF", 4));   // 65535 by 65535.
+        QVERIFY(!decodeLosslessJpeg(huge, out, &error));
+
+        // A position that isn't a number places nothing: the series still
+        // opens, as a plain stack that can't be cut another way.
+        for (int k = 0; k < 4; ++k) {
+            Writer slice;
+            slice.add(Tag::Modality, "CS", "CT")
+                .image(2, 2, 16, 12, false)
+                .add(Tag::InstanceNumber, "IS", QByteArray::number(k + 1))
+                .add(Tag::ImagePosition, "DS", k == 2 ? QByteArray("nan\\0\\inf") : "0\\0\\" + QByteArray::number(k))
+                .add(Tag::ImageOrientation, "DS", "1\\0\\0\\0\\1\\0")
+                .add(Tag::PixelSpacing, "DS", "1\\1")
+                .pixels(le16({1, 2, 3, 4}));
+            QVERIFY(write(dir.filePath(QString("IM%1").arg(k)), slice.file(ExplicitLE)));
+        }
+        const Scan scan = scanFiles(listFiles({dir.path()}, true));
+        QCOMPARE(scan.series.size(), 1);
+        QCOMPARE(scan.series.first().slices.size(), 4);
+        QVERIFY(!makeVolume(scan.series.first()).valid);
+    }
+
+    void leavesATiltedGantryUncut() {
+        // A CT taken with its gantry tilted steps sideways from slice to
+        // slice. Cut as a block it would come out sheared, so it isn't cut.
+        for (double aside : {0.0, 1.5}) {
+            QTemporaryDir dir;
+            for (int k = 0; k < 5; ++k) {
+                Writer w;
+                w.add(Tag::Modality, "CS", "CT")
+                    .image(3, 4, 16, 12, false)
+                    .add(Tag::InstanceNumber, "IS", QByteArray::number(k + 1))
+                    .add(Tag::ImagePosition, "DS", "0\\" + QByteArray::number(k * aside) + "\\" + QByteArray::number(k * 3))
+                    .add(Tag::ImageOrientation, "DS", "1\\0\\0\\0\\1\\0")
+                    .add(Tag::PixelSpacing, "DS", "1\\1")
+                    .pixels(le16(QList<int>(12, k)));
+                QVERIFY(write(dir.filePath(QString("IM%1").arg(k)), w.file(ExplicitLE)));
+            }
+            const Scan scan = scanFiles(listFiles({dir.path()}, true));
+            QCOMPARE(scan.series.size(), 1);
+            QCOMPARE(makeVolume(scan.series.first()).valid, aside == 0.0);
+        }
+    }
+
+    void keepsHalfAMeasurementToItsSlice() {
+        QTemporaryDir dir;
+        QVERIFY(writeVolume(dir.path()));
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        SliceView view;
+        view.setSize({400, 300});
+        view.setBackend(&backend);
+        auto at = [&](double x, double y) { return view.toItem(x, y); };
+        auto line = [&](QPointF a, QPointF b) {
+            view.press(a.x(), a.y());
+            view.drag(b.x(), b.y());
+            view.release(b.x(), b.y());
+        };
+        // A Cobb angle's first line, then another slice: the half is
+        // dropped, and the next two lines there make a whole angle.
+        view.setTool(4);
+        line(at(0, 0), at(3, 0));
+        QVERIFY(view.drawing());
+        backend.setSliceIndex(2);
+        QVERIFY(!view.drawing());
+        line(at(0, 0), at(3, 0));
+        line(at(0, 2), at(2, 0));
+        QCOMPARE(view.measureCount(), 1);
+        QCOMPARE(view.measureTexts(), QStringList{"Cobb 45.0°"});
+
+        // What's measured on a tilted plane belongs to that cut: tilted
+        // further, the picture is of somewhere else, and doesn't show it.
+        backend.tilt(0, 20);
+        QVERIFY(backend.waitForSlice(10000));
+        view.setTool(1);
+        const int slice = backend.sliceIndex();
+        line(at(1, 1), at(3, 1));
+        QCOMPARE(view.measureCount(), 1);
+        backend.tilt(0, 20);
+        QVERIFY(backend.waitForSlice(10000));
+        backend.setSliceIndex(slice);
+        QCOMPARE(view.measureCount(), 0);
     }
 
     void readsPresentationStateMarks() {
@@ -2145,6 +2372,65 @@ private slots:
         QCOMPARE(json.value("folder").toString(), QFileInfo(out.filePath("Anonymous scans 2")).absoluteFilePath());
     }
 
+    void anonymizesWhatImplicitFilesDontName() {
+        // An implicit file says no value's kind, so a name, a UID, or a
+        // sequence under a tag the bundled list doesn't have arrives as
+        // bytes. None of the patient may leave in them.
+        QTemporaryDir dir;
+        Writer was, modified, original;
+        was.explicitVr = modified.explicitVr = original.explicitVr = false;
+        was.add(0x00100010, "PN", "Doe^Jane").add(0x00100020, "LO", "MRN42");
+        modified.sequence(0x04000550, {was});
+        // A sequence the list doesn't have, holding a name it does.
+        Writer unlisted;
+        unlisted.explicitVr = false;
+        unlisted.add(0x00100010, "PN", "Poe^Jane");
+        QVERIFY(Dictionary::vr(0x00082228).isEmpty());
+        Writer w;
+        w.explicitVr = false;
+        w.add(0x00080016, "UI", "1.2.840.10008.5.1.4.1.1.2")
+            .add(0x00080018, "UI", "1.2.7.1")
+            .add(Tag::Modality, "CS", "CT")
+            .add(0x0008009C, "PN", "House^Gregory")
+            .sequence(0x00082228, {unlisted})
+            .add(0x00100010, "PN", "Doe^Jane")
+            .add(0x00100020, "LO", "MRN42")
+            .add(0x00101005, "PN", "Roe^Jane")
+            .add(0x00181002, "UI", "1.2.7.99")
+            .add(0x00184000, "LT", "Mrs Doe moved")
+            .add(0x0020000D, "UI", "1.2.7")
+            .image(2, 2, 16, 12, false)
+            .add(0x0020000E, "UI", "1.2.7.3")
+            .sequence(0x04000561, {modified})
+            .pixels(le16({5, 6, 7, 8}));
+        QVERIFY(write(dir.filePath("IM1"), w.file("1.2.840.10008.1.2")));
+
+        // The sequence reads as one, though nothing said it was.
+        const DicomFile source = DicomFile::read(dir.filePath("IM1"));
+        QVERIFY(source.isValid());
+        QVERIFY(source.element(0x00082228));
+        QCOMPARE(source.element(0x00082228)->items.size(), 1);
+
+        const Scan scan = scanFiles(listFiles({dir.path()}, true));
+        QTemporaryDir out;
+        const Anonymize::Result result = Anonymize::copyScan(scan, out.path());
+        QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join("\n")));
+        QCOMPARE(result.written, 1);
+        const QStringList copies = listFiles({result.folder}, true);
+        QCOMPARE(copies.size(), 1);
+        QFile copy(copies.first());
+        QVERIFY(copy.open(QIODevice::ReadOnly));
+        const QByteArray bytes = copy.readAll();
+        for (const char *theirs : {"Doe", "Roe", "Poe", "House", "MRN42", "1.2.7.99"})
+            QVERIFY2(!bytes.contains(theirs), theirs);
+        // It still reads, and shows the same picture.
+        const DicomFile read = DicomFile::read(copies.first());
+        QVERIFY(read.isValid());
+        QCOMPARE(read.first(0x00100010), QString("Anonymous"));
+        QVERIFY(read.first(0x00181002).startsWith("2.25."));
+        QCOMPARE(decodeFrame(read, 0).mono, (QVector<quint16>{5, 6, 7, 8}));
+    }
+
     void opensZipFiles() {
         const QString bsdtar = QStandardPaths::findExecutable("bsdtar");
         QVERIFY2(!bsdtar.isEmpty(), "bsdtar (libarchive) is needed");
@@ -2476,6 +2762,18 @@ private slots:
         QCOMPARE(backend.sliceIndex(), 1);
         QTest::keyClick(window, Qt::Key_End);
         QCOMPARE(backend.sliceIndex(), 2);
+
+        // Under the shortcut list the keys move through the list, and
+        // leave the scan it covers as it is.
+        QTest::keyClick(window, '?');
+        QTRY_VERIFY(help->isVisible());
+        QTest::keyClick(window, Qt::Key_Home);
+        QTest::keyClick(window, Qt::Key_Up);
+        QTest::keyClick(window, ']');
+        QCOMPARE(backend.sliceIndex(), 2);
+        QCOMPARE(backend.rotation(), 0);
+        QTest::keyClick(window, Qt::Key_Escape);
+        QTRY_VERIFY(!help->isVisible());
 
         // ] and X turn and flip the picture; R puts it back.
         QTest::keyClick(window, ']');
