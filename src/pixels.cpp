@@ -44,6 +44,13 @@ Frame failed(const QString &error, const QString &detail = {}) {
     return frame;
 }
 
+// A picture Qt can't hold in one piece (its images stop at 2 GB), however
+// much of it the file has.
+Frame tooBig(int width, int height) {
+    return failed(QT_TRANSLATE_NOOP("dicolens", "This image's pixel format isn't supported"),
+                  QStringLiteral("%1 × %2").arg(width).arg(height));
+}
+
 quint8 clamp8(double v) { return quint8(std::clamp(v, 0.0, 255.0) + 0.5); }
 
 void ybrToRgb(int y, int cb, int cr, uchar *out) {
@@ -71,16 +78,18 @@ Frame applyPalette(const Frame &indices, const DicomFile &file) {
     out.width = indices.width;
     out.height = indices.height;
     out.color = QImage(out.width, out.height, QImage::Format_RGB888);
+    if (out.color.isNull())
+        return tooBig(out.width, out.height);
     for (int y = 0; y < out.height; ++y) {
         uchar *line = out.color.scanLine(y);
         for (int x = 0; x < out.width; ++x) {
             const int index = indices.stored(x, y);
             for (int c = 0; c < 3; ++c) {
                 // Zero entries means 65536; a count below one is no table.
-                const int entries = descriptors[c][0] == 0 ? 65536 : std::clamp(int(descriptors[c][0]), 1, 65536);
-                const int firstMapped = int(descriptors[c][1]);
-                const int bits = int(descriptors[c][2]);
-                const int i = std::clamp(index - firstMapped, 0, entries - 1);
+                const int entries = descriptors[c][0] == 0 ? 65536 : std::clamp(toInt(descriptors[c][0]), 1, 65536);
+                const qint64 firstMapped = toInt(descriptors[c][1]);
+                const int bits = toInt(descriptors[c][2]);
+                const int i = int(std::clamp<qint64>(index - firstMapped, 0, entries - 1));
                 const QByteArray &t = tables[c];
                 int v = 0;
                 if (bits <= 8 && t.size() >= entries)
@@ -189,9 +198,11 @@ Frame runFfmpeg(const QByteArray &codestream, const QString &demuxer, const Imag
     frame.width = format.columns;
     frame.height = format.rows;
     if (format.samples > 1) {
-        if (output.size() < pixels * 3)
+        if (pixels > output.size() / 3)
             return failed(QT_TRANSLATE_NOOP("dicolens", "The decoded image is smaller than its header says"));
         frame.color = QImage(frame.width, frame.height, QImage::Format_RGB888);
+        if (frame.color.isNull())
+            return tooBig(frame.width, frame.height);
         for (int y = 0; y < frame.height; ++y)
             std::memcpy(frame.color.scanLine(y), output.constData() + qint64(y) * frame.width * 3, frame.width * 3);
         return frame;
@@ -213,8 +224,12 @@ Frame runFfmpeg(const QByteArray &codestream, const QString &demuxer, const Imag
     // range.
     const auto *p = reinterpret_cast<const uchar *>(output.constData());
     bool signedSamples = false;
-    const int precision = codestreamPrecision(codestream, demuxer, &signedSamples);
     const int depth = bytes * 8;
+    // A precision deeper than what came back (JPEG 2000 may say up to 38
+    // bits) says nothing about these samples.
+    int precision = codestreamPrecision(codestream, demuxer, &signedSamples);
+    if (precision > depth)
+        precision = 0;
     int down = 0;
     if (precision > 0 && precision < depth) {
         down = depth - precision;
@@ -244,11 +259,16 @@ Frame decodeLossless(const QByteArray &codestream, const ImageFormat &format) {
     const quint16 *samples = jpeg.samples.constData();
     if (jpeg.components == 1)
         return monoFrame(format, pixels, 0, [samples](qint64 i) { return samples[i]; });
+    // Colour is three samples a pixel; two or four aren't a picture to show.
+    if (jpeg.components != 3)
+        return failed(QT_TRANSLATE_NOOP("dicolens", "This JPEG image's layout isn't supported"));
 
     Frame frame;
     frame.width = jpeg.width;
     frame.height = jpeg.height;
     frame.color = QImage(jpeg.width, jpeg.height, QImage::Format_RGB888);
+    if (frame.color.isNull())
+        return tooBig(jpeg.width, jpeg.height);
     const int down = std::max(0, jpeg.precision - 8);
     for (int y = 0; y < jpeg.height; ++y) {
         uchar *line = frame.color.scanLine(y);
@@ -261,11 +281,26 @@ Frame decodeLossless(const QByteArray &codestream, const ImageFormat &format) {
 
 }
 
+// The bytes one uncompressed frame takes, or 0 for a layout that takes
+// none or isn't one: sizes beyond the standard's own (16-bit rows and
+// columns, four samples of 64 bits) have no frame to measure.
+qint64 ImageFormat::frameBytes() const {
+    if (rows <= 0 || columns <= 0 || rows > 65535 || columns > 65535 || samples < 1 || samples > 4
+        || bitsAllocated < 1 || bitsAllocated > 64)
+        return 0;
+    const qint64 pixels = qint64(rows) * columns;
+    if (bitsAllocated == 1)
+        return (pixels + 7) / 8;
+    // Two pixels share their colour: four bytes for the two, row by row.
+    if (photometric.endsWith("_422"))
+        return rows * ((qint64(columns) + 1) / 2 * 4);
+    return pixels * samples * std::max(1, bitsAllocated / 8);
+}
+
 ImageFormat ImageFormat::from(const DicomFile &file, int frame) {
     ImageFormat f;
     f.rows = file.integer(Tag::Rows);
     f.columns = file.integer(Tag::Columns);
-    f.frames = std::max(1, file.integer(Tag::NumberOfFrames, 1));
     f.samples = std::max(1, file.integer(Tag::SamplesPerPixel, 1));
     f.bitsAllocated = file.integer(Tag::BitsAllocated, 16);
     f.bitsStored = file.integer(Tag::BitsStored, f.bitsAllocated);
@@ -279,8 +314,28 @@ ImageFormat ImageFormat::from(const DicomFile &file, int frame) {
     const auto intercept = file.numbers(file.find(Tag::RescaleIntercept, frame));
     f.slope = slope.isEmpty() || slope.first() == 0 ? 1 : slope.first();
     f.intercept = intercept.isEmpty() ? 0 : intercept.first();
+    // A rescale is a file's word too, and may be "nan", or so steep that
+    // stored values come out past what a number holds: every one of them, 32
+    // bits wide at most and summed over a slab, has to stay a number, or
+    // the values are shown as stored.
+    if (!std::isfinite((std::abs(f.slope) * 4294967296.0 + std::abs(f.intercept)) * 65536.0)) {
+        f.slope = 1;
+        f.intercept = 0;
+    }
     f.transferSyntax = file.transferSyntax();
     f.littleEndian = file.littleEndian();
+
+    // Number of Frames is the file's word, and everything that goes frame
+    // by frame (a slice of the series for each) runs as long as it says; so
+    // it's taken only as far as the pixel data could hold: whole frames of
+    // uncompressed data, a byte a frame of a video's stream, and an item's
+    // 8-byte header for each frame of anything else compressed.
+    qint64 room = 0;
+    if (file.encapsulated())
+        room = isVideo(f.transferSyntax) ? file.pixelLength() : file.pixelLength() / 8;
+    else if (const qint64 bytes = f.frameBytes(); bytes > 0)
+        room = f.bitsAllocated == 1 ? file.pixelLength() * 8 / (qint64(f.rows) * f.columns) : file.pixelLength() / bytes;
+    f.frames = int(std::clamp<qint64>(file.integer(Tag::NumberOfFrames, 1), 1, std::max<qint64>(1, room)));
     return f;
 }
 
@@ -315,7 +370,9 @@ void Frame::range(double &low, double &high) const {
 void defaultWindow(const DicomFile &file, const Frame &frame, int frameIndex, double &center, double &width) {
     const auto centers = file.numbers(file.find(Tag::WindowCenter, frameIndex));
     const auto widths = file.numbers(file.find(Tag::WindowWidth, frameIndex));
-    if (!centers.isEmpty() && !widths.isEmpty() && widths.first() >= 1) {
+    // (A window the file spells "nan" or "inf" is no window.)
+    if (!centers.isEmpty() && !widths.isEmpty() && widths.first() >= 1 && std::isfinite(centers.first())
+        && std::isfinite(widths.first())) {
         center = centers.first();
         width = widths.first();
         return;
@@ -328,8 +385,11 @@ void defaultWindow(const DicomFile &file, const Frame &frame, int frameIndex, do
             if (e.tag == Tag::LutDescriptor) {
                 const auto descriptor = file.numbers(&e);
                 if (descriptor.size() >= 2) {
-                    const double entries = descriptor[0] == 0 ? 65536 : descriptor[0];
-                    const double first = frame.isSigned ? double(qint16(quint16(descriptor[1]))) : descriptor[1];
+                    // Both are 16-bit values in the standard, the first one
+                    // signed when the pixels are.
+                    const double entries = descriptor[0] == 0 ? 65536 : std::clamp(toInt(descriptor[0]), 1, 65536);
+                    const quint16 mapped = quint16(std::clamp(toInt(descriptor[1]), -32768, 65535));
+                    const double first = frame.isSigned ? double(qint16(mapped)) : double(mapped);
                     const double a = first * frame.slope + frame.intercept;
                     const double b = (first + entries - 1) * frame.slope + frame.intercept;
                     center = (a + b) / 2;
@@ -355,8 +415,11 @@ QImage render(const Frame &frame, double center, double width, bool invert) {
     }
 
     // DICOM's linear window (PS3.3 C.11.2.1.2), one table entry for every
-    // possible stored value, so drawing is a lookup a pixel.
-    width = std::max(1.0, width);
+    // possible stored value, so drawing is a lookup a pixel. A centre that
+    // isn't a number would make every entry one that isn't either.
+    if (std::isnan(center))
+        center = 0;
+    width = std::isnan(width) ? 1.0 : std::max(1.0, width);
     const bool flip = frame.inverted != invert;
     static thread_local QVector<uchar> lut(65536);
     for (int k = 0; k < 65536; ++k) {
@@ -373,6 +436,8 @@ QImage render(const Frame &frame, double center, double width, bool invert) {
         lut[k] = flip ? 255 - g : g;
     }
     QImage image(frame.width, frame.height, QImage::Format_Grayscale8);
+    if (image.isNull())
+        return {};
     const quint16 *src = frame.mono.constData();
     for (int y = 0; y < frame.height; ++y) {
         uchar *line = image.scanLine(y);
@@ -384,11 +449,16 @@ QImage render(const Frame &frame, double center, double width, bool invert) {
 }
 
 Frame convertNative(const uchar *data, qint64 size, const ImageFormat &f) {
-    const qint64 pixels = qint64(f.rows) * f.columns;
-    if (pixels <= 0)
+    if (f.rows <= 0 || f.columns <= 0)
         return failed(QT_TRANSLATE_NOOP("dicolens", "This file has no image size"));
     if (f.bitsAllocated != 8 && f.bitsAllocated != 16 && !(f.bitsAllocated == 32 && f.samples == 1))
         return failed(QT_TRANSLATE_NOOP("dicolens", "This image's pixel format isn't supported"), QStringLiteral("%1-bit").arg(f.bitsAllocated));
+    // Every layout takes a byte a pixel at least. A header that promises
+    // more pixels than there are bytes is turned away here, before any size
+    // is worked out from it or any memory set aside for it.
+    const qint64 pixels = qint64(f.rows) * f.columns;
+    if (pixels > size)
+        return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
 
     const int bytes = f.bitsAllocated / 8;
     Frame frame;
@@ -428,7 +498,7 @@ Frame convertNative(const uchar *data, qint64 size, const ImageFormat &f) {
         if (size < pixels * bytes)
             return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
         const int bits = std::clamp(f.bitsStored, 1, f.bitsAllocated);
-        const int shift = std::clamp(f.highBit + 1 - bits, 0, 31);
+        const int shift = int(std::clamp<qint64>(qint64(f.highBit) + 1 - bits, 0, 31));
         const quint32 mask = bits >= 32 ? 0xFFFFFFFF : (1u << bits) - 1;
         frame.mono.resize(pixels);
         for (qint64 i = 0; i < pixels; ++i) {
@@ -450,15 +520,23 @@ Frame convertNative(const uchar *data, qint64 size, const ImageFormat &f) {
     if (f.samples != 3)
         return failed(QT_TRANSLATE_NOOP("dicolens", "This image's pixel format isn't supported"), QStringLiteral("%1 samples").arg(f.samples));
 
+    const bool subsampled = f.photometric == "YBR_FULL_422" || f.photometric == "YBR_PARTIAL_422";
+    if (subsampled && bytes != 1)
+        return failed(QT_TRANSLATE_NOOP("dicolens", "This image's pixel format isn't supported"),
+                      QStringLiteral("%1, %2-bit").arg(f.photometric).arg(f.bitsAllocated));
+    // Two pixels share their colour, Y1 Y2 Cb Cr, so a row is whole groups
+    // of four bytes, the last pixel of an odd one in a group of its own.
+    const qint64 rowBytes = subsampled ? (qint64(f.columns) + 1) / 2 * 4 : qint64(f.columns) * 3 * bytes;
+    if (size / rowBytes < f.rows)
+        return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
     frame.color = QImage(f.columns, f.rows, QImage::Format_RGB888);
-    if (f.photometric == "YBR_FULL_422" || f.photometric == "YBR_PARTIAL_422") {
-        // Two pixels share their colour: Y1 Y2 Cb Cr.
-        if (bytes != 1 || size < pixels * 2)
-            return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
+    if (frame.color.isNull())
+        return tooBig(f.columns, f.rows);
+    if (subsampled) {
         for (int y = 0; y < f.rows; ++y) {
             uchar *line = frame.color.scanLine(y);
             for (int x = 0; x < f.columns; x += 2) {
-                const uchar *q = data + (qint64(y) * f.columns + x) * 2;
+                const uchar *q = data + y * rowBytes + x * 2;
                 ybrToRgb(q[0], q[2], q[3], line + 3 * x);
                 if (x + 1 < f.columns)
                     ybrToRgb(q[1], q[2], q[3], line + 3 * (x + 1));
@@ -466,8 +544,6 @@ Frame convertNative(const uchar *data, qint64 size, const ImageFormat &f) {
         }
         return frame;
     }
-    if (size < pixels * 3 * bytes)
-        return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
     const bool ybr = f.photometric.startsWith("YBR");
     const int down = std::max(0, std::clamp(f.bitsStored, 8, 16) - 8);
     auto sample = [&](qint64 pixel, int s) -> int {
@@ -493,22 +569,26 @@ Frame convertNative(const uchar *data, qint64 size, const ImageFormat &f) {
 QByteArray decodeRle(const QByteArray &data, const ImageFormat &f, QString *error) {
     // PS3.5 annex G: a header of up to 15 segment offsets, then one
     // PackBits segment per byte of each sample, most significant first.
+    auto fail = [&](const char *reason) {
+        if (error)
+            *error = reason;
+        return QByteArray();
+    };
     const qint64 pixels = qint64(f.rows) * f.columns;
     const int bytes = f.bitsAllocated / 8;
-    if (data.size() < 64 || bytes < 1) {
-        if (error)
-            *error = QT_TRANSLATE_NOOP("dicolens", "The image data is cut short");
-        return {};
-    }
+    if (data.size() < 64 || bytes < 1 || f.rows <= 0 || f.columns <= 0)
+        return fail(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
     const auto *p = reinterpret_cast<const uchar *>(data.constData());
     const quint32 count = qFromLittleEndian<quint32>(p);
-    if (count != quint32(f.samples * bytes) || count > 15) {
-        if (error)
-            *error = QT_TRANSLATE_NOOP("dicolens", "This RLE image is damaged");
-        return {};
-    }
+    if (count > 15 || count != qint64(f.samples) * bytes)
+        return fail(QT_TRANSLATE_NOOP("dicolens", "This RLE image is damaged"));
+    // The longest run is 128 bytes out of two, so a segment grows 64 times
+    // at most: a picture bigger than that many times the data is promised
+    // by the header alone, and no memory is set aside for it.
+    if (pixels / 64 > data.size())
+        return fail(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
     // Rebuilt as planar, little-endian samples for convertNative.
-    QByteArray out(pixels * f.samples * bytes, 0);
+    QByteArray out(pixels * count, 0);
     auto *o = reinterpret_cast<uchar *>(out.data());
     for (quint32 segment = 0; segment < count; ++segment) {
         const qint64 start = qFromLittleEndian<quint32>(p + 4 + 4 * segment);
@@ -532,6 +612,10 @@ QByteArray decodeRle(const QByteArray &data, const ImageFormat &f, QString *erro
                     put(v);
             }
         }
+        // A segment that ends before its plane is full is a picture cut
+        // short, not one with a black remainder.
+        if (n < pixels)
+            return fail(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
     }
     return out;
 }
@@ -556,6 +640,13 @@ Frame decodeFrame(const DicomFile &file, int frameIndex, const QList<QByteArray>
     const QString uid = f.transferSyntax;
     const bool palette = f.photometric == "PALETTE COLOR";
 
+    // Uncompressed frames lie one after another, each as long as the header's
+    // sizes make it; sizes past the standard's own make none.
+    const qint64 frameBytes = f.frameBytes();
+    if (!file.encapsulated() && frameBytes == 0)
+        return failed(QT_TRANSLATE_NOOP("dicolens", "This image's pixel format isn't supported"),
+                      QStringLiteral("%1 × %2, %3 × %4-bit").arg(f.columns).arg(f.rows).arg(f.samples).arg(f.bitsAllocated));
+
     Frame frame;
     if (!file.encapsulated() && f.bitsAllocated == 1 && f.samples == 1) {
         // Bits are packed across frames, least significant first; spread
@@ -576,9 +667,8 @@ Frame decodeFrame(const DicomFile &file, int frameIndex, const QList<QByteArray>
         spread.isSigned = false;
         frame = convertNative(reinterpret_cast<const uchar *>(bytes.constData()), bytes.size(), spread);
     } else if (!file.encapsulated()) {
-        const qint64 pixels = qint64(f.rows) * f.columns;
-        const bool subsampled = f.photometric.endsWith("_422");
-        const qint64 frameBytes = subsampled ? pixels * 2 : pixels * f.samples * std::max(1, f.bitsAllocated / 8);
+        // (The frame is one the data has room for, unless there's room for
+        // none, so its place is in the data or just past it.)
         const qint64 offset = qint64(frameIndex) * frameBytes;
         if (offset + frameBytes > file.pixelLength())
             return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
@@ -626,7 +716,7 @@ Frame decodeFrame(const DicomFile &file, int frameIndex, const QList<QByteArray>
         // Padding marks the area outside the scanned field; it isn't part
         // of the image's range.
         if (file.has(Tag::PixelPaddingValue)) {
-            const int padding = int(file.number(Tag::PixelPaddingValue));
+            const int padding = file.integer(Tag::PixelPaddingValue);
             frame.hasPadding = true;
             frame.padding = f.isSigned ? int(qint16(quint16(padding))) : padding;
         }
@@ -666,7 +756,8 @@ QList<Frame> decodeVideo(const DicomFile &file, int maxFrames) {
         return {failed(QT_TRANSLATE_NOOP("dicolens", "ffmpeg took too long to decode this image"))};
     }
     const QByteArray output = process.readAllStandardOutput();
-    const qint64 frameBytes = qint64(f.rows) * f.columns * 3;
+    // (Sizes past the standard's 16 bits aren't multiplied out.)
+    const qint64 frameBytes = f.rows > 0 && f.columns > 0 && f.rows <= 65535 && f.columns <= 65535 ? qint64(f.rows) * f.columns * 3 : 0;
     if (process.exitCode() != 0 || frameBytes <= 0 || output.size() < frameBytes)
         return {failed(QT_TRANSLATE_NOOP("dicolens", "ffmpeg couldn't decode this image"), QString::fromUtf8(process.readAllStandardError()).trimmed())};
 

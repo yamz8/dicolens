@@ -59,12 +59,17 @@ add_executable(dicolens_tests tests/dicolens_tests.cpp src/resources.qrc)
 target_link_libraries(dicolens_tests PRIVATE dicolens_core Qt6::Test)
 add_test(NAME dicolens_tests COMMAND dicolens_tests)
 
+# What damaged and hostile files do, one test for each bug fuzzing found.
+add_executable(hostile_tests tests/hostile_tests.cpp)
+target_link_libraries(hostile_tests PRIVATE dicolens_core Qt6::Test)
+add_test(NAME hostile_tests COMMAND hostile_tests)
+
 set(test_environment QT_QPA_PLATFORM=offscreen)
 if(DICOLENS_SANITIZE)
   list(APPEND test_environment
     LSAN_OPTIONS=suppressions=${CMAKE_SOURCE_DIR}/tests/sanitizers/lsan.supp:print_suppressions=0)
 endif()
-set_tests_properties(dicolens_tests PROPERTIES ENVIRONMENT "${test_environment}")
+set_tests_properties(dicolens_tests hostile_tests PROPERTIES ENVIRONMENT "${test_environment}")
 
 # bin/demos records the GIFs in docs/features.md with this; a plain build leaves it out.
 add_executable(dicolens_demo EXCLUDE_FROM_ALL tools/demo.cpp src/resources.qrc)

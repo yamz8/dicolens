@@ -80,7 +80,7 @@ Volume makeVolume(const Series &series) {
     for (int k = 0; k < n; ++k)
         along[k] = dot(series.slices[k].position, normal);
     const double step = (along[n - 1] - along[0]) / (n - 1);
-    if (std::abs(step) < 0.01)
+    if (!std::isfinite(step) || std::abs(step) < 0.01)
         return v;
     for (int k = 1; k < n; ++k)
         if (std::abs((along[k] - along[k - 1]) - step) > std::abs(step) * 0.1)
@@ -154,7 +154,7 @@ Frame reformat(const Volume &volume, const Cut &cut, int index, const QVector<Fr
     const int width = cut.width(volume), height = cut.height(volume);
     out.width = width;
     out.height = height;
-    out.mono.resize(width * height);
+    out.mono.resize(qsizetype(width) * height);
     out.inverted = slices[0].inverted;
     out.windowCenter = slices[0].windowCenter;
     out.windowWidth = slices[0].windowWidth;
@@ -198,7 +198,7 @@ Frame reformat(const Volume &volume, const Cut &cut, int index, const QVector<Fr
                 at[cut.fixed] = k;
                 const Frame &f = slices[at[2]];
                 if (!rescale && first == last) {
-                    stored = f.mono[at[1] * columns + at[0]];
+                    stored = f.mono[qsizetype(at[1]) * columns + at[0]];
                     break;
                 }
                 // Signed values compare as numbers, not as bit patterns.
@@ -217,7 +217,7 @@ Frame reformat(const Volume &volume, const Cut &cut, int index, const QVector<Fr
                     pick /= last - first + 1;
                 stored = rescale ? int(std::lround((pick - low) / slope)) : int(pick);
             }
-            out.mono[y * width + x] = quint16(stored);
+            out.mono[qsizetype(y) * width + x] = quint16(stored);
         }
     }
     return out;

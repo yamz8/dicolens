@@ -30,8 +30,9 @@ QList<QPair<QString, int>> references(const DicomFile &file, const DicomElement 
         const QList<double> frames = file.numbers(in(item, Tag::ReferencedFrameNumber));
         if (frames.isEmpty())
             out.append({uid, 0});
+        // (0 means every frame, so a frame that is no number is none.)
         for (double f : frames)
-            out.append({uid, int(f)});
+            out.append({uid, toInt(f, -1)});
     }
     return out;
 }
@@ -140,14 +141,18 @@ QImage overlay(const DicomFile &file, int frame, int rows, int columns) {
         // Overlays of a multi-frame image start at a frame of their own.
         const int frames = std::max(1, file.integer(g | (Tag::OverlayFrames & 0xFFFF), 1));
         const int first = std::max(1, file.integer(g | (Tag::OverlayFrameOrigin & 0xFFFF), 1)) - 1;
-        const int index = frames > 1 ? frame - first : 0;
+        const qint64 index = frames > 1 ? qint64(frame) - first : 0;
         if (index < 0 || index >= frames)
             continue;
         const QList<double> origin = file.numbers(file.element(g | (Tag::OverlayOrigin & 0xFFFF)));
-        const int top = int(origin.value(0, 1)) - 1, left = int(origin.value(1, 1)) - 1;
+        // Where the overlay starts is the file's word too: kept wide, so
+        // that a row or a column added to it can't overflow.
+        const qint64 top = qint64(toInt(origin.value(0, 1))) - 1, left = qint64(toInt(origin.value(1, 1))) - 1;
 
         if (mask.isNull()) {
             mask = QImage(columns, rows, QImage::Format_Alpha8);
+            if (mask.isNull())
+                return mask;
             mask.fill(0);
         }
         // Bits run along each row, the lowest bit of each byte first.
@@ -159,15 +164,15 @@ QImage overlay(const DicomFile &file, int frame, int rows, int columns) {
             continue;
         const qint64 start = index * plane;
         for (int r = 0; r < oRows && start + qint64(r) * oColumns < available; ++r) {
-            const int y = r + top;
+            const qint64 y = r + top;
             if (y < 0 || y >= rows)
                 continue;
-            uchar *line = mask.scanLine(y);
+            uchar *line = mask.scanLine(int(y));
             for (int c = 0; c < oColumns; ++c) {
                 const qint64 bit = start + qint64(r) * oColumns + c;
                 if (bit >= available)
                     break;
-                const int x = c + left;
+                const qint64 x = c + left;
                 if (x >= 0 && x < columns && (bits[bit >> 3] >> (bit & 7)) & 1)
                     line[x] = 255;
             }

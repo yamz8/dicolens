@@ -19,10 +19,22 @@ void cross(const double *a, const double *b, double *out) {
 
 double dot(const double *a, const double *b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
 
+// Positions and spacings are millimetres in and around a patient: a
+// scanner's table is a few metres long, and its finest pixels are
+// micrometres across. A file that says a kilometre, or a pixel finer than a
+// nanometre, is damaged, and the geometry worked out from its numbers (their
+// products, and the indices those become) would overflow.
+constexpr double Kilometre = 1e6, Nanometre = 1e-6;
+
 // A decimal string may spell "nan" or "inf", and a binary value be one.
 // Geometry made of those would send every index computed from it anywhere.
 bool finite(const QList<double> &values, int count) {
     return values.size() >= count && std::all_of(values.begin(), values.begin() + count, [](double v) { return std::isfinite(v); });
+}
+
+// The first count values, when each is a distance a scan could have.
+bool places(const QList<double> &values, int count) {
+    return finite(values, count) && std::all_of(values.begin(), values.begin() + count, [](double v) { return std::abs(v) <= Kilometre; });
 }
 
 // The patient direction a vector points towards, strongest axis first, as
@@ -98,8 +110,10 @@ double suvFactor(const DicomFile &file) {
     if (dose <= 0 || halfLife <= 0)
         return 0;
     const QString correction = file.first(0x00541102).toUpper();
-    if (correction == "ADMIN")
-        return weight * 1000 / dose;
+    if (correction == "ADMIN") {
+        const double factor = weight * 1000 / dose;
+        return std::isfinite(factor) && factor > 0 ? factor : 0;
+    }
     if (!correction.isEmpty() && correction != "START")
         return 0;   // Uncorrected values decay slice by slice.
     // Corrected to the series' start: the dose as it had decayed by then.
@@ -115,7 +129,10 @@ double suvFactor(const DicomFile &file) {
         elapsed += 86400;   // Injected before midnight.
     if (elapsed < 0)
         return 0;
-    return weight * 1000 / (dose * std::pow(0.5, elapsed / halfLife));
+    // (A weight or a dose that isn't a number, or a dose all decayed away,
+    // leaves no factor to scale by.)
+    const double factor = weight * 1000 / (dose * std::pow(0.5, elapsed / halfLife));
+    return std::isfinite(factor) && factor > 0 ? factor : 0;
 }
 
 QStringList listFiles(const QStringList &paths, bool recursive) {
@@ -195,24 +212,31 @@ void addFile(Scan &scan, const DicomFile &file) {
         auto spacing = file.numbers(file.find(Tag::PixelSpacing, 0));
         if (spacing.size() < 2)
             spacing = file.numbers(Tag::ImagerPixelSpacing);
-        if (finite(spacing, 2) && spacing[0] > 0 && spacing[1] > 0) {
+        if (places(spacing, 2) && spacing[0] >= Nanometre && spacing[1] >= Nanometre) {
             s.hasSpacing = true;
             s.spacing[0] = spacing[0];
             s.spacing[1] = spacing[1];
         }
         const auto thickness = file.numbers(file.find(Tag::SliceThickness, 0));
-        s.thickness = finite(thickness, 1) ? thickness.first() : 0;
+        s.thickness = places(thickness, 1) ? thickness.first() : 0;
+        // The orientation is two directions, along the rows and down the
+        // columns: each of length one, at right angles. Numbers that aren't
+        // (scanners round them, so nearly is enough) point nowhere, and a
+        // normal made from them would stretch everything measured along it.
         const auto orientation = file.numbers(file.find(Tag::ImageOrientation, 0));
         if (finite(orientation, 6)) {
-            s.hasOrientation = true;
-            for (int i = 0; i < 6; ++i)
-                s.orientation[i] = orientation[i];
+            const double *row = orientation.constData(), *column = row + 3;
+            if (std::abs(dot(row, row) - 1) < 0.02 && std::abs(dot(column, column) - 1) < 0.02 && std::abs(dot(row, column)) < 0.02) {
+                s.hasOrientation = true;
+                for (int i = 0; i < 6; ++i)
+                    s.orientation[i] = orientation[i];
+            }
         }
-        if (const double rate = file.number(Tag::RecommendedFrameRate); rate > 0)
+        if (const double rate = file.number(Tag::RecommendedFrameRate); rate > 0 && std::isfinite(rate))
             s.frameRate = rate;
-        else if (const double cine = file.number(Tag::CineRate); cine > 0)
+        else if (const double cine = file.number(Tag::CineRate); cine > 0 && std::isfinite(cine))
             s.frameRate = cine;
-        else if (const double ms = file.number(Tag::FrameTime); ms > 0)
+        else if (const double ms = file.number(Tag::FrameTime); ms > 0 && std::isfinite(1000.0 / ms))
             s.frameRate = 1000.0 / ms;
         // Only areas measured in centimetres (units 3) both ways give a
         // length; others are time, velocity, or not calibrated at all.
@@ -227,10 +251,10 @@ void addFile(Scan &scan, const DicomFile &file) {
                 if (value(Tag::PhysicalUnitsX) != 3 || value(Tag::PhysicalUnitsY) != 3)
                     continue;
                 Region r;
-                r.x0 = int(value(Tag::RegionMinX));
-                r.y0 = int(value(Tag::RegionMinY));
-                r.x1 = int(value(Tag::RegionMaxX));
-                r.y1 = int(value(Tag::RegionMaxY));
+                r.x0 = toInt(value(Tag::RegionMinX), -1);
+                r.y0 = toInt(value(Tag::RegionMinY), -1);
+                r.x1 = toInt(value(Tag::RegionMaxX), -1);
+                r.y1 = toInt(value(Tag::RegionMaxY), -1);
                 r.deltaX = std::abs(value(Tag::PhysicalDeltaX)) * 10;
                 r.deltaY = std::abs(value(Tag::PhysicalDeltaY)) * 10;
                 if (std::isfinite(r.deltaX) && std::isfinite(r.deltaY) && r.deltaX > 0 && r.deltaY > 0 && r.x1 >= r.x0
@@ -241,7 +265,8 @@ void addFile(Scan &scan, const DicomFile &file) {
         it = scan.series.end() - 1;
     }
 
-    const int frames = std::max(1, file.integer(Tag::NumberOfFrames, 1));
+    // As many frames as the file says, but no more than it has room for.
+    const int frames = ImageFormat::from(file).frames;
     const int instance = file.integer(Tag::InstanceNumber);
     for (int frame = 0; frame < frames; ++frame) {
         Slice slice;
@@ -250,14 +275,14 @@ void addFile(Scan &scan, const DicomFile &file) {
         slice.frame = frame;
         slice.instance = instance;
         const auto position = file.numbers(file.find(Tag::ImagePosition, frame));
-        if (finite(position, 3)) {
+        if (places(position, 3)) {
             slice.hasPosition = true;
             for (int i = 0; i < 3; ++i)
                 slice.position[i] = position[i];
         }
         if (const auto *location = file.find(Tag::SliceLocation, frame)) {
             const auto values = file.numbers(location);
-            if (finite(values, 1)) {
+            if (places(values, 1)) {
                 slice.location = values.first();
                 slice.hasLocation = true;
             }
