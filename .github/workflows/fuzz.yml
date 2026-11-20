@@ -1,0 +1,60 @@
+name: Fuzz
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: Sanitizers and fuzzing
+    runs-on: ubuntu-latest
+    # The same Arch and the same Qt the tests run against.
+    container:
+      image: archlinux:latest
+      # AddressSanitizer's leak check traces the process, which a container doesn't allow by default.
+      options: --cap-add=SYS_PTRACE --security-opt seccomp=unconfined
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install git for the checkout
+        run: pacman -Syu --noconfirm --needed git
+
+      - uses: actions/checkout@v4
+
+      - name: Install the package's dependencies, and clang with its sanitizers
+        # As the tests do: the PKGBUILD in omarchy-pkgs is the one list of what the app needs. libFuzzer and the sanitizer runtimes come with compiler-rt.
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/omacom/omarchy-pkgs/master/pkgbuilds/${{ github.event.repository.name }}/PKGBUILD" -o "$RUNNER_TEMP/PKGBUILD"
+          source "$RUNNER_TEMP/PKGBUILD"
+          deps=("${depends[@]}" "${makedepends[@]}" "${checkdepends[@]}")
+          pacman -S --noconfirm --needed base-devel cmake dbus clang compiler-rt llvm "${deps[@]%%[<>=]*}"
+
+      - name: Set up a user and a locale like a desktop's
+        # The tests need an ordinary user (root can read any file) with a second group, and a locale, as in the test workflow.
+        run: |
+          useradd -m tester
+          groupadd other
+          usermod -aG other tester
+          chown -R tester .
+          sed -i 's/^#en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
+          locale-gen
+
+      - name: Run the tests under AddressSanitizer and UndefinedBehaviorSanitizer
+        run: su tester -c 'LANG=en_US.UTF-8 dbus-run-session -- bin/sanitize'
+
+      - name: Fuzz each decoder for a minute
+        # From the seeds the build makes; any crash, sanitizer report, hang or runaway allocation fails the job.
+        run: su tester -c 'LANG=en_US.UTF-8 bin/fuzz all 60'
+
+      - name: Keep the inputs that found something
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-findings
+          path: build-fuzz/findings/
+          if-no-files-found: ignore
