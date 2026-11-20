@@ -80,9 +80,9 @@
   "Zoom %1%": "Мащаб %1%",
   "Reading %1 of %2 files": "Четене на файлове: %1 от %2",
   "Looking for scans…": "Търсене на изследвания…",
-  "%n images": {
-    "one": "%n изображение",
-    "other": "%n изображения"
+  "%Ln images": {
+    "one": "%Ln изображение",
+    "other": "%Ln изображения"
   },
   "Can't be decoded": "Не може да се декодира",
   "Click": "Щракване",
@@ -95,33 +95,33 @@
   "Unknown": "Неизвестен",
   "No tags match": "Няма съвпадащи тагове",
   "Oblique": "Наклонена",
-  "%n years old": {
-    "one": "%n година",
-    "other": "%n години"
+  "%Ln years old": {
+    "one": "%Ln година",
+    "other": "%Ln години"
   },
-  "%n months old": {
-    "one": "%n месец",
-    "other": "%n месеца"
+  "%Ln months old": {
+    "one": "%Ln месец",
+    "other": "%Ln месеца"
   },
-  "%n weeks old": {
-    "one": "%n седмица",
-    "other": "%n седмици"
+  "%Ln weeks old": {
+    "one": "%Ln седмица",
+    "other": "%Ln седмици"
   },
-  "%n days old": {
-    "one": "%n ден",
-    "other": "%n дни"
+  "%Ln days old": {
+    "one": "%Ln ден",
+    "other": "%Ln дни"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n файл не можа да бъде копиран.",
-    "other": "%n файла не можаха да бъдат копирани."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln файл не можа да бъде копиран.",
+    "other": "%Ln файла не можаха да бъдат копирани."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n от изображенията може да показва данни на пациента в самата картина, които копието не може да премахне. Прегледайте го, преди да го споделите.",
-    "other": "%n от изображенията може да показват данни на пациента в самата картина, които копието не може да премахне. Прегледайте ги, преди да ги споделите."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln от изображенията може да показва данни на пациента в самата картина, които копието не може да премахне. Прегледайте го, преди да го споделите.",
+    "other": "%Ln от изображенията може да показват данни на пациента в самата картина, които копието не може да премахне. Прегледайте ги, преди да ги споделите."
   },
-  "Saved %n files in %1": {
-    "one": "Запазен е %n файл в %1",
-    "other": "Запазени са %n файла в %1"
+  "Saved %Ln files in %1": {
+    "one": "Запазен е %Ln файл в %1",
+    "other": "Запазени са %Ln файла в %1"
   },
   "Male": "Мъж",
   "Mean %1  ·  SD %2": "Средно %1  ·  СО %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 не съществува",
   "No DICOM images were found there": "Там не са открити DICOM изображения",
   "The DICOM files there couldn't be read: %1": "DICOM файловете там не могат да бъдат прочетени: %1",
-  "%n files couldn't be read": {
-    "one": "%n файл не може да бъде прочетен",
-    "other": "%n файла не могат да бъдат прочетени"
+  "%Ln files couldn't be read": {
+    "one": "%Ln файл не може да бъде прочетен",
+    "other": "%Ln файла не могат да бъдат прочетени"
   },
   "Untitled series": "Серия без име",
   "Series %1": "Серия %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "Някои срезове не могат да бъдат прочетени, затова тази картина не може да бъде създадена",
   "Lung": "Бял дроб",
   "Bone": "Кост",
-  "%n items": {
-    "one": "%n елемент",
-    "other": "%n елемента"
+  "%Ln items": {
+    "one": "%Ln елемент",
+    "other": "%Ln елемента"
   },
   "Compressed image data, %1": "Компресирани данни на изображението, %1",
-  "Image data, %n bytes": {
-    "one": "Данни на изображението, %n байт",
-    "other": "Данни на изображението, %n байта"
+  "Image data, %Ln bytes": {
+    "one": "Данни на изображението, %Ln байт",
+    "other": "Данни на изображението, %Ln байта"
   },
-  "%n bytes": {
-    "one": "%n байт",
-    "other": "%n байта"
+  "%Ln bytes": {
+    "one": "%Ln байт",
+    "other": "%Ln байта"
   },
   "DICOM images": "DICOM изображения",
   "All files": "Всички файлове",

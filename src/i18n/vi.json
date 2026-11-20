@@ -80,8 +80,8 @@
   "Zoom %1%": "Thu phóng %1%",
   "Reading %1 of %2 files": "Đang đọc %1 / %2 tệp",
   "Looking for scans…": "Đang tìm ảnh chụp…",
-  "%n images": {
-    "other": "%n ảnh"
+  "%Ln images": {
+    "other": "%Ln ảnh"
   },
   "Can't be decoded": "Không giải mã được",
   "Click": "Nhấp",
@@ -94,26 +94,26 @@
   "Unknown": "Không rõ",
   "No tags match": "Không có thẻ khớp",
   "Oblique": "Cắt chếch",
-  "%n years old": {
-    "other": "%n tuổi"
+  "%Ln years old": {
+    "other": "%Ln tuổi"
   },
-  "%n months old": {
-    "other": "%n tháng tuổi"
+  "%Ln months old": {
+    "other": "%Ln tháng tuổi"
   },
-  "%n weeks old": {
-    "other": "%n tuần tuổi"
+  "%Ln weeks old": {
+    "other": "%Ln tuần tuổi"
   },
-  "%n days old": {
-    "other": "%n ngày tuổi"
+  "%Ln days old": {
+    "other": "%Ln ngày tuổi"
   },
-  "%n files couldn't be copied.": {
-    "other": "Không sao chép được %n tệp."
+  "%Ln files couldn't be copied.": {
+    "other": "Không sao chép được %Ln tệp."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "other": "%n ảnh có thể hiển thị thông tin bệnh nhân ngay trong hình, bản sao không xóa được. Hãy kiểm tra trước khi chia sẻ."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "other": "%Ln ảnh có thể hiển thị thông tin bệnh nhân ngay trong hình, bản sao không xóa được. Hãy kiểm tra trước khi chia sẻ."
   },
-  "Saved %n files in %1": {
-    "other": "Đã lưu %n tệp vào %1"
+  "Saved %Ln files in %1": {
+    "other": "Đã lưu %Ln tệp vào %1"
   },
   "Male": "Nam",
   "Mean %1  ·  SD %2": "Trung bình %1  ·  ĐLC %2",
@@ -123,8 +123,8 @@
   "%1 doesn't exist": "%1 không tồn tại",
   "No DICOM images were found there": "Không tìm thấy ảnh DICOM nào ở đó",
   "The DICOM files there couldn't be read: %1": "Không đọc được các tệp DICOM ở đó: %1",
-  "%n files couldn't be read": {
-    "other": "Không đọc được %n tệp"
+  "%Ln files couldn't be read": {
+    "other": "Không đọc được %Ln tệp"
   },
   "Untitled series": "Loạt ảnh không tên",
   "Series %1": "Loạt %1",
@@ -158,15 +158,15 @@
   "Some slices can't be read, so this picture can't be made": "Không đọc được một số lát cắt nên không thể tạo hình này",
   "Lung": "Phổi",
   "Bone": "Xương",
-  "%n items": {
-    "other": "%n mục"
+  "%Ln items": {
+    "other": "%Ln mục"
   },
   "Compressed image data, %1": "Dữ liệu ảnh nén, %1",
-  "Image data, %n bytes": {
-    "other": "Dữ liệu ảnh, %n byte"
+  "Image data, %Ln bytes": {
+    "other": "Dữ liệu ảnh, %Ln byte"
   },
-  "%n bytes": {
-    "other": "%n byte"
+  "%Ln bytes": {
+    "other": "%Ln byte"
   },
   "DICOM images": "Ảnh DICOM",
   "All files": "Mọi tệp",

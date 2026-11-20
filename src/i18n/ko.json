@@ -80,8 +80,8 @@
   "Zoom %1%": "확대 %1%",
   "Reading %1 of %2 files": "파일 %2개 중 %1개 읽는 중",
   "Looking for scans…": "영상을 찾는 중…",
-  "%n images": {
-    "other": "영상 %n개"
+  "%Ln images": {
+    "other": "영상 %Ln개"
   },
   "Can't be decoded": "디코딩할 수 없음",
   "Click": "클릭",
@@ -94,26 +94,26 @@
   "Unknown": "알 수 없음",
   "No tags match": "일치하는 태그 없음",
   "Oblique": "경사면",
-  "%n years old": {
-    "other": "%n세"
+  "%Ln years old": {
+    "other": "%Ln세"
   },
-  "%n months old": {
-    "other": "생후 %n개월"
+  "%Ln months old": {
+    "other": "생후 %Ln개월"
   },
-  "%n weeks old": {
-    "other": "생후 %n주"
+  "%Ln weeks old": {
+    "other": "생후 %Ln주"
   },
-  "%n days old": {
-    "other": "생후 %n일"
+  "%Ln days old": {
+    "other": "생후 %Ln일"
   },
-  "%n files couldn't be copied.": {
-    "other": "파일 %n개를 복사할 수 없습니다."
+  "%Ln files couldn't be copied.": {
+    "other": "파일 %Ln개를 복사할 수 없습니다."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "other": "영상 %n장은 영상 자체에 환자 정보가 보일 수 있으며, 사본에서는 이를 지울 수 없습니다. 공유하기 전에 확인하세요."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "other": "영상 %Ln장은 영상 자체에 환자 정보가 보일 수 있으며, 사본에서는 이를 지울 수 없습니다. 공유하기 전에 확인하세요."
   },
-  "Saved %n files in %1": {
-    "other": "파일 %n개를 %1에 저장했습니다"
+  "Saved %Ln files in %1": {
+    "other": "파일 %Ln개를 %1에 저장했습니다"
   },
   "Male": "남성",
   "Mean %1  ·  SD %2": "평균 %1  ·  SD %2",
@@ -123,8 +123,8 @@
   "%1 doesn't exist": "%1이(가) 없습니다",
   "No DICOM images were found there": "DICOM 영상을 찾지 못했습니다",
   "The DICOM files there couldn't be read: %1": "DICOM 파일을 읽을 수 없습니다: %1",
-  "%n files couldn't be read": {
-    "other": "파일 %n개를 읽을 수 없습니다"
+  "%Ln files couldn't be read": {
+    "other": "파일 %Ln개를 읽을 수 없습니다"
   },
   "Untitled series": "제목 없는 시리즈",
   "Series %1": "시리즈 %1",
@@ -158,15 +158,15 @@
   "Some slices can't be read, so this picture can't be made": "일부 슬라이스를 읽을 수 없어 이 영상을 만들 수 없습니다",
   "Lung": "폐",
   "Bone": "뼈",
-  "%n items": {
-    "other": "항목 %n개"
+  "%Ln items": {
+    "other": "항목 %Ln개"
   },
   "Compressed image data, %1": "압축된 영상 데이터, %1",
-  "Image data, %n bytes": {
-    "other": "영상 데이터, %n바이트"
+  "Image data, %Ln bytes": {
+    "other": "영상 데이터, %Ln바이트"
   },
-  "%n bytes": {
-    "other": "%n바이트"
+  "%Ln bytes": {
+    "other": "%Ln바이트"
   },
   "DICOM images": "DICOM 영상",
   "All files": "모든 파일",

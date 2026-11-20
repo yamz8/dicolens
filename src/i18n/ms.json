@@ -80,8 +80,8 @@
   "Zoom %1%": "Zum %1%",
   "Reading %1 of %2 files": "Membaca %1 daripada %2 fail",
   "Looking for scans…": "Mencari imbasan…",
-  "%n images": {
-    "other": "%n imej"
+  "%Ln images": {
+    "other": "%Ln imej"
   },
   "Can't be decoded": "Tidak dapat dinyahkod",
   "Click": "Klik",
@@ -94,26 +94,26 @@
   "Unknown": "Tidak diketahui",
   "No tags match": "Tiada tag yang sepadan",
   "Oblique": "Serong",
-  "%n years old": {
-    "other": "%n tahun"
+  "%Ln years old": {
+    "other": "%Ln tahun"
   },
-  "%n months old": {
-    "other": "%n bulan"
+  "%Ln months old": {
+    "other": "%Ln bulan"
   },
-  "%n weeks old": {
-    "other": "%n minggu"
+  "%Ln weeks old": {
+    "other": "%Ln minggu"
   },
-  "%n days old": {
-    "other": "%n hari"
+  "%Ln days old": {
+    "other": "%Ln hari"
   },
-  "%n files couldn't be copied.": {
-    "other": "%n fail tidak dapat disalin."
+  "%Ln files couldn't be copied.": {
+    "other": "%Ln fail tidak dapat disalin."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "other": "%n imej mungkin menunjukkan butiran pesakit dalam gambar itu sendiri, yang tidak dapat dibuang oleh salinan. Semak dahulu sebelum berkongsi."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "other": "%Ln imej mungkin menunjukkan butiran pesakit dalam gambar itu sendiri, yang tidak dapat dibuang oleh salinan. Semak dahulu sebelum berkongsi."
   },
-  "Saved %n files in %1": {
-    "other": "%n fail disimpan dalam %1"
+  "Saved %Ln files in %1": {
+    "other": "%Ln fail disimpan dalam %1"
   },
   "Male": "Lelaki",
   "Mean %1  ·  SD %2": "Purata %1  ·  SP %2",
@@ -123,8 +123,8 @@
   "%1 doesn't exist": "%1 tidak wujud",
   "No DICOM images were found there": "Tiada imej DICOM ditemui di situ",
   "The DICOM files there couldn't be read: %1": "Fail DICOM di situ tidak dapat dibaca: %1",
-  "%n files couldn't be read": {
-    "other": "%n fail tidak dapat dibaca"
+  "%Ln files couldn't be read": {
+    "other": "%Ln fail tidak dapat dibaca"
   },
   "Untitled series": "Siri tanpa tajuk",
   "Series %1": "Siri %1",
@@ -158,15 +158,15 @@
   "Some slices can't be read, so this picture can't be made": "Sesetengah hirisan tidak dapat dibaca, jadi gambar ini tidak dapat dihasilkan",
   "Lung": "Paru-paru",
   "Bone": "Tulang",
-  "%n items": {
-    "other": "%n item"
+  "%Ln items": {
+    "other": "%Ln item"
   },
   "Compressed image data, %1": "Data imej termampat, %1",
-  "Image data, %n bytes": {
-    "other": "Data imej, %n bait"
+  "Image data, %Ln bytes": {
+    "other": "Data imej, %Ln bait"
   },
-  "%n bytes": {
-    "other": "%n bait"
+  "%Ln bytes": {
+    "other": "%Ln bait"
   },
   "DICOM images": "Imej DICOM",
   "All files": "Semua fail",

@@ -80,10 +80,10 @@
   "Zoom %1%": "Priblíženie %1%",
   "Reading %1 of %2 files": "Načítavanie súborov: %1 z %2",
   "Looking for scans…": "Hľadanie vyšetrení…",
-  "%n images": {
-    "one": "%n snímka",
-    "few": "%n snímky",
-    "other": "%n snímok"
+  "%Ln images": {
+    "one": "%Ln snímka",
+    "few": "%Ln snímky",
+    "other": "%Ln snímok"
   },
   "Can't be decoded": "Nedá sa dekódovať",
   "Click": "Kliknutie",
@@ -96,40 +96,40 @@
   "Unknown": "Neznámy",
   "No tags match": "Žiadne zodpovedajúce tagy",
   "Oblique": "Šikmá",
-  "%n years old": {
-    "one": "%n rok",
-    "few": "%n roky",
-    "other": "%n rokov"
+  "%Ln years old": {
+    "one": "%Ln rok",
+    "few": "%Ln roky",
+    "other": "%Ln rokov"
   },
-  "%n months old": {
-    "one": "%n mesiac",
-    "few": "%n mesiace",
-    "other": "%n mesiacov"
+  "%Ln months old": {
+    "one": "%Ln mesiac",
+    "few": "%Ln mesiace",
+    "other": "%Ln mesiacov"
   },
-  "%n weeks old": {
-    "one": "%n týždeň",
-    "few": "%n týždne",
-    "other": "%n týždňov"
+  "%Ln weeks old": {
+    "one": "%Ln týždeň",
+    "few": "%Ln týždne",
+    "other": "%Ln týždňov"
   },
-  "%n days old": {
-    "one": "%n deň",
-    "few": "%n dni",
-    "other": "%n dní"
+  "%Ln days old": {
+    "one": "%Ln deň",
+    "few": "%Ln dni",
+    "other": "%Ln dní"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n súbor sa nedá skopírovať.",
-    "few": "%n súbory sa nedajú skopírovať.",
-    "other": "%n súborov sa nedá skopírovať."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln súbor sa nedá skopírovať.",
+    "few": "%Ln súbory sa nedajú skopírovať.",
+    "other": "%Ln súborov sa nedá skopírovať."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n snímka môže priamo v obraze ukazovať údaje o pacientovi, ktoré kópia nedokáže odstrániť. Pred zdieľaním si ju pozrite.",
-    "few": "%n snímky môžu priamo v obraze ukazovať údaje o pacientovi, ktoré kópia nedokáže odstrániť. Pred zdieľaním si ich pozrite.",
-    "other": "%n snímok môže priamo v obraze ukazovať údaje o pacientovi, ktoré kópia nedokáže odstrániť. Pred zdieľaním si ich pozrite."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln snímka môže priamo v obraze ukazovať údaje o pacientovi, ktoré kópia nedokáže odstrániť. Pred zdieľaním si ju pozrite.",
+    "few": "%Ln snímky môžu priamo v obraze ukazovať údaje o pacientovi, ktoré kópia nedokáže odstrániť. Pred zdieľaním si ich pozrite.",
+    "other": "%Ln snímok môže priamo v obraze ukazovať údaje o pacientovi, ktoré kópia nedokáže odstrániť. Pred zdieľaním si ich pozrite."
   },
-  "Saved %n files in %1": {
-    "one": "Uložený %n súbor do %1",
-    "few": "Uložené %n súbory do %1",
-    "other": "Uložených %n súborov do %1"
+  "Saved %Ln files in %1": {
+    "one": "Uložený %Ln súbor do %1",
+    "few": "Uložené %Ln súbory do %1",
+    "other": "Uložených %Ln súborov do %1"
   },
   "Male": "Muž",
   "Mean %1  ·  SD %2": "Priemer %1  ·  SO %2",
@@ -139,10 +139,10 @@
   "%1 doesn't exist": "%1 neexistuje",
   "No DICOM images were found there": "Nenašli sa tam žiadne snímky DICOM",
   "The DICOM files there couldn't be read: %1": "Súbory DICOM sa tam nedajú prečítať: %1",
-  "%n files couldn't be read": {
-    "one": "%n súbor sa nedá prečítať",
-    "few": "%n súbory sa nedajú prečítať",
-    "other": "%n súborov sa nedá prečítať"
+  "%Ln files couldn't be read": {
+    "one": "%Ln súbor sa nedá prečítať",
+    "few": "%Ln súbory sa nedajú prečítať",
+    "other": "%Ln súborov sa nedá prečítať"
   },
   "Untitled series": "Nepomenovaná séria",
   "Series %1": "Séria %1",
@@ -176,21 +176,21 @@
   "Some slices can't be read, so this picture can't be made": "Niektoré rezy sa nedajú prečítať, preto sa tento obraz nedá vytvoriť",
   "Lung": "Pľúca",
   "Bone": "Kosť",
-  "%n items": {
-    "one": "%n položka",
-    "few": "%n položky",
-    "other": "%n položiek"
+  "%Ln items": {
+    "one": "%Ln položka",
+    "few": "%Ln položky",
+    "other": "%Ln položiek"
   },
   "Compressed image data, %1": "Komprimované obrazové dáta, %1",
-  "Image data, %n bytes": {
-    "one": "Obrazové dáta, %n bajt",
-    "few": "Obrazové dáta, %n bajty",
-    "other": "Obrazové dáta, %n bajtov"
+  "Image data, %Ln bytes": {
+    "one": "Obrazové dáta, %Ln bajt",
+    "few": "Obrazové dáta, %Ln bajty",
+    "other": "Obrazové dáta, %Ln bajtov"
   },
-  "%n bytes": {
-    "one": "%n bajt",
-    "few": "%n bajty",
-    "other": "%n bajtov"
+  "%Ln bytes": {
+    "one": "%Ln bajt",
+    "few": "%Ln bajty",
+    "other": "%Ln bajtov"
   },
   "DICOM images": "Snímky DICOM",
   "All files": "Všetky súbory",

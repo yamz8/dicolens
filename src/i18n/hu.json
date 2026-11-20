@@ -80,9 +80,9 @@
   "Zoom %1%": "Nagyítás %1%",
   "Reading %1 of %2 files": "%1 / %2 fájl beolvasása",
   "Looking for scans…": "Felvételek keresése…",
-  "%n images": {
-    "one": "%n kép",
-    "other": "%n kép"
+  "%Ln images": {
+    "one": "%Ln kép",
+    "other": "%Ln kép"
   },
   "Can't be decoded": "Nem dekódolható",
   "Click": "Kattintás",
@@ -95,33 +95,33 @@
   "Unknown": "Ismeretlen",
   "No tags match": "Nincs egyező címke",
   "Oblique": "Ferde",
-  "%n years old": {
-    "one": "%n éves",
-    "other": "%n éves"
+  "%Ln years old": {
+    "one": "%Ln éves",
+    "other": "%Ln éves"
   },
-  "%n months old": {
-    "one": "%n hónapos",
-    "other": "%n hónapos"
+  "%Ln months old": {
+    "one": "%Ln hónapos",
+    "other": "%Ln hónapos"
   },
-  "%n weeks old": {
-    "one": "%n hetes",
-    "other": "%n hetes"
+  "%Ln weeks old": {
+    "one": "%Ln hetes",
+    "other": "%Ln hetes"
   },
-  "%n days old": {
-    "one": "%n napos",
-    "other": "%n napos"
+  "%Ln days old": {
+    "one": "%Ln napos",
+    "other": "%Ln napos"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n fájlt nem sikerült átmásolni.",
-    "other": "%n fájlt nem sikerült átmásolni."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln fájlt nem sikerült átmásolni.",
+    "other": "%Ln fájlt nem sikerült átmásolni."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n kép magán a képen is mutathatja a beteg adatait, ezt a másolat nem tudja eltávolítani. Megosztás előtt nézze meg.",
-    "other": "%n kép magán a képen is mutathatja a beteg adatait, ezt a másolat nem tudja eltávolítani. Megosztás előtt nézze meg őket."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln kép magán a képen is mutathatja a beteg adatait, ezt a másolat nem tudja eltávolítani. Megosztás előtt nézze meg.",
+    "other": "%Ln kép magán a képen is mutathatja a beteg adatait, ezt a másolat nem tudja eltávolítani. Megosztás előtt nézze meg őket."
   },
-  "Saved %n files in %1": {
-    "one": "%n fájl mentve ide: %1",
-    "other": "%n fájl mentve ide: %1"
+  "Saved %Ln files in %1": {
+    "one": "%Ln fájl mentve ide: %1",
+    "other": "%Ln fájl mentve ide: %1"
   },
   "Male": "Férfi",
   "Mean %1  ·  SD %2": "Átlag %1  ·  SD %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 nem létezik",
   "No DICOM images were found there": "Nem található ott DICOM-kép",
   "The DICOM files there couldn't be read: %1": "Az ottani DICOM-fájlok nem olvashatók: %1",
-  "%n files couldn't be read": {
-    "one": "%n fájl nem olvasható",
-    "other": "%n fájl nem olvasható"
+  "%Ln files couldn't be read": {
+    "one": "%Ln fájl nem olvasható",
+    "other": "%Ln fájl nem olvasható"
   },
   "Untitled series": "Névtelen sorozat",
   "Series %1": "%1. sorozat",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "Néhány szelet nem olvasható, ezért ez a kép nem készíthető el",
   "Lung": "Tüdő",
   "Bone": "Csont",
-  "%n items": {
-    "one": "%n elem",
-    "other": "%n elem"
+  "%Ln items": {
+    "one": "%Ln elem",
+    "other": "%Ln elem"
   },
   "Compressed image data, %1": "Tömörített képadat, %1",
-  "Image data, %n bytes": {
-    "one": "Képadat, %n bájt",
-    "other": "Képadat, %n bájt"
+  "Image data, %Ln bytes": {
+    "one": "Képadat, %Ln bájt",
+    "other": "Képadat, %Ln bájt"
   },
-  "%n bytes": {
-    "one": "%n bájt",
-    "other": "%n bájt"
+  "%Ln bytes": {
+    "one": "%Ln bájt",
+    "other": "%Ln bájt"
   },
   "DICOM images": "DICOM-képek",
   "All files": "Minden fájl",

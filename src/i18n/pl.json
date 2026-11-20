@@ -80,11 +80,11 @@
   "Zoom %1%": "Powiększenie %1%",
   "Reading %1 of %2 files": "Wczytywanie plików: %1 z %2",
   "Looking for scans…": "Szukanie badań…",
-  "%n images": {
-    "one": "%n obraz",
-    "few": "%n obrazy",
-    "many": "%n obrazów",
-    "other": "%n obrazów"
+  "%Ln images": {
+    "one": "%Ln obraz",
+    "few": "%Ln obrazy",
+    "many": "%Ln obrazów",
+    "other": "%Ln obrazów"
   },
   "Can't be decoded": "Nie można zdekodować",
   "Click": "Kliknięcie",
@@ -97,47 +97,47 @@
   "Unknown": "Nieznany",
   "No tags match": "Brak pasujących tagów",
   "Oblique": "Skośna",
-  "%n years old": {
-    "one": "%n rok",
-    "few": "%n lata",
-    "many": "%n lat",
-    "other": "%n lat"
+  "%Ln years old": {
+    "one": "%Ln rok",
+    "few": "%Ln lata",
+    "many": "%Ln lat",
+    "other": "%Ln lat"
   },
-  "%n months old": {
-    "one": "%n miesiąc",
-    "few": "%n miesiące",
-    "many": "%n miesięcy",
-    "other": "%n miesięcy"
+  "%Ln months old": {
+    "one": "%Ln miesiąc",
+    "few": "%Ln miesiące",
+    "many": "%Ln miesięcy",
+    "other": "%Ln miesięcy"
   },
-  "%n weeks old": {
-    "one": "%n tydzień",
-    "few": "%n tygodnie",
-    "many": "%n tygodni",
-    "other": "%n tygodni"
+  "%Ln weeks old": {
+    "one": "%Ln tydzień",
+    "few": "%Ln tygodnie",
+    "many": "%Ln tygodni",
+    "other": "%Ln tygodni"
   },
-  "%n days old": {
-    "one": "%n dzień",
-    "few": "%n dni",
-    "many": "%n dni",
-    "other": "%n dni"
+  "%Ln days old": {
+    "one": "%Ln dzień",
+    "few": "%Ln dni",
+    "many": "%Ln dni",
+    "other": "%Ln dni"
   },
-  "%n files couldn't be copied.": {
-    "one": "Nie udało się skopiować %n pliku.",
-    "few": "Nie udało się skopiować %n plików.",
-    "many": "Nie udało się skopiować %n plików.",
-    "other": "Nie udało się skopiować %n pliku."
+  "%Ln files couldn't be copied.": {
+    "one": "Nie udało się skopiować %Ln pliku.",
+    "few": "Nie udało się skopiować %Ln plików.",
+    "many": "Nie udało się skopiować %Ln plików.",
+    "other": "Nie udało się skopiować %Ln pliku."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n obraz może pokazywać dane pacjenta w samym obrazie, czego kopia nie usunie. Obejrzyj go przed udostępnieniem.",
-    "few": "%n obrazy mogą pokazywać dane pacjenta w samym obrazie, czego kopia nie usunie. Obejrzyj je przed udostępnieniem.",
-    "many": "%n obrazów może pokazywać dane pacjenta w samym obrazie, czego kopia nie usunie. Obejrzyj je przed udostępnieniem.",
-    "other": "%n obrazu może pokazywać dane pacjenta w samym obrazie, czego kopia nie usunie. Obejrzyj je przed udostępnieniem."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln obraz może pokazywać dane pacjenta w samym obrazie, czego kopia nie usunie. Obejrzyj go przed udostępnieniem.",
+    "few": "%Ln obrazy mogą pokazywać dane pacjenta w samym obrazie, czego kopia nie usunie. Obejrzyj je przed udostępnieniem.",
+    "many": "%Ln obrazów może pokazywać dane pacjenta w samym obrazie, czego kopia nie usunie. Obejrzyj je przed udostępnieniem.",
+    "other": "%Ln obrazu może pokazywać dane pacjenta w samym obrazie, czego kopia nie usunie. Obejrzyj je przed udostępnieniem."
   },
-  "Saved %n files in %1": {
-    "one": "Zapisano %n plik w %1",
-    "few": "Zapisano %n pliki w %1",
-    "many": "Zapisano %n plików w %1",
-    "other": "Zapisano %n pliku w %1"
+  "Saved %Ln files in %1": {
+    "one": "Zapisano %Ln plik w %1",
+    "few": "Zapisano %Ln pliki w %1",
+    "many": "Zapisano %Ln plików w %1",
+    "other": "Zapisano %Ln pliku w %1"
   },
   "Male": "Mężczyzna",
   "Mean %1  ·  SD %2": "Średnia %1  ·  SD %2",
@@ -147,11 +147,11 @@
   "%1 doesn't exist": "%1 nie istnieje",
   "No DICOM images were found there": "Nie znaleziono tam obrazów DICOM",
   "The DICOM files there couldn't be read: %1": "Nie udało się odczytać znalezionych plików DICOM: %1",
-  "%n files couldn't be read": {
-    "one": "%n plik nieczytelny",
-    "few": "%n pliki nieczytelne",
-    "many": "%n plików nieczytelnych",
-    "other": "%n plików nieczytelnych"
+  "%Ln files couldn't be read": {
+    "one": "%Ln plik nieczytelny",
+    "few": "%Ln pliki nieczytelne",
+    "many": "%Ln plików nieczytelnych",
+    "other": "%Ln plików nieczytelnych"
   },
   "Untitled series": "Seria bez nazwy",
   "Series %1": "Seria %1",
@@ -185,24 +185,24 @@
   "Some slices can't be read, so this picture can't be made": "Nie można odczytać niektórych warstw, więc nie da się utworzyć tego obrazu",
   "Lung": "Płuca",
   "Bone": "Kości",
-  "%n items": {
-    "one": "%n element",
-    "few": "%n elementy",
-    "many": "%n elementów",
-    "other": "%n elementów"
+  "%Ln items": {
+    "one": "%Ln element",
+    "few": "%Ln elementy",
+    "many": "%Ln elementów",
+    "other": "%Ln elementów"
   },
   "Compressed image data, %1": "Skompresowane dane obrazu, %1",
-  "Image data, %n bytes": {
-    "one": "Dane obrazu, %n bajt",
-    "few": "Dane obrazu, %n bajty",
-    "many": "Dane obrazu, %n bajtów",
-    "other": "Dane obrazu, %n bajtów"
+  "Image data, %Ln bytes": {
+    "one": "Dane obrazu, %Ln bajt",
+    "few": "Dane obrazu, %Ln bajty",
+    "many": "Dane obrazu, %Ln bajtów",
+    "other": "Dane obrazu, %Ln bajtów"
   },
-  "%n bytes": {
-    "one": "%n bajt",
-    "few": "%n bajty",
-    "many": "%n bajtów",
-    "other": "%n bajtów"
+  "%Ln bytes": {
+    "one": "%Ln bajt",
+    "few": "%Ln bajty",
+    "many": "%Ln bajtów",
+    "other": "%Ln bajtów"
   },
   "DICOM images": "Obrazy DICOM",
   "All files": "Wszystkie pliki",

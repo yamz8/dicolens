@@ -80,10 +80,10 @@
   "Zoom %1%": "זום %1%",
   "Reading %1 of %2 files": "קריאת %1 מתוך %2 קבצים",
   "Looking for scans…": "מחפש סריקות…",
-  "%n images": {
-    "one": "%n תמונה",
-    "two": "%n תמונות",
-    "other": "%n תמונות"
+  "%Ln images": {
+    "one": "%Ln תמונה",
+    "two": "%Ln תמונות",
+    "other": "%Ln תמונות"
   },
   "Can't be decoded": "לא ניתן לפענוח",
   "Click": "לחיצה",
@@ -96,40 +96,40 @@
   "Unknown": "לא ידוע",
   "No tags match": "אין תגים תואמים",
   "Oblique": "אלכסוני",
-  "%n years old": {
-    "one": "גיל %n שנה",
-    "two": "גיל %n שנים",
-    "other": "גיל %n שנים"
+  "%Ln years old": {
+    "one": "גיל %Ln שנה",
+    "two": "גיל %Ln שנים",
+    "other": "גיל %Ln שנים"
   },
-  "%n months old": {
-    "one": "גיל %n חודש",
-    "two": "גיל %n חודשים",
-    "other": "גיל %n חודשים"
+  "%Ln months old": {
+    "one": "גיל %Ln חודש",
+    "two": "גיל %Ln חודשים",
+    "other": "גיל %Ln חודשים"
   },
-  "%n weeks old": {
-    "one": "גיל %n שבוע",
-    "two": "גיל %n שבועות",
-    "other": "גיל %n שבועות"
+  "%Ln weeks old": {
+    "one": "גיל %Ln שבוע",
+    "two": "גיל %Ln שבועות",
+    "other": "גיל %Ln שבועות"
   },
-  "%n days old": {
-    "one": "גיל %n יום",
-    "two": "גיל %n ימים",
-    "other": "גיל %n ימים"
+  "%Ln days old": {
+    "one": "גיל %Ln יום",
+    "two": "גיל %Ln ימים",
+    "other": "גיל %Ln ימים"
   },
-  "%n files couldn't be copied.": {
-    "one": "לא ניתן להעתיק %n קובץ.",
-    "two": "לא ניתן להעתיק %n קבצים.",
-    "other": "לא ניתן להעתיק %n קבצים."
+  "%Ln files couldn't be copied.": {
+    "one": "לא ניתן להעתיק %Ln קובץ.",
+    "two": "לא ניתן להעתיק %Ln קבצים.",
+    "other": "לא ניתן להעתיק %Ln קבצים."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "ייתכן ש־%n מהתמונות מציגה את פרטי המטופל בתוך התמונה עצמה, והעותק לא יכול להסיר אותם. כדאי לבדוק אותה לפני השיתוף.",
-    "two": "ייתכן ש־%n מהתמונות מציגות את פרטי המטופל בתוך התמונה עצמה, והעותק לא יכול להסיר אותם. כדאי לבדוק אותן לפני השיתוף.",
-    "other": "ייתכן ש־%n מהתמונות מציגות את פרטי המטופל בתוך התמונה עצמה, והעותק לא יכול להסיר אותם. כדאי לבדוק אותן לפני השיתוף."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "ייתכן ש־%Ln מהתמונות מציגה את פרטי המטופל בתוך התמונה עצמה, והעותק לא יכול להסיר אותם. כדאי לבדוק אותה לפני השיתוף.",
+    "two": "ייתכן ש־%Ln מהתמונות מציגות את פרטי המטופל בתוך התמונה עצמה, והעותק לא יכול להסיר אותם. כדאי לבדוק אותן לפני השיתוף.",
+    "other": "ייתכן ש־%Ln מהתמונות מציגות את פרטי המטופל בתוך התמונה עצמה, והעותק לא יכול להסיר אותם. כדאי לבדוק אותן לפני השיתוף."
   },
-  "Saved %n files in %1": {
-    "one": "נשמר %n קובץ ב־%1",
-    "two": "נשמרו %n קבצים ב־%1",
-    "other": "נשמרו %n קבצים ב־%1"
+  "Saved %Ln files in %1": {
+    "one": "נשמר %Ln קובץ ב־%1",
+    "two": "נשמרו %Ln קבצים ב־%1",
+    "other": "נשמרו %Ln קבצים ב־%1"
   },
   "Male": "זכר",
   "Mean %1  ·  SD %2": "ממוצע %1  ·  ס״ת %2",
@@ -139,10 +139,10 @@
   "%1 doesn't exist": "%1 לא קיים",
   "No DICOM images were found there": "לא נמצאו שם תמונות DICOM",
   "The DICOM files there couldn't be read: %1": "לא ניתן לקרוא את קובצי ה־DICOM שם: %1",
-  "%n files couldn't be read": {
-    "one": "לא ניתן לקרוא %n קובץ",
-    "two": "לא ניתן לקרוא %n קבצים",
-    "other": "לא ניתן לקרוא %n קבצים"
+  "%Ln files couldn't be read": {
+    "one": "לא ניתן לקרוא %Ln קובץ",
+    "two": "לא ניתן לקרוא %Ln קבצים",
+    "other": "לא ניתן לקרוא %Ln קבצים"
   },
   "Untitled series": "סדרה ללא שם",
   "Series %1": "סדרה %1",
@@ -176,21 +176,21 @@
   "Some slices can't be read, so this picture can't be made": "לא ניתן לקרוא חלק מהפרוסות, ולכן אי אפשר ליצור את התמונה הזו",
   "Lung": "ריאה",
   "Bone": "עצם",
-  "%n items": {
-    "one": "%n פריט",
-    "two": "%n פריטים",
-    "other": "%n פריטים"
+  "%Ln items": {
+    "one": "%Ln פריט",
+    "two": "%Ln פריטים",
+    "other": "%Ln פריטים"
   },
   "Compressed image data, %1": "נתוני תמונה דחוסים, %1",
-  "Image data, %n bytes": {
-    "one": "נתוני תמונה, %n בייט",
-    "two": "נתוני תמונה, %n בתים",
-    "other": "נתוני תמונה, %n בתים"
+  "Image data, %Ln bytes": {
+    "one": "נתוני תמונה, %Ln בייט",
+    "two": "נתוני תמונה, %Ln בתים",
+    "other": "נתוני תמונה, %Ln בתים"
   },
-  "%n bytes": {
-    "one": "%n בייט",
-    "two": "%n בתים",
-    "other": "%n בתים"
+  "%Ln bytes": {
+    "one": "%Ln בייט",
+    "two": "%Ln בתים",
+    "other": "%Ln בתים"
   },
   "DICOM images": "תמונות DICOM",
   "All files": "כל הקבצים",

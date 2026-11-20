@@ -80,10 +80,10 @@
   "Zoom %1%": "Mastelis %1%",
   "Reading %1 of %2 files": "Skaitoma %1 iš %2 failų",
   "Looking for scans…": "Ieškoma tyrimų…",
-  "%n images": {
-    "one": "%n vaizdas",
-    "few": "%n vaizdai",
-    "other": "%n vaizdų"
+  "%Ln images": {
+    "one": "%Ln vaizdas",
+    "few": "%Ln vaizdai",
+    "other": "%Ln vaizdų"
   },
   "Can't be decoded": "Neįmanoma iškoduoti",
   "Click": "Spustelėjimas",
@@ -96,40 +96,40 @@
   "Unknown": "Nežinoma",
   "No tags match": "Atitinkančių žymių nėra",
   "Oblique": "Įstrižinis",
-  "%n years old": {
-    "one": "%n metai",
-    "few": "%n metai",
-    "other": "%n metų"
+  "%Ln years old": {
+    "one": "%Ln metai",
+    "few": "%Ln metai",
+    "other": "%Ln metų"
   },
-  "%n months old": {
-    "one": "%n mėnuo",
-    "few": "%n mėnesiai",
-    "other": "%n mėnesių"
+  "%Ln months old": {
+    "one": "%Ln mėnuo",
+    "few": "%Ln mėnesiai",
+    "other": "%Ln mėnesių"
   },
-  "%n weeks old": {
-    "one": "%n savaitė",
-    "few": "%n savaitės",
-    "other": "%n savaičių"
+  "%Ln weeks old": {
+    "one": "%Ln savaitė",
+    "few": "%Ln savaitės",
+    "other": "%Ln savaičių"
   },
-  "%n days old": {
-    "one": "%n diena",
-    "few": "%n dienos",
-    "other": "%n dienų"
+  "%Ln days old": {
+    "one": "%Ln diena",
+    "few": "%Ln dienos",
+    "other": "%Ln dienų"
   },
-  "%n files couldn't be copied.": {
-    "one": "Nepavyko nukopijuoti %n failo.",
-    "few": "Nepavyko nukopijuoti %n failų.",
-    "other": "Nepavyko nukopijuoti %n failų."
+  "%Ln files couldn't be copied.": {
+    "one": "Nepavyko nukopijuoti %Ln failo.",
+    "few": "Nepavyko nukopijuoti %Ln failų.",
+    "other": "Nepavyko nukopijuoti %Ln failų."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n vaizdas gali rodyti paciento duomenis pačiame paveiksle, o kopija jų pašalinti negali. Peržiūrėkite jį prieš bendrindami.",
-    "few": "%n vaizdai gali rodyti paciento duomenis pačiame paveiksle, o kopija jų pašalinti negali. Peržiūrėkite juos prieš bendrindami.",
-    "other": "%n vaizdų gali rodyti paciento duomenis pačiame paveiksle, o kopija jų pašalinti negali. Peržiūrėkite juos prieš bendrindami."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln vaizdas gali rodyti paciento duomenis pačiame paveiksle, o kopija jų pašalinti negali. Peržiūrėkite jį prieš bendrindami.",
+    "few": "%Ln vaizdai gali rodyti paciento duomenis pačiame paveiksle, o kopija jų pašalinti negali. Peržiūrėkite juos prieš bendrindami.",
+    "other": "%Ln vaizdų gali rodyti paciento duomenis pačiame paveiksle, o kopija jų pašalinti negali. Peržiūrėkite juos prieš bendrindami."
   },
-  "Saved %n files in %1": {
-    "one": "%n failas įrašytas į %1",
-    "few": "%n failai įrašyti į %1",
-    "other": "%n failų įrašyta į %1"
+  "Saved %Ln files in %1": {
+    "one": "%Ln failas įrašytas į %1",
+    "few": "%Ln failai įrašyti į %1",
+    "other": "%Ln failų įrašyta į %1"
   },
   "Male": "Vyras",
   "Mean %1  ·  SD %2": "Vidurkis %1  ·  SN %2",
@@ -139,10 +139,10 @@
   "%1 doesn't exist": "%1 neegzistuoja",
   "No DICOM images were found there": "Ten nerasta DICOM vaizdų",
   "The DICOM files there couldn't be read: %1": "Nepavyko perskaityti ten esančių DICOM failų: %1",
-  "%n files couldn't be read": {
-    "one": "Nepavyko perskaityti %n failo",
-    "few": "Nepavyko perskaityti %n failų",
-    "other": "Nepavyko perskaityti %n failų"
+  "%Ln files couldn't be read": {
+    "one": "Nepavyko perskaityti %Ln failo",
+    "few": "Nepavyko perskaityti %Ln failų",
+    "other": "Nepavyko perskaityti %Ln failų"
   },
   "Untitled series": "Serija be pavadinimo",
   "Series %1": "Serija %1",
@@ -176,21 +176,21 @@
   "Some slices can't be read, so this picture can't be made": "Kai kurių pjūvių negalima perskaityti, todėl šio vaizdo negalima sudaryti",
   "Lung": "Plaučiai",
   "Bone": "Kaulai",
-  "%n items": {
-    "one": "%n elementas",
-    "few": "%n elementai",
-    "other": "%n elementų"
+  "%Ln items": {
+    "one": "%Ln elementas",
+    "few": "%Ln elementai",
+    "other": "%Ln elementų"
   },
   "Compressed image data, %1": "Suglaudinti vaizdo duomenys, %1",
-  "Image data, %n bytes": {
-    "one": "Vaizdo duomenys, %n baitas",
-    "few": "Vaizdo duomenys, %n baitai",
-    "other": "Vaizdo duomenys, %n baitų"
+  "Image data, %Ln bytes": {
+    "one": "Vaizdo duomenys, %Ln baitas",
+    "few": "Vaizdo duomenys, %Ln baitai",
+    "other": "Vaizdo duomenys, %Ln baitų"
   },
-  "%n bytes": {
-    "one": "%n baitas",
-    "few": "%n baitai",
-    "other": "%n baitų"
+  "%Ln bytes": {
+    "one": "%Ln baitas",
+    "few": "%Ln baitai",
+    "other": "%Ln baitų"
   },
   "DICOM images": "DICOM vaizdai",
   "All files": "Visi failai",

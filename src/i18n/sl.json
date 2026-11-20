@@ -80,11 +80,11 @@
   "Zoom %1%": "Povečava %1%",
   "Reading %1 of %2 files": "Branje datotek: %1 od %2",
   "Looking for scans…": "Iskanje preiskav…",
-  "%n images": {
-    "one": "%n slika",
-    "two": "%n sliki",
-    "few": "%n slike",
-    "other": "%n slik"
+  "%Ln images": {
+    "one": "%Ln slika",
+    "two": "%Ln sliki",
+    "few": "%Ln slike",
+    "other": "%Ln slik"
   },
   "Can't be decoded": "Ni mogoče dekodirati",
   "Click": "Klik",
@@ -97,47 +97,47 @@
   "Unknown": "Neznano",
   "No tags match": "Nobena oznaka se ne ujema",
   "Oblique": "Poševna",
-  "%n years old": {
-    "one": "%n leto",
-    "two": "%n leti",
-    "few": "%n leta",
-    "other": "%n let"
+  "%Ln years old": {
+    "one": "%Ln leto",
+    "two": "%Ln leti",
+    "few": "%Ln leta",
+    "other": "%Ln let"
   },
-  "%n months old": {
-    "one": "%n mesec",
-    "two": "%n meseca",
-    "few": "%n meseci",
-    "other": "%n mesecev"
+  "%Ln months old": {
+    "one": "%Ln mesec",
+    "two": "%Ln meseca",
+    "few": "%Ln meseci",
+    "other": "%Ln mesecev"
   },
-  "%n weeks old": {
-    "one": "%n teden",
-    "two": "%n tedna",
-    "few": "%n tedni",
-    "other": "%n tednov"
+  "%Ln weeks old": {
+    "one": "%Ln teden",
+    "two": "%Ln tedna",
+    "few": "%Ln tedni",
+    "other": "%Ln tednov"
   },
-  "%n days old": {
-    "one": "%n dan",
-    "two": "%n dneva",
-    "few": "%n dnevi",
-    "other": "%n dni"
+  "%Ln days old": {
+    "one": "%Ln dan",
+    "two": "%Ln dneva",
+    "few": "%Ln dnevi",
+    "other": "%Ln dni"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n datoteke ni bilo mogoče kopirati.",
-    "two": "%n datotek ni bilo mogoče kopirati.",
-    "few": "%n datotek ni bilo mogoče kopirati.",
-    "other": "%n datotek ni bilo mogoče kopirati."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln datoteke ni bilo mogoče kopirati.",
+    "two": "%Ln datotek ni bilo mogoče kopirati.",
+    "few": "%Ln datotek ni bilo mogoče kopirati.",
+    "other": "%Ln datotek ni bilo mogoče kopirati."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n slika lahko v samem prikazu kaže podatke o pacientu, ki jih kopija ne more odstraniti. Preglejte jo, preden jo delite.",
-    "two": "%n sliki lahko v samem prikazu kažeta podatke o pacientu, ki jih kopija ne more odstraniti. Preglejte ju, preden ju delite.",
-    "few": "%n slike lahko v samem prikazu kažejo podatke o pacientu, ki jih kopija ne more odstraniti. Preglejte jih, preden jih delite.",
-    "other": "%n slik lahko v samem prikazu kaže podatke o pacientu, ki jih kopija ne more odstraniti. Preglejte jih, preden jih delite."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln slika lahko v samem prikazu kaže podatke o pacientu, ki jih kopija ne more odstraniti. Preglejte jo, preden jo delite.",
+    "two": "%Ln sliki lahko v samem prikazu kažeta podatke o pacientu, ki jih kopija ne more odstraniti. Preglejte ju, preden ju delite.",
+    "few": "%Ln slike lahko v samem prikazu kažejo podatke o pacientu, ki jih kopija ne more odstraniti. Preglejte jih, preden jih delite.",
+    "other": "%Ln slik lahko v samem prikazu kaže podatke o pacientu, ki jih kopija ne more odstraniti. Preglejte jih, preden jih delite."
   },
-  "Saved %n files in %1": {
-    "one": "Shranjena %n datoteka v %1",
-    "two": "Shranjeni %n datoteki v %1",
-    "few": "Shranjene %n datoteke v %1",
-    "other": "Shranjenih %n datotek v %1"
+  "Saved %Ln files in %1": {
+    "one": "Shranjena %Ln datoteka v %1",
+    "two": "Shranjeni %Ln datoteki v %1",
+    "few": "Shranjene %Ln datoteke v %1",
+    "other": "Shranjenih %Ln datotek v %1"
   },
   "Male": "Moški",
   "Mean %1  ·  SD %2": "Povprečje %1  ·  SO %2",
@@ -147,11 +147,11 @@
   "%1 doesn't exist": "%1 ne obstaja",
   "No DICOM images were found there": "Tam ni bilo najdenih slik DICOM",
   "The DICOM files there couldn't be read: %1": "Datotek DICOM tam ni bilo mogoče prebrati: %1",
-  "%n files couldn't be read": {
-    "one": "%n datoteke ni bilo mogoče prebrati",
-    "two": "%n datotek ni bilo mogoče prebrati",
-    "few": "%n datotek ni bilo mogoče prebrati",
-    "other": "%n datotek ni bilo mogoče prebrati"
+  "%Ln files couldn't be read": {
+    "one": "%Ln datoteke ni bilo mogoče prebrati",
+    "two": "%Ln datotek ni bilo mogoče prebrati",
+    "few": "%Ln datotek ni bilo mogoče prebrati",
+    "other": "%Ln datotek ni bilo mogoče prebrati"
   },
   "Untitled series": "Neimenovana serija",
   "Series %1": "Serija %1",
@@ -185,24 +185,24 @@
   "Some slices can't be read, so this picture can't be made": "Nekaterih rezin ni mogoče prebrati, zato te slike ni mogoče narediti",
   "Lung": "Pljuča",
   "Bone": "Kost",
-  "%n items": {
-    "one": "%n element",
-    "two": "%n elementa",
-    "few": "%n elementi",
-    "other": "%n elementov"
+  "%Ln items": {
+    "one": "%Ln element",
+    "two": "%Ln elementa",
+    "few": "%Ln elementi",
+    "other": "%Ln elementov"
   },
   "Compressed image data, %1": "Stisnjeni slikovni podatki, %1",
-  "Image data, %n bytes": {
-    "one": "Slikovni podatki, %n bajt",
-    "two": "Slikovni podatki, %n bajta",
-    "few": "Slikovni podatki, %n bajti",
-    "other": "Slikovni podatki, %n bajtov"
+  "Image data, %Ln bytes": {
+    "one": "Slikovni podatki, %Ln bajt",
+    "two": "Slikovni podatki, %Ln bajta",
+    "few": "Slikovni podatki, %Ln bajti",
+    "other": "Slikovni podatki, %Ln bajtov"
   },
-  "%n bytes": {
-    "one": "%n bajt",
-    "two": "%n bajta",
-    "few": "%n bajti",
-    "other": "%n bajtov"
+  "%Ln bytes": {
+    "one": "%Ln bajt",
+    "two": "%Ln bajta",
+    "few": "%Ln bajti",
+    "other": "%Ln bajtov"
   },
   "DICOM images": "Slike DICOM",
   "All files": "Vse datoteke",

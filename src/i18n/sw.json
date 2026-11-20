@@ -80,9 +80,9 @@
   "Zoom %1%": "Kuza %1%",
   "Reading %1 of %2 files": "Inasoma faili %1 kati ya %2",
   "Looking for scans…": "Inatafuta skani…",
-  "%n images": {
-    "one": "picha %n",
-    "other": "picha %n"
+  "%Ln images": {
+    "one": "picha %Ln",
+    "other": "picha %Ln"
   },
   "Can't be decoded": "Haiwezi kusimbuliwa",
   "Click": "Bofya",
@@ -95,33 +95,33 @@
   "Unknown": "Haijulikani",
   "No tags match": "Hakuna lebo zinazolingana",
   "Oblique": "Mshazari",
-  "%n years old": {
-    "one": "mwaka %n",
-    "other": "miaka %n"
+  "%Ln years old": {
+    "one": "mwaka %Ln",
+    "other": "miaka %Ln"
   },
-  "%n months old": {
-    "one": "mwezi %n",
-    "other": "miezi %n"
+  "%Ln months old": {
+    "one": "mwezi %Ln",
+    "other": "miezi %Ln"
   },
-  "%n weeks old": {
-    "one": "wiki %n",
-    "other": "wiki %n"
+  "%Ln weeks old": {
+    "one": "wiki %Ln",
+    "other": "wiki %Ln"
   },
-  "%n days old": {
-    "one": "siku %n",
-    "other": "siku %n"
+  "%Ln days old": {
+    "one": "siku %Ln",
+    "other": "siku %Ln"
   },
-  "%n files couldn't be copied.": {
-    "one": "Faili %n haikuweza kunakiliwa.",
-    "other": "Faili %n hazikuweza kunakiliwa."
+  "%Ln files couldn't be copied.": {
+    "one": "Faili %Ln haikuweza kunakiliwa.",
+    "other": "Faili %Ln hazikuweza kunakiliwa."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "Picha %n kati ya hizi huenda ikaonyesha taarifa za mgonjwa ndani ya picha yenyewe, jambo ambalo nakala haiwezi kuondoa. Itazame kabla ya kushiriki.",
-    "other": "Picha %n kati ya hizi huenda zikaonyesha taarifa za mgonjwa ndani ya picha zenyewe, jambo ambalo nakala haiwezi kuondoa. Zitazame kabla ya kushiriki."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "Picha %Ln kati ya hizi huenda ikaonyesha taarifa za mgonjwa ndani ya picha yenyewe, jambo ambalo nakala haiwezi kuondoa. Itazame kabla ya kushiriki.",
+    "other": "Picha %Ln kati ya hizi huenda zikaonyesha taarifa za mgonjwa ndani ya picha zenyewe, jambo ambalo nakala haiwezi kuondoa. Zitazame kabla ya kushiriki."
   },
-  "Saved %n files in %1": {
-    "one": "Faili %n imehifadhiwa katika %1",
-    "other": "Faili %n zimehifadhiwa katika %1"
+  "Saved %Ln files in %1": {
+    "one": "Faili %Ln imehifadhiwa katika %1",
+    "other": "Faili %Ln zimehifadhiwa katika %1"
   },
   "Male": "Mwanamume",
   "Mean %1  ·  SD %2": "Wastani %1  ·  SD %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 haipo",
   "No DICOM images were found there": "Hakuna picha za DICOM zilizopatikana hapo",
   "The DICOM files there couldn't be read: %1": "Faili za DICOM zilizopo hapo hazikuweza kusomwa: %1",
-  "%n files couldn't be read": {
-    "one": "Faili %n haikuweza kusomwa",
-    "other": "Faili %n hazikuweza kusomwa"
+  "%Ln files couldn't be read": {
+    "one": "Faili %Ln haikuweza kusomwa",
+    "other": "Faili %Ln hazikuweza kusomwa"
   },
   "Untitled series": "Mfululizo usio na jina",
   "Series %1": "Mfululizo %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "Baadhi ya vipande haviwezi kusomwa, kwa hiyo picha hii haiwezi kutengenezwa",
   "Lung": "Pafu",
   "Bone": "Mfupa",
-  "%n items": {
-    "one": "kipengee %n",
-    "other": "vipengee %n"
+  "%Ln items": {
+    "one": "kipengee %Ln",
+    "other": "vipengee %Ln"
   },
   "Compressed image data, %1": "Data ya picha iliyobanwa, %1",
-  "Image data, %n bytes": {
-    "one": "Data ya picha, baiti %n",
-    "other": "Data ya picha, baiti %n"
+  "Image data, %Ln bytes": {
+    "one": "Data ya picha, baiti %Ln",
+    "other": "Data ya picha, baiti %Ln"
   },
-  "%n bytes": {
-    "one": "baiti %n",
-    "other": "baiti %n"
+  "%Ln bytes": {
+    "one": "baiti %Ln",
+    "other": "baiti %Ln"
   },
   "DICOM images": "Picha za DICOM",
   "All files": "Faili zote",

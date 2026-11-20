@@ -80,9 +80,9 @@
   "Zoom %1%": "Μεγέθυνση %1%",
   "Reading %1 of %2 files": "Ανάγνωση αρχείων: %1 από %2",
   "Looking for scans…": "Αναζήτηση εξετάσεων…",
-  "%n images": {
-    "one": "%n εικόνα",
-    "other": "%n εικόνες"
+  "%Ln images": {
+    "one": "%Ln εικόνα",
+    "other": "%Ln εικόνες"
   },
   "Can't be decoded": "Δεν αποκωδικοποιείται",
   "Click": "Κλικ",
@@ -95,33 +95,33 @@
   "Unknown": "Άγνωστη",
   "No tags match": "Καμία ετικέτα δεν ταιριάζει",
   "Oblique": "Λοξή",
-  "%n years old": {
-    "one": "%n έτους",
-    "other": "%n ετών"
+  "%Ln years old": {
+    "one": "%Ln έτους",
+    "other": "%Ln ετών"
   },
-  "%n months old": {
-    "one": "%n μηνός",
-    "other": "%n μηνών"
+  "%Ln months old": {
+    "one": "%Ln μηνός",
+    "other": "%Ln μηνών"
   },
-  "%n weeks old": {
-    "one": "%n εβδομάδας",
-    "other": "%n εβδομάδων"
+  "%Ln weeks old": {
+    "one": "%Ln εβδομάδας",
+    "other": "%Ln εβδομάδων"
   },
-  "%n days old": {
-    "one": "%n ημέρας",
-    "other": "%n ημερών"
+  "%Ln days old": {
+    "one": "%Ln ημέρας",
+    "other": "%Ln ημερών"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n αρχείο δεν ήταν δυνατό να αντιγραφεί.",
-    "other": "%n αρχεία δεν ήταν δυνατό να αντιγραφούν."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln αρχείο δεν ήταν δυνατό να αντιγραφεί.",
+    "other": "%Ln αρχεία δεν ήταν δυνατό να αντιγραφούν."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n από τις εικόνες ίσως δείχνει τα στοιχεία του ασθενούς μέσα στην ίδια την εικόνα, κάτι που ένα αντίγραφο δεν μπορεί να αφαιρέσει. Ελέγξτε την πριν την κοινοποιήσετε.",
-    "other": "%n από τις εικόνες ίσως δείχνουν τα στοιχεία του ασθενούς μέσα στην ίδια την εικόνα, κάτι που ένα αντίγραφο δεν μπορεί να αφαιρέσει. Ελέγξτε τις πριν τις κοινοποιήσετε."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln από τις εικόνες ίσως δείχνει τα στοιχεία του ασθενούς μέσα στην ίδια την εικόνα, κάτι που ένα αντίγραφο δεν μπορεί να αφαιρέσει. Ελέγξτε την πριν την κοινοποιήσετε.",
+    "other": "%Ln από τις εικόνες ίσως δείχνουν τα στοιχεία του ασθενούς μέσα στην ίδια την εικόνα, κάτι που ένα αντίγραφο δεν μπορεί να αφαιρέσει. Ελέγξτε τις πριν τις κοινοποιήσετε."
   },
-  "Saved %n files in %1": {
-    "one": "Αποθηκεύτηκε %n αρχείο στο %1",
-    "other": "Αποθηκεύτηκαν %n αρχεία στο %1"
+  "Saved %Ln files in %1": {
+    "one": "Αποθηκεύτηκε %Ln αρχείο στο %1",
+    "other": "Αποθηκεύτηκαν %Ln αρχεία στο %1"
   },
   "Male": "Άνδρας",
   "Mean %1  ·  SD %2": "Μέση τιμή %1  ·  ΤΑ %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "Το %1 δεν υπάρχει",
   "No DICOM images were found there": "Δεν βρέθηκαν εικόνες DICOM εκεί",
   "The DICOM files there couldn't be read: %1": "Τα αρχεία DICOM εκεί δεν ήταν δυνατό να διαβαστούν: %1",
-  "%n files couldn't be read": {
-    "one": "%n αρχείο δεν ήταν δυνατό να διαβαστεί",
-    "other": "%n αρχεία δεν ήταν δυνατό να διαβαστούν"
+  "%Ln files couldn't be read": {
+    "one": "%Ln αρχείο δεν ήταν δυνατό να διαβαστεί",
+    "other": "%Ln αρχεία δεν ήταν δυνατό να διαβαστούν"
   },
   "Untitled series": "Σειρά χωρίς τίτλο",
   "Series %1": "Σειρά %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "Ορισμένες τομές δεν μπορούν να διαβαστούν, οπότε αυτή η εικόνα δεν μπορεί να δημιουργηθεί",
   "Lung": "Πνεύμονας",
   "Bone": "Οστό",
-  "%n items": {
-    "one": "%n στοιχείο",
-    "other": "%n στοιχεία"
+  "%Ln items": {
+    "one": "%Ln στοιχείο",
+    "other": "%Ln στοιχεία"
   },
   "Compressed image data, %1": "Συμπιεσμένα δεδομένα εικόνας, %1",
-  "Image data, %n bytes": {
-    "one": "Δεδομένα εικόνας, %n byte",
-    "other": "Δεδομένα εικόνας, %n byte"
+  "Image data, %Ln bytes": {
+    "one": "Δεδομένα εικόνας, %Ln byte",
+    "other": "Δεδομένα εικόνας, %Ln byte"
   },
-  "%n bytes": {
-    "one": "%n byte",
-    "other": "%n byte"
+  "%Ln bytes": {
+    "one": "%Ln byte",
+    "other": "%Ln byte"
   },
   "DICOM images": "Εικόνες DICOM",
   "All files": "Όλα τα αρχεία",

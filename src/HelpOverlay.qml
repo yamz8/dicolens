@@ -5,7 +5,12 @@ import QtQuick.Layouts
 // Every shortcut, grouped. The README lists the same ones.
 Rectangle {
     id: help
-    color: Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.98)
+    color: theme.background
+
+    function scroll(amount) {
+        flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY + amount))
+    }
+    onVisibleChanged: flick.contentY = 0
 
     MouseArea { anchors.fill: parent; onClicked: win.helpVisible = false }
 
@@ -52,12 +57,15 @@ Rectangle {
     ]
 
     Flickable {
+        id: flick
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: footer.top
         contentHeight: grid.implicitHeight + 60
         clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar {}
 
         RowLayout {
             id: grid
@@ -89,11 +97,16 @@ Rectangle {
                             Layout.alignment: Qt.AlignTop
                             Layout.fillWidth: true
                             spacing: 7
+                            // Alignments are said outright so they mirror with
+                            // the layout: a key is Latin in every language,
+                            // and would keep to the left on its own.
                             Label {
                                 text: section.group[0]
                                 color: theme.accent
                                 font.bold: true
                                 font.pixelSize: 16
+                                horizontalAlignment: Text.AlignLeft
+                                Layout.fillWidth: true
                                 Layout.bottomMargin: 4
                             }
                             Repeater {
@@ -108,11 +121,13 @@ Rectangle {
                                         font.bold: true
                                         Layout.preferredWidth: grid.count === 3 ? 118 : 150
                                         Layout.alignment: Qt.AlignTop
+                                        horizontalAlignment: Text.AlignLeft
                                         wrapMode: Text.Wrap
                                     }
                                     Label {
                                         text: modelData[1]
                                         color: win.secondary
+                                        horizontalAlignment: Text.AlignLeft
                                         wrapMode: Text.Wrap
                                         Layout.fillWidth: true
                                     }

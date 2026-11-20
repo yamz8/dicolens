@@ -80,9 +80,9 @@
   "Zoom %1%": "Zoom %1%",
   "Reading %1 of %2 files": "Lese %1 von %2 Dateien",
   "Looking for scans…": "Suche nach Aufnahmen…",
-  "%n images": {
-    "one": "%n Bild",
-    "other": "%n Bilder"
+  "%Ln images": {
+    "one": "%Ln Bild",
+    "other": "%Ln Bilder"
   },
   "Can't be decoded": "Nicht dekodierbar",
   "Click": "Klicken",
@@ -95,33 +95,33 @@
   "Unknown": "Unbekannt",
   "No tags match": "Keine passenden Tags",
   "Oblique": "Schräg",
-  "%n years old": {
-    "one": "%n Jahr",
-    "other": "%n Jahre"
+  "%Ln years old": {
+    "one": "%Ln Jahr",
+    "other": "%Ln Jahre"
   },
-  "%n months old": {
-    "one": "%n Monat",
-    "other": "%n Monate"
+  "%Ln months old": {
+    "one": "%Ln Monat",
+    "other": "%Ln Monate"
   },
-  "%n weeks old": {
-    "one": "%n Woche",
-    "other": "%n Wochen"
+  "%Ln weeks old": {
+    "one": "%Ln Woche",
+    "other": "%Ln Wochen"
   },
-  "%n days old": {
-    "one": "%n Tag",
-    "other": "%n Tage"
+  "%Ln days old": {
+    "one": "%Ln Tag",
+    "other": "%Ln Tage"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n Datei konnte nicht kopiert werden.",
-    "other": "%n Dateien konnten nicht kopiert werden."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln Datei konnte nicht kopiert werden.",
+    "other": "%Ln Dateien konnten nicht kopiert werden."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n der Bilder kann Patientendaten im Bild selbst zeigen, die eine Kopie nicht entfernen kann. Sehen Sie es vor dem Teilen an.",
-    "other": "%n der Bilder können Patientendaten im Bild selbst zeigen, die eine Kopie nicht entfernen kann. Sehen Sie sie vor dem Teilen an."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln der Bilder kann Patientendaten im Bild selbst zeigen, die eine Kopie nicht entfernen kann. Sehen Sie es vor dem Teilen an.",
+    "other": "%Ln der Bilder können Patientendaten im Bild selbst zeigen, die eine Kopie nicht entfernen kann. Sehen Sie sie vor dem Teilen an."
   },
-  "Saved %n files in %1": {
-    "one": "%n Datei in %1 gespeichert",
-    "other": "%n Dateien in %1 gespeichert"
+  "Saved %Ln files in %1": {
+    "one": "%Ln Datei in %1 gespeichert",
+    "other": "%Ln Dateien in %1 gespeichert"
   },
   "Male": "Männlich",
   "Mean %1  ·  SD %2": "Mittelwert %1  ·  SD %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 existiert nicht",
   "No DICOM images were found there": "Dort wurden keine DICOM-Bilder gefunden",
   "The DICOM files there couldn't be read: %1": "Die DICOM-Dateien dort konnten nicht gelesen werden: %1",
-  "%n files couldn't be read": {
-    "one": "%n Datei konnte nicht gelesen werden",
-    "other": "%n Dateien konnten nicht gelesen werden"
+  "%Ln files couldn't be read": {
+    "one": "%Ln Datei konnte nicht gelesen werden",
+    "other": "%Ln Dateien konnten nicht gelesen werden"
   },
   "Untitled series": "Unbenannte Serie",
   "Series %1": "Serie %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "Einige Schichten können nicht gelesen werden, daher lässt sich dieses Bild nicht erstellen",
   "Lung": "Lunge",
   "Bone": "Knochen",
-  "%n items": {
-    "one": "%n Element",
-    "other": "%n Elemente"
+  "%Ln items": {
+    "one": "%Ln Element",
+    "other": "%Ln Elemente"
   },
   "Compressed image data, %1": "Komprimierte Bilddaten, %1",
-  "Image data, %n bytes": {
-    "one": "Bilddaten, %n Byte",
-    "other": "Bilddaten, %n Byte"
+  "Image data, %Ln bytes": {
+    "one": "Bilddaten, %Ln Byte",
+    "other": "Bilddaten, %Ln Byte"
   },
-  "%n bytes": {
-    "one": "%n Byte",
-    "other": "%n Byte"
+  "%Ln bytes": {
+    "one": "%Ln Byte",
+    "other": "%Ln Byte"
   },
   "DICOM images": "DICOM-Bilder",
   "All files": "Alle Dateien",

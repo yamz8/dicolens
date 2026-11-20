@@ -80,9 +80,9 @@
   "Zoom %1%": "Zoom %1%",
   "Reading %1 of %2 files": "Leser %1 av %2 filer",
   "Looking for scans…": "Leter etter undersøkelser…",
-  "%n images": {
-    "one": "%n bilde",
-    "other": "%n bilder"
+  "%Ln images": {
+    "one": "%Ln bilde",
+    "other": "%Ln bilder"
   },
   "Can't be decoded": "Kan ikke dekodes",
   "Click": "Klikk",
@@ -95,33 +95,33 @@
   "Unknown": "Ukjent",
   "No tags match": "Ingen tagger samsvarer",
   "Oblique": "Skrå",
-  "%n years old": {
-    "one": "%n år",
-    "other": "%n år"
+  "%Ln years old": {
+    "one": "%Ln år",
+    "other": "%Ln år"
   },
-  "%n months old": {
-    "one": "%n måned",
-    "other": "%n måneder"
+  "%Ln months old": {
+    "one": "%Ln måned",
+    "other": "%Ln måneder"
   },
-  "%n weeks old": {
-    "one": "%n uke",
-    "other": "%n uker"
+  "%Ln weeks old": {
+    "one": "%Ln uke",
+    "other": "%Ln uker"
   },
-  "%n days old": {
-    "one": "%n dag",
-    "other": "%n dager"
+  "%Ln days old": {
+    "one": "%Ln dag",
+    "other": "%Ln dager"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n fil kunne ikke kopieres.",
-    "other": "%n filer kunne ikke kopieres."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln fil kunne ikke kopieres.",
+    "other": "%Ln filer kunne ikke kopieres."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n av bildene kan vise pasientens opplysninger i selve bildet, noe en kopi ikke kan fjerne. Se på det før du deler.",
-    "other": "%n av bildene kan vise pasientens opplysninger i selve bildet, noe en kopi ikke kan fjerne. Se på dem før du deler."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln av bildene kan vise pasientens opplysninger i selve bildet, noe en kopi ikke kan fjerne. Se på det før du deler.",
+    "other": "%Ln av bildene kan vise pasientens opplysninger i selve bildet, noe en kopi ikke kan fjerne. Se på dem før du deler."
   },
-  "Saved %n files in %1": {
-    "one": "Lagret %n fil i %1",
-    "other": "Lagret %n filer i %1"
+  "Saved %Ln files in %1": {
+    "one": "Lagret %Ln fil i %1",
+    "other": "Lagret %Ln filer i %1"
   },
   "Male": "Mann",
   "Mean %1  ·  SD %2": "Snitt %1  ·  SD %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 finnes ikke",
   "No DICOM images were found there": "Fant ingen DICOM-bilder der",
   "The DICOM files there couldn't be read: %1": "DICOM-filene der kunne ikke leses: %1",
-  "%n files couldn't be read": {
-    "one": "%n fil kunne ikke leses",
-    "other": "%n filer kunne ikke leses"
+  "%Ln files couldn't be read": {
+    "one": "%Ln fil kunne ikke leses",
+    "other": "%Ln filer kunne ikke leses"
   },
   "Untitled series": "Serie uten navn",
   "Series %1": "Serie %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "Noen snitt kan ikke leses, så dette bildet kan ikke lages",
   "Lung": "Lunge",
   "Bone": "Skjelett",
-  "%n items": {
-    "one": "%n element",
-    "other": "%n elementer"
+  "%Ln items": {
+    "one": "%Ln element",
+    "other": "%Ln elementer"
   },
   "Compressed image data, %1": "Komprimerte bildedata, %1",
-  "Image data, %n bytes": {
-    "one": "Bildedata, %n byte",
-    "other": "Bildedata, %n byte"
+  "Image data, %Ln bytes": {
+    "one": "Bildedata, %Ln byte",
+    "other": "Bildedata, %Ln byte"
   },
-  "%n bytes": {
-    "one": "%n byte",
-    "other": "%n byte"
+  "%Ln bytes": {
+    "one": "%Ln byte",
+    "other": "%Ln byte"
   },
   "DICOM images": "DICOM-bilder",
   "All files": "Alle filer",

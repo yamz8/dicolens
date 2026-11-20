@@ -80,9 +80,9 @@
   "Zoom %1%": "زوم %1%",
   "Reading %1 of %2 files": "%2 میں سے %1 فائلیں پڑھی جا رہی ہیں",
   "Looking for scans…": "اسکین تلاش کیے جا رہے ہیں…",
-  "%n images": {
-    "one": "%n تصویر",
-    "other": "%n تصاویر"
+  "%Ln images": {
+    "one": "%Ln تصویر",
+    "other": "%Ln تصاویر"
   },
   "Can't be decoded": "ڈی کوڈ نہیں ہو سکتی",
   "Click": "کلک",
@@ -95,33 +95,33 @@
   "Unknown": "نامعلوم",
   "No tags match": "کوئی ٹیگ نہیں ملا",
   "Oblique": "ترچھا",
-  "%n years old": {
-    "one": "%n سال",
-    "other": "%n سال"
+  "%Ln years old": {
+    "one": "%Ln سال",
+    "other": "%Ln سال"
   },
-  "%n months old": {
-    "one": "%n ماہ",
-    "other": "%n ماہ"
+  "%Ln months old": {
+    "one": "%Ln ماہ",
+    "other": "%Ln ماہ"
   },
-  "%n weeks old": {
-    "one": "%n ہفتہ",
-    "other": "%n ہفتے"
+  "%Ln weeks old": {
+    "one": "%Ln ہفتہ",
+    "other": "%Ln ہفتے"
   },
-  "%n days old": {
-    "one": "%n دن",
-    "other": "%n دن"
+  "%Ln days old": {
+    "one": "%Ln دن",
+    "other": "%Ln دن"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n فائل کاپی نہیں ہو سکی۔",
-    "other": "%n فائلیں کاپی نہیں ہو سکیں۔"
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln فائل کاپی نہیں ہو سکی۔",
+    "other": "%Ln فائلیں کاپی نہیں ہو سکیں۔"
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n تصویر میں مریض کی تفصیلات خود تصویر کے اندر دکھائی دے سکتی ہیں، جنہیں کاپی نہیں ہٹا سکتی۔ شیئر کرنے سے پہلے اسے دیکھ لیں۔",
-    "other": "%n تصاویر میں مریض کی تفصیلات خود تصویر کے اندر دکھائی دے سکتی ہیں، جنہیں کاپی نہیں ہٹا سکتی۔ شیئر کرنے سے پہلے انہیں دیکھ لیں۔"
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln تصویر میں مریض کی تفصیلات خود تصویر کے اندر دکھائی دے سکتی ہیں، جنہیں کاپی نہیں ہٹا سکتی۔ شیئر کرنے سے پہلے اسے دیکھ لیں۔",
+    "other": "%Ln تصاویر میں مریض کی تفصیلات خود تصویر کے اندر دکھائی دے سکتی ہیں، جنہیں کاپی نہیں ہٹا سکتی۔ شیئر کرنے سے پہلے انہیں دیکھ لیں۔"
   },
-  "Saved %n files in %1": {
-    "one": "%n فائل %1 میں محفوظ ہو گئی",
-    "other": "%n فائلیں %1 میں محفوظ ہو گئیں"
+  "Saved %Ln files in %1": {
+    "one": "%Ln فائل %1 میں محفوظ ہو گئی",
+    "other": "%Ln فائلیں %1 میں محفوظ ہو گئیں"
   },
   "Male": "مرد",
   "Mean %1  ·  SD %2": "اوسط %1  ·  SD %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 موجود نہیں",
   "No DICOM images were found there": "وہاں کوئی DICOM تصویر نہیں ملی",
   "The DICOM files there couldn't be read: %1": "وہاں کی DICOM فائلیں پڑھی نہیں جا سکیں: %1",
-  "%n files couldn't be read": {
-    "one": "%n فائل پڑھی نہیں جا سکی",
-    "other": "%n فائلیں پڑھی نہیں جا سکیں"
+  "%Ln files couldn't be read": {
+    "one": "%Ln فائل پڑھی نہیں جا سکی",
+    "other": "%Ln فائلیں پڑھی نہیں جا سکیں"
   },
   "Untitled series": "بے نام سیریز",
   "Series %1": "سیریز %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "کچھ سلائسز پڑھی نہیں جا سکتیں، اس لیے یہ تصویر نہیں بن سکتی",
   "Lung": "پھیپھڑا",
   "Bone": "ہڈی",
-  "%n items": {
-    "one": "%n آئٹم",
-    "other": "%n آئٹمز"
+  "%Ln items": {
+    "one": "%Ln آئٹم",
+    "other": "%Ln آئٹمز"
   },
   "Compressed image data, %1": "کمپریسڈ تصویری ڈیٹا، %1",
-  "Image data, %n bytes": {
-    "one": "تصویری ڈیٹا، %n بائٹ",
-    "other": "تصویری ڈیٹا، %n بائٹس"
+  "Image data, %Ln bytes": {
+    "one": "تصویری ڈیٹا، %Ln بائٹ",
+    "other": "تصویری ڈیٹا، %Ln بائٹس"
   },
-  "%n bytes": {
-    "one": "%n بائٹ",
-    "other": "%n بائٹس"
+  "%Ln bytes": {
+    "one": "%Ln بائٹ",
+    "other": "%Ln بائٹس"
   },
   "DICOM images": "DICOM تصاویر",
   "All files": "تمام فائلیں",

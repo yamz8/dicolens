@@ -80,9 +80,9 @@
   "Zoom %1%": "විශාලනය %1%",
   "Reading %1 of %2 files": "ගොනු %2 න් %1 ක් කියවමින්",
   "Looking for scans…": "ස්කෑන් සොයමින්…",
-  "%n images": {
-    "one": "රූප %n",
-    "other": "රූප %n"
+  "%Ln images": {
+    "one": "රූප %Ln",
+    "other": "රූප %Ln"
   },
   "Can't be decoded": "විකේතනය කළ නොහැක",
   "Click": "ක්ලික් කිරීම",
@@ -95,33 +95,33 @@
   "Unknown": "නොදනී",
   "No tags match": "ගැළපෙන ටැග නැත",
   "Oblique": "ආනත",
-  "%n years old": {
-    "one": "වයස අවුරුදු %n",
-    "other": "වයස අවුරුදු %n"
+  "%Ln years old": {
+    "one": "වයස අවුරුදු %Ln",
+    "other": "වයස අවුරුදු %Ln"
   },
-  "%n months old": {
-    "one": "මාස %n",
-    "other": "මාස %n"
+  "%Ln months old": {
+    "one": "මාස %Ln",
+    "other": "මාස %Ln"
   },
-  "%n weeks old": {
-    "one": "සති %n",
-    "other": "සති %n"
+  "%Ln weeks old": {
+    "one": "සති %Ln",
+    "other": "සති %Ln"
   },
-  "%n days old": {
-    "one": "දින %n",
-    "other": "දින %n"
+  "%Ln days old": {
+    "one": "දින %Ln",
+    "other": "දින %Ln"
   },
-  "%n files couldn't be copied.": {
-    "one": "ගොනු %n ක් පිටපත් කළ නොහැකි විය.",
-    "other": "ගොනු %n ක් පිටපත් කළ නොහැකි විය."
+  "%Ln files couldn't be copied.": {
+    "one": "ගොනු %Ln ක් පිටපත් කළ නොහැකි විය.",
+    "other": "ගොනු %Ln ක් පිටපත් කළ නොහැකි විය."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "රූප %n ක රූපය තුළම රෝගියාගේ විස්තර පෙනිය හැකි අතර, පිටපතට ඒවා ඉවත් කළ නොහැක. බෙදාගැනීමට පෙර එය බලන්න.",
-    "other": "රූප %n ක රූපය තුළම රෝගියාගේ විස්තර පෙනිය හැකි අතර, පිටපතට ඒවා ඉවත් කළ නොහැක. බෙදාගැනීමට පෙර ඒවා බලන්න."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "රූප %Ln ක රූපය තුළම රෝගියාගේ විස්තර පෙනිය හැකි අතර, පිටපතට ඒවා ඉවත් කළ නොහැක. බෙදාගැනීමට පෙර එය බලන්න.",
+    "other": "රූප %Ln ක රූපය තුළම රෝගියාගේ විස්තර පෙනිය හැකි අතර, පිටපතට ඒවා ඉවත් කළ නොහැක. බෙදාගැනීමට පෙර ඒවා බලන්න."
   },
-  "Saved %n files in %1": {
-    "one": "ගොනු %n ක් %1 හි සුරැකිණි",
-    "other": "ගොනු %n ක් %1 හි සුරැකිණි"
+  "Saved %Ln files in %1": {
+    "one": "ගොනු %Ln ක් %1 හි සුරැකිණි",
+    "other": "ගොනු %Ln ක් %1 හි සුරැකිණි"
   },
   "Male": "පිරිමි",
   "Mean %1  ·  SD %2": "මධ්‍යන්‍යය %1  ·  SD %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 නොපවතී",
   "No DICOM images were found there": "එහි DICOM රූප කිසිවක් හමු නොවීය",
   "The DICOM files there couldn't be read: %1": "එහි DICOM ගොනු කියවිය නොහැකි විය: %1",
-  "%n files couldn't be read": {
-    "one": "ගොනු %n ක් කියවිය නොහැකි විය",
-    "other": "ගොනු %n ක් කියවිය නොහැකි විය"
+  "%Ln files couldn't be read": {
+    "one": "ගොනු %Ln ක් කියවිය නොහැකි විය",
+    "other": "ගොනු %Ln ක් කියවිය නොහැකි විය"
   },
   "Untitled series": "නම් නොකළ ශ්‍රේණිය",
   "Series %1": "ශ්‍රේණිය %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "සමහර ස්ලයිස කියවිය නොහැකි බැවින් මෙම රූපය සෑදිය නොහැක",
   "Lung": "පෙනහළු",
   "Bone": "අස්ථි",
-  "%n items": {
-    "one": "අයිතම %n",
-    "other": "අයිතම %n"
+  "%Ln items": {
+    "one": "අයිතම %Ln",
+    "other": "අයිතම %Ln"
   },
   "Compressed image data, %1": "සම්පීඩිත රූප දත්ත, %1",
-  "Image data, %n bytes": {
-    "one": "රූප දත්ත, බයිට %n",
-    "other": "රූප දත්ත, බයිට %n"
+  "Image data, %Ln bytes": {
+    "one": "රූප දත්ත, බයිට %Ln",
+    "other": "රූප දත්ත, බයිට %Ln"
   },
-  "%n bytes": {
-    "one": "බයිට %n",
-    "other": "බයිට %n"
+  "%Ln bytes": {
+    "one": "බයිට %Ln",
+    "other": "බයිට %Ln"
   },
   "DICOM images": "DICOM රූප",
   "All files": "සියලු ගොනු",

@@ -80,12 +80,12 @@
   "Zoom %1%": "Zúmáil %1%",
   "Reading %1 of %2 files": "Ag léamh %1 as %2 comhad",
   "Looking for scans…": "Ag cuardach scananna…",
-  "%n images": {
-    "one": "%n íomhá",
-    "two": "%n íomhá",
-    "few": "%n íomhá",
-    "many": "%n n-íomhá",
-    "other": "%n íomhá"
+  "%Ln images": {
+    "one": "%Ln íomhá",
+    "two": "%Ln íomhá",
+    "few": "%Ln íomhá",
+    "many": "%Ln n-íomhá",
+    "other": "%Ln íomhá"
   },
   "Can't be decoded": "Ní féidir é a dhíchódú",
   "Click": "Cliceáil",
@@ -98,54 +98,54 @@
   "Unknown": "Anaithnid",
   "No tags match": "Níl clib ar bith ag teacht leis",
   "Oblique": "Fiar",
-  "%n years old": {
-    "one": "%n bhliain d’aois",
-    "two": "%n bhliain d’aois",
-    "few": "%n bliana d’aois",
-    "many": "%n mbliana d’aois",
-    "other": "%n bliain d’aois"
+  "%Ln years old": {
+    "one": "%Ln bhliain d’aois",
+    "two": "%Ln bhliain d’aois",
+    "few": "%Ln bliana d’aois",
+    "many": "%Ln mbliana d’aois",
+    "other": "%Ln bliain d’aois"
   },
-  "%n months old": {
-    "one": "%n mhí d’aois",
-    "two": "%n mhí d’aois",
-    "few": "%n mhí d’aois",
-    "many": "%n mí d’aois",
-    "other": "%n mí d’aois"
+  "%Ln months old": {
+    "one": "%Ln mhí d’aois",
+    "two": "%Ln mhí d’aois",
+    "few": "%Ln mhí d’aois",
+    "many": "%Ln mí d’aois",
+    "other": "%Ln mí d’aois"
   },
-  "%n weeks old": {
-    "one": "%n seachtain d’aois",
-    "two": "%n sheachtain d’aois",
-    "few": "%n seachtaine d’aois",
-    "many": "%n seachtaine d’aois",
-    "other": "%n seachtain d’aois"
+  "%Ln weeks old": {
+    "one": "%Ln seachtain d’aois",
+    "two": "%Ln sheachtain d’aois",
+    "few": "%Ln seachtaine d’aois",
+    "many": "%Ln seachtaine d’aois",
+    "other": "%Ln seachtain d’aois"
   },
-  "%n days old": {
-    "one": "%n lá d’aois",
-    "two": "%n lá d’aois",
-    "few": "%n lá d’aois",
-    "many": "%n lá d’aois",
-    "other": "%n lá d’aois"
+  "%Ln days old": {
+    "one": "%Ln lá d’aois",
+    "two": "%Ln lá d’aois",
+    "few": "%Ln lá d’aois",
+    "many": "%Ln lá d’aois",
+    "other": "%Ln lá d’aois"
   },
-  "%n files couldn't be copied.": {
-    "one": "Níorbh fhéidir %n chomhad a chóipeáil.",
-    "two": "Níorbh fhéidir %n chomhad a chóipeáil.",
-    "few": "Níorbh fhéidir %n chomhad a chóipeáil.",
-    "many": "Níorbh fhéidir %n gcomhad a chóipeáil.",
-    "other": "Níorbh fhéidir %n comhad a chóipeáil."
+  "%Ln files couldn't be copied.": {
+    "one": "Níorbh fhéidir %Ln chomhad a chóipeáil.",
+    "two": "Níorbh fhéidir %Ln chomhad a chóipeáil.",
+    "few": "Níorbh fhéidir %Ln chomhad a chóipeáil.",
+    "many": "Níorbh fhéidir %Ln gcomhad a chóipeáil.",
+    "other": "Níorbh fhéidir %Ln comhad a chóipeáil."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "D’fhéadfadh sonraí an othair a bheith le feiceáil in %n íomhá féin, rud nach féidir le cóip a bhaint amach. Féach uirthi sula roinnfidh tú í.",
-    "two": "D’fhéadfadh sonraí an othair a bheith le feiceáil in %n íomhá féin, rud nach féidir le cóip a bhaint amach. Féach orthu sula roinnfidh tú iad.",
-    "few": "D’fhéadfadh sonraí an othair a bheith le feiceáil in %n íomhá féin, rud nach féidir le cóip a bhaint amach. Féach orthu sula roinnfidh tú iad.",
-    "many": "D’fhéadfadh sonraí an othair a bheith le feiceáil in %n n-íomhá féin, rud nach féidir le cóip a bhaint amach. Féach orthu sula roinnfidh tú iad.",
-    "other": "D’fhéadfadh sonraí an othair a bheith le feiceáil in %n íomhá féin, rud nach féidir le cóip a bhaint amach. Féach orthu sula roinnfidh tú iad."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "D’fhéadfadh sonraí an othair a bheith le feiceáil in %Ln íomhá féin, rud nach féidir le cóip a bhaint amach. Féach uirthi sula roinnfidh tú í.",
+    "two": "D’fhéadfadh sonraí an othair a bheith le feiceáil in %Ln íomhá féin, rud nach féidir le cóip a bhaint amach. Féach orthu sula roinnfidh tú iad.",
+    "few": "D’fhéadfadh sonraí an othair a bheith le feiceáil in %Ln íomhá féin, rud nach féidir le cóip a bhaint amach. Féach orthu sula roinnfidh tú iad.",
+    "many": "D’fhéadfadh sonraí an othair a bheith le feiceáil in %Ln n-íomhá féin, rud nach féidir le cóip a bhaint amach. Féach orthu sula roinnfidh tú iad.",
+    "other": "D’fhéadfadh sonraí an othair a bheith le feiceáil in %Ln íomhá féin, rud nach féidir le cóip a bhaint amach. Féach orthu sula roinnfidh tú iad."
   },
-  "Saved %n files in %1": {
-    "one": "Sábháladh %n chomhad in %1",
-    "two": "Sábháladh %n chomhad in %1",
-    "few": "Sábháladh %n chomhad in %1",
-    "many": "Sábháladh %n gcomhad in %1",
-    "other": "Sábháladh %n comhad in %1"
+  "Saved %Ln files in %1": {
+    "one": "Sábháladh %Ln chomhad in %1",
+    "two": "Sábháladh %Ln chomhad in %1",
+    "few": "Sábháladh %Ln chomhad in %1",
+    "many": "Sábháladh %Ln gcomhad in %1",
+    "other": "Sábháladh %Ln comhad in %1"
   },
   "Male": "Fireann",
   "Mean %1  ·  SD %2": "Meán %1  ·  DC %2",
@@ -155,12 +155,12 @@
   "%1 doesn't exist": "Níl %1 ann",
   "No DICOM images were found there": "Níor aimsíodh íomhánna DICOM ansin",
   "The DICOM files there couldn't be read: %1": "Níorbh fhéidir na comhaid DICOM ansin a léamh: %1",
-  "%n files couldn't be read": {
-    "one": "Níorbh fhéidir %n chomhad a léamh",
-    "two": "Níorbh fhéidir %n chomhad a léamh",
-    "few": "Níorbh fhéidir %n chomhad a léamh",
-    "many": "Níorbh fhéidir %n gcomhad a léamh",
-    "other": "Níorbh fhéidir %n comhad a léamh"
+  "%Ln files couldn't be read": {
+    "one": "Níorbh fhéidir %Ln chomhad a léamh",
+    "two": "Níorbh fhéidir %Ln chomhad a léamh",
+    "few": "Níorbh fhéidir %Ln chomhad a léamh",
+    "many": "Níorbh fhéidir %Ln gcomhad a léamh",
+    "other": "Níorbh fhéidir %Ln comhad a léamh"
   },
   "Untitled series": "Sraith gan teideal",
   "Series %1": "Sraith %1",
@@ -194,27 +194,27 @@
   "Some slices can't be read, so this picture can't be made": "Ní féidir roinnt slisní a léamh, mar sin ní féidir an pictiúr seo a dhéanamh",
   "Lung": "Scamhóg",
   "Bone": "Cnámh",
-  "%n items": {
-    "one": "%n mhír",
-    "two": "%n mhír",
-    "few": "%n mhír",
-    "many": "%n mír",
-    "other": "%n mír"
+  "%Ln items": {
+    "one": "%Ln mhír",
+    "two": "%Ln mhír",
+    "few": "%Ln mhír",
+    "many": "%Ln mír",
+    "other": "%Ln mír"
   },
   "Compressed image data, %1": "Sonraí íomhá comhbhrúite, %1",
-  "Image data, %n bytes": {
-    "one": "Sonraí íomhá, %n bheart",
-    "two": "Sonraí íomhá, %n bheart",
-    "few": "Sonraí íomhá, %n bheart",
-    "many": "Sonraí íomhá, %n mbeart",
-    "other": "Sonraí íomhá, %n beart"
+  "Image data, %Ln bytes": {
+    "one": "Sonraí íomhá, %Ln bheart",
+    "two": "Sonraí íomhá, %Ln bheart",
+    "few": "Sonraí íomhá, %Ln bheart",
+    "many": "Sonraí íomhá, %Ln mbeart",
+    "other": "Sonraí íomhá, %Ln beart"
   },
-  "%n bytes": {
-    "one": "%n bheart",
-    "two": "%n bheart",
-    "few": "%n bheart",
-    "many": "%n mbeart",
-    "other": "%n beart"
+  "%Ln bytes": {
+    "one": "%Ln bheart",
+    "two": "%Ln bheart",
+    "few": "%Ln bheart",
+    "many": "%Ln mbeart",
+    "other": "%Ln beart"
   },
   "DICOM images": "Íomhánna DICOM",
   "All files": "Gach comhad",

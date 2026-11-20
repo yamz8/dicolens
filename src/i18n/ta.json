@@ -80,9 +80,9 @@
   "Zoom %1%": "பெரிதாக்கம் %1%",
   "Reading %1 of %2 files": "%2 இல் %1 கோப்புகள் படிக்கப்படுகின்றன",
   "Looking for scans…": "ஸ்கேன்கள் தேடப்படுகின்றன…",
-  "%n images": {
-    "one": "%n படம்",
-    "other": "%n படங்கள்"
+  "%Ln images": {
+    "one": "%Ln படம்",
+    "other": "%Ln படங்கள்"
   },
   "Can't be decoded": "குறிவிலக்க முடியாது",
   "Click": "கிளிக்",
@@ -95,33 +95,33 @@
   "Unknown": "தெரியாதது",
   "No tags match": "பொருந்தும் குறிச்சொல் இல்லை",
   "Oblique": "சாய்வு",
-  "%n years old": {
-    "one": "%n வயது",
-    "other": "%n வயது"
+  "%Ln years old": {
+    "one": "%Ln வயது",
+    "other": "%Ln வயது"
   },
-  "%n months old": {
-    "one": "%n மாதம்",
-    "other": "%n மாதங்கள்"
+  "%Ln months old": {
+    "one": "%Ln மாதம்",
+    "other": "%Ln மாதங்கள்"
   },
-  "%n weeks old": {
-    "one": "%n வாரம்",
-    "other": "%n வாரங்கள்"
+  "%Ln weeks old": {
+    "one": "%Ln வாரம்",
+    "other": "%Ln வாரங்கள்"
   },
-  "%n days old": {
-    "one": "%n நாள்",
-    "other": "%n நாட்கள்"
+  "%Ln days old": {
+    "one": "%Ln நாள்",
+    "other": "%Ln நாட்கள்"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n கோப்பை நகலெடுக்க முடியவில்லை.",
-    "other": "%n கோப்புகளை நகலெடுக்க முடியவில்லை."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln கோப்பை நகலெடுக்க முடியவில்லை.",
+    "other": "%Ln கோப்புகளை நகலெடுக்க முடியவில்லை."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n படம் நோயாளியின் விவரங்களைப் படத்திலேயே காட்டக்கூடும்; அதை நகலால் நீக்க முடியாது. பகிர்வதற்கு முன் அதைப் பாருங்கள்.",
-    "other": "%n படங்கள் நோயாளியின் விவரங்களைப் படத்திலேயே காட்டக்கூடும்; அவற்றை நகலால் நீக்க முடியாது. பகிர்வதற்கு முன் அவற்றைப் பாருங்கள்."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln படம் நோயாளியின் விவரங்களைப் படத்திலேயே காட்டக்கூடும்; அதை நகலால் நீக்க முடியாது. பகிர்வதற்கு முன் அதைப் பாருங்கள்.",
+    "other": "%Ln படங்கள் நோயாளியின் விவரங்களைப் படத்திலேயே காட்டக்கூடும்; அவற்றை நகலால் நீக்க முடியாது. பகிர்வதற்கு முன் அவற்றைப் பாருங்கள்."
   },
-  "Saved %n files in %1": {
-    "one": "%n கோப்பு %1-இல் சேமிக்கப்பட்டது",
-    "other": "%n கோப்புகள் %1-இல் சேமிக்கப்பட்டன"
+  "Saved %Ln files in %1": {
+    "one": "%Ln கோப்பு %1-இல் சேமிக்கப்பட்டது",
+    "other": "%Ln கோப்புகள் %1-இல் சேமிக்கப்பட்டன"
   },
   "Male": "ஆண்",
   "Mean %1  ·  SD %2": "சராசரி %1  ·  SD %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 இல்லை",
   "No DICOM images were found there": "அங்கே DICOM படங்கள் எதுவும் கிடைக்கவில்லை",
   "The DICOM files there couldn't be read: %1": "அங்குள்ள DICOM கோப்புகளைப் படிக்க முடியவில்லை: %1",
-  "%n files couldn't be read": {
-    "one": "%n கோப்பைப் படிக்க முடியவில்லை",
-    "other": "%n கோப்புகளைப் படிக்க முடியவில்லை"
+  "%Ln files couldn't be read": {
+    "one": "%Ln கோப்பைப் படிக்க முடியவில்லை",
+    "other": "%Ln கோப்புகளைப் படிக்க முடியவில்லை"
   },
   "Untitled series": "பெயரிடப்படாத சீரிஸ்",
   "Series %1": "சீரிஸ் %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "சில ஸ்லைஸ்களைப் படிக்க முடியவில்லை, எனவே இந்தப் படத்தை உருவாக்க முடியாது",
   "Lung": "நுரையீரல்",
   "Bone": "எலும்பு",
-  "%n items": {
-    "one": "%n உருப்படி",
-    "other": "%n உருப்படிகள்"
+  "%Ln items": {
+    "one": "%Ln உருப்படி",
+    "other": "%Ln உருப்படிகள்"
   },
   "Compressed image data, %1": "சுருக்கப்பட்ட படத் தரவு, %1",
-  "Image data, %n bytes": {
-    "one": "படத் தரவு, %n பைட்",
-    "other": "படத் தரவு, %n பைட்டுகள்"
+  "Image data, %Ln bytes": {
+    "one": "படத் தரவு, %Ln பைட்",
+    "other": "படத் தரவு, %Ln பைட்டுகள்"
   },
-  "%n bytes": {
-    "one": "%n பைட்",
-    "other": "%n பைட்டுகள்"
+  "%Ln bytes": {
+    "one": "%Ln பைட்",
+    "other": "%Ln பைட்டுகள்"
   },
   "DICOM images": "DICOM படங்கள்",
   "All files": "எல்லா கோப்புகளும்",

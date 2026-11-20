@@ -80,9 +80,9 @@
   "Zoom %1%": "Zoom %1%",
   "Reading %1 of %2 files": "%1 van %2 bestanden lezen",
   "Looking for scans…": "Scans zoeken…",
-  "%n images": {
-    "one": "%n beeld",
-    "other": "%n beelden"
+  "%Ln images": {
+    "one": "%Ln beeld",
+    "other": "%Ln beelden"
   },
   "Can't be decoded": "Kan niet worden gedecodeerd",
   "Click": "Klikken",
@@ -95,33 +95,33 @@
   "Unknown": "Onbekend",
   "No tags match": "Geen tags gevonden",
   "Oblique": "Schuin",
-  "%n years old": {
-    "one": "%n jaar",
-    "other": "%n jaar"
+  "%Ln years old": {
+    "one": "%Ln jaar",
+    "other": "%Ln jaar"
   },
-  "%n months old": {
-    "one": "%n maand",
-    "other": "%n maanden"
+  "%Ln months old": {
+    "one": "%Ln maand",
+    "other": "%Ln maanden"
   },
-  "%n weeks old": {
-    "one": "%n week",
-    "other": "%n weken"
+  "%Ln weeks old": {
+    "one": "%Ln week",
+    "other": "%Ln weken"
   },
-  "%n days old": {
-    "one": "%n dag",
-    "other": "%n dagen"
+  "%Ln days old": {
+    "one": "%Ln dag",
+    "other": "%Ln dagen"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n bestand kon niet worden gekopieerd.",
-    "other": "%n bestanden konden niet worden gekopieerd."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln bestand kon niet worden gekopieerd.",
+    "other": "%Ln bestanden konden niet worden gekopieerd."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n van de afbeeldingen kan de gegevens van de patiënt in het beeld zelf tonen, en die haalt een kopie er niet uit. Bekijk hem voor het delen.",
-    "other": "%n van de afbeeldingen kunnen de gegevens van de patiënt in het beeld zelf tonen, en die haalt een kopie er niet uit. Bekijk ze voor het delen."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln van de afbeeldingen kan de gegevens van de patiënt in het beeld zelf tonen, en die haalt een kopie er niet uit. Bekijk hem voor het delen.",
+    "other": "%Ln van de afbeeldingen kunnen de gegevens van de patiënt in het beeld zelf tonen, en die haalt een kopie er niet uit. Bekijk ze voor het delen."
   },
-  "Saved %n files in %1": {
-    "one": "%n bestand opgeslagen in %1",
-    "other": "%n bestanden opgeslagen in %1"
+  "Saved %Ln files in %1": {
+    "one": "%Ln bestand opgeslagen in %1",
+    "other": "%Ln bestanden opgeslagen in %1"
   },
   "Male": "Man",
   "Mean %1  ·  SD %2": "Gemiddelde %1  ·  SD %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 bestaat niet",
   "No DICOM images were found there": "Daar zijn geen DICOM-beelden gevonden",
   "The DICOM files there couldn't be read: %1": "De DICOM-bestanden daar konden niet worden gelezen: %1",
-  "%n files couldn't be read": {
-    "one": "%n bestand kon niet worden gelezen",
-    "other": "%n bestanden konden niet worden gelezen"
+  "%Ln files couldn't be read": {
+    "one": "%Ln bestand kon niet worden gelezen",
+    "other": "%Ln bestanden konden niet worden gelezen"
   },
   "Untitled series": "Naamloze serie",
   "Series %1": "Serie %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "Sommige coupes kunnen niet worden gelezen, dus dit beeld kan niet worden gemaakt",
   "Lung": "Long",
   "Bone": "Bot",
-  "%n items": {
-    "one": "%n item",
-    "other": "%n items"
+  "%Ln items": {
+    "one": "%Ln item",
+    "other": "%Ln items"
   },
   "Compressed image data, %1": "Gecomprimeerde beelddata, %1",
-  "Image data, %n bytes": {
-    "one": "Beelddata, %n byte",
-    "other": "Beelddata, %n bytes"
+  "Image data, %Ln bytes": {
+    "one": "Beelddata, %Ln byte",
+    "other": "Beelddata, %Ln bytes"
   },
-  "%n bytes": {
-    "one": "%n byte",
-    "other": "%n bytes"
+  "%Ln bytes": {
+    "one": "%Ln byte",
+    "other": "%Ln bytes"
   },
   "DICOM images": "DICOM-beelden",
   "All files": "Alle bestanden",

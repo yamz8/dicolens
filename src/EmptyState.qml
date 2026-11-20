@@ -28,12 +28,21 @@ ColumnLayout {
         Layout.topMargin: 14
         spacing: 12
         Button {
+            id: openButton
             text: qsTr("Open Files") + "   O"
             highlighted: true
             Material.roundedScale: theme.radius
-            Material.background: theme.accent
-            Material.foreground: theme.accentForeground
+            Material.accent: theme.accent
             onClicked: backend.open()
+            // A highlighted button colors its caption by Material's own
+            // rule, not Material.foreground, so it can't read on every accent.
+            contentItem: Label {
+                text: openButton.text
+                font: openButton.font
+                color: theme.accentForeground
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
         }
         Button {
             text: qsTr("Open Folder") + "   Shift+O"

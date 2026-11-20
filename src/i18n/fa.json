@@ -80,9 +80,9 @@
   "Zoom %1%": "بزرگ‌نمایی %1%",
   "Reading %1 of %2 files": "در حال خواندن %1 از %2 فایل",
   "Looking for scans…": "در حال جست‌وجوی اسکن‌ها…",
-  "%n images": {
-    "one": "%n تصویر",
-    "other": "%n تصویر"
+  "%Ln images": {
+    "one": "%Ln تصویر",
+    "other": "%Ln تصویر"
   },
   "Can't be decoded": "رمزگشایی نمی‌شود",
   "Click": "کلیک",
@@ -95,33 +95,33 @@
   "Unknown": "ناشناخته",
   "No tags match": "هیچ تگی مطابقت ندارد",
   "Oblique": "مایل",
-  "%n years old": {
-    "one": "%n ساله",
-    "other": "%n ساله"
+  "%Ln years old": {
+    "one": "%Ln ساله",
+    "other": "%Ln ساله"
   },
-  "%n months old": {
-    "one": "%n ماهه",
-    "other": "%n ماهه"
+  "%Ln months old": {
+    "one": "%Ln ماهه",
+    "other": "%Ln ماهه"
   },
-  "%n weeks old": {
-    "one": "%n هفته",
-    "other": "%n هفته"
+  "%Ln weeks old": {
+    "one": "%Ln هفته",
+    "other": "%Ln هفته"
   },
-  "%n days old": {
-    "one": "%n روزه",
-    "other": "%n روزه"
+  "%Ln days old": {
+    "one": "%Ln روزه",
+    "other": "%Ln روزه"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n فایل کپی نشد.",
-    "other": "%n فایل کپی نشد."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln فایل کپی نشد.",
+    "other": "%Ln فایل کپی نشد."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "ممکن است %n تصویر مشخصات بیمار را در خود تصویر نشان دهد که نسخه نمی‌تواند آن را حذف کند. پیش از اشتراک‌گذاری آن را نگاه کنید.",
-    "other": "ممکن است %n تصویر مشخصات بیمار را در خود تصویر نشان دهند که نسخه نمی‌تواند آن را حذف کند. پیش از اشتراک‌گذاری آن‌ها را نگاه کنید."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "ممکن است %Ln تصویر مشخصات بیمار را در خود تصویر نشان دهد که نسخه نمی‌تواند آن را حذف کند. پیش از اشتراک‌گذاری آن را نگاه کنید.",
+    "other": "ممکن است %Ln تصویر مشخصات بیمار را در خود تصویر نشان دهند که نسخه نمی‌تواند آن را حذف کند. پیش از اشتراک‌گذاری آن‌ها را نگاه کنید."
   },
-  "Saved %n files in %1": {
-    "one": "%n فایل در %1 ذخیره شد",
-    "other": "%n فایل در %1 ذخیره شد"
+  "Saved %Ln files in %1": {
+    "one": "%Ln فایل در %1 ذخیره شد",
+    "other": "%Ln فایل در %1 ذخیره شد"
   },
   "Male": "مرد",
   "Mean %1  ·  SD %2": "میانگین %1  ·  انحراف معیار %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 وجود ندارد",
   "No DICOM images were found there": "هیچ تصویر DICOMای آنجا پیدا نشد",
   "The DICOM files there couldn't be read: %1": "فایل‌های DICOM آنجا خوانده نشدند: %1",
-  "%n files couldn't be read": {
-    "one": "%n فایل خوانده نشد",
-    "other": "%n فایل خوانده نشد"
+  "%Ln files couldn't be read": {
+    "one": "%Ln فایل خوانده نشد",
+    "other": "%Ln فایل خوانده نشد"
   },
   "Untitled series": "سری بی‌نام",
   "Series %1": "سری %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "برخی برش‌ها خوانده نمی‌شوند، پس این تصویر ساخته نمی‌شود",
   "Lung": "ریه",
   "Bone": "استخوان",
-  "%n items": {
-    "one": "%n آیتم",
-    "other": "%n آیتم"
+  "%Ln items": {
+    "one": "%Ln آیتم",
+    "other": "%Ln آیتم"
   },
   "Compressed image data, %1": "دادهٔ تصویر فشرده، %1",
-  "Image data, %n bytes": {
-    "one": "دادهٔ تصویر، %n بایت",
-    "other": "دادهٔ تصویر، %n بایت"
+  "Image data, %Ln bytes": {
+    "one": "دادهٔ تصویر، %Ln بایت",
+    "other": "دادهٔ تصویر، %Ln بایت"
   },
-  "%n bytes": {
-    "one": "%n بایت",
-    "other": "%n بایت"
+  "%Ln bytes": {
+    "one": "%Ln بایت",
+    "other": "%Ln بایت"
   },
   "DICOM images": "تصاویر DICOM",
   "All files": "همهٔ فایل‌ها",

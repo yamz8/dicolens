@@ -80,10 +80,10 @@
   "Zoom %1%": "Zum %1%",
   "Reading %1 of %2 files": "Čitanje datoteka: %1 od %2",
   "Looking for scans…": "Traženje snimaka…",
-  "%n images": {
-    "one": "%n slika",
-    "few": "%n slike",
-    "other": "%n slika"
+  "%Ln images": {
+    "one": "%Ln slika",
+    "few": "%Ln slike",
+    "other": "%Ln slika"
   },
   "Can't be decoded": "Nije moguće dekodirati",
   "Click": "Klik",
@@ -96,40 +96,40 @@
   "Unknown": "Nepoznato",
   "No tags match": "Nema odgovarajućih oznaka",
   "Oblique": "Kosi",
-  "%n years old": {
-    "one": "%n godina",
-    "few": "%n godine",
-    "other": "%n godina"
+  "%Ln years old": {
+    "one": "%Ln godina",
+    "few": "%Ln godine",
+    "other": "%Ln godina"
   },
-  "%n months old": {
-    "one": "%n mjesec",
-    "few": "%n mjeseca",
-    "other": "%n mjeseci"
+  "%Ln months old": {
+    "one": "%Ln mjesec",
+    "few": "%Ln mjeseca",
+    "other": "%Ln mjeseci"
   },
-  "%n weeks old": {
-    "one": "%n tjedan",
-    "few": "%n tjedna",
-    "other": "%n tjedana"
+  "%Ln weeks old": {
+    "one": "%Ln tjedan",
+    "few": "%Ln tjedna",
+    "other": "%Ln tjedana"
   },
-  "%n days old": {
-    "one": "%n dan",
-    "few": "%n dana",
-    "other": "%n dana"
+  "%Ln days old": {
+    "one": "%Ln dan",
+    "few": "%Ln dana",
+    "other": "%Ln dana"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n datoteku nije moguće kopirati.",
-    "few": "%n datoteke nije moguće kopirati.",
-    "other": "%n datoteka nije moguće kopirati."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln datoteku nije moguće kopirati.",
+    "few": "%Ln datoteke nije moguće kopirati.",
+    "other": "%Ln datoteka nije moguće kopirati."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n slika može prikazivati podatke o pacijentu u samom prikazu, koje kopija ne može ukloniti. Pogledajte je prije dijeljenja.",
-    "few": "%n slike mogu prikazivati podatke o pacijentu u samom prikazu, koje kopija ne može ukloniti. Pogledajte ih prije dijeljenja.",
-    "other": "%n slika može prikazivati podatke o pacijentu u samom prikazu, koje kopija ne može ukloniti. Pogledajte ih prije dijeljenja."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln slika može prikazivati podatke o pacijentu u samom prikazu, koje kopija ne može ukloniti. Pogledajte je prije dijeljenja.",
+    "few": "%Ln slike mogu prikazivati podatke o pacijentu u samom prikazu, koje kopija ne može ukloniti. Pogledajte ih prije dijeljenja.",
+    "other": "%Ln slika može prikazivati podatke o pacijentu u samom prikazu, koje kopija ne može ukloniti. Pogledajte ih prije dijeljenja."
   },
-  "Saved %n files in %1": {
-    "one": "Spremljena je %n datoteka u %1",
-    "few": "Spremljene su %n datoteke u %1",
-    "other": "Spremljeno je %n datoteka u %1"
+  "Saved %Ln files in %1": {
+    "one": "Spremljena je %Ln datoteka u %1",
+    "few": "Spremljene su %Ln datoteke u %1",
+    "other": "Spremljeno je %Ln datoteka u %1"
   },
   "Male": "Muško",
   "Mean %1  ·  SD %2": "Srednja vrijednost %1  ·  SD %2",
@@ -139,10 +139,10 @@
   "%1 doesn't exist": "%1 ne postoji",
   "No DICOM images were found there": "Ondje nisu pronađene DICOM slike",
   "The DICOM files there couldn't be read: %1": "DICOM datoteke ondje nije moguće pročitati: %1",
-  "%n files couldn't be read": {
-    "one": "%n datoteku nije moguće pročitati",
-    "few": "%n datoteke nije moguće pročitati",
-    "other": "%n datoteka nije moguće pročitati"
+  "%Ln files couldn't be read": {
+    "one": "%Ln datoteku nije moguće pročitati",
+    "few": "%Ln datoteke nije moguće pročitati",
+    "other": "%Ln datoteka nije moguće pročitati"
   },
   "Untitled series": "Neimenovana serija",
   "Series %1": "Serija %1",
@@ -176,21 +176,21 @@
   "Some slices can't be read, so this picture can't be made": "Neke presjeke nije moguće pročitati pa ova slika ne može nastati",
   "Lung": "Pluća",
   "Bone": "Kost",
-  "%n items": {
-    "one": "%n stavka",
-    "few": "%n stavke",
-    "other": "%n stavki"
+  "%Ln items": {
+    "one": "%Ln stavka",
+    "few": "%Ln stavke",
+    "other": "%Ln stavki"
   },
   "Compressed image data, %1": "Komprimirani slikovni podaci, %1",
-  "Image data, %n bytes": {
-    "one": "Slikovni podaci, %n bajt",
-    "few": "Slikovni podaci, %n bajta",
-    "other": "Slikovni podaci, %n bajtova"
+  "Image data, %Ln bytes": {
+    "one": "Slikovni podaci, %Ln bajt",
+    "few": "Slikovni podaci, %Ln bajta",
+    "other": "Slikovni podaci, %Ln bajtova"
   },
-  "%n bytes": {
-    "one": "%n bajt",
-    "few": "%n bajta",
-    "other": "%n bajtova"
+  "%Ln bytes": {
+    "one": "%Ln bajt",
+    "few": "%Ln bajta",
+    "other": "%Ln bajtova"
   },
   "DICOM images": "DICOM slike",
   "All files": "Sve datoteke",

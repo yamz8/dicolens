@@ -80,10 +80,10 @@
   "Zoom %1%": "Zoom %1%",
   "Reading %1 of %2 files": "A ler %1 de %2 ficheiros",
   "Looking for scans…": "A procurar exames…",
-  "%n images": {
-    "one": "%n imagem",
-    "many": "%n de imagens",
-    "other": "%n imagens"
+  "%Ln images": {
+    "one": "%Ln imagem",
+    "many": "%Ln de imagens",
+    "other": "%Ln imagens"
   },
   "Can't be decoded": "Não é possível descodificar",
   "Click": "Clique",
@@ -96,40 +96,40 @@
   "Unknown": "Desconhecida",
   "No tags match": "Nenhuma etiqueta corresponde",
   "Oblique": "Oblíquo",
-  "%n years old": {
-    "one": "%n ano",
-    "many": "%n anos",
-    "other": "%n anos"
+  "%Ln years old": {
+    "one": "%Ln ano",
+    "many": "%Ln anos",
+    "other": "%Ln anos"
   },
-  "%n months old": {
-    "one": "%n mês",
-    "many": "%n meses",
-    "other": "%n meses"
+  "%Ln months old": {
+    "one": "%Ln mês",
+    "many": "%Ln meses",
+    "other": "%Ln meses"
   },
-  "%n weeks old": {
-    "one": "%n semana",
-    "many": "%n semanas",
-    "other": "%n semanas"
+  "%Ln weeks old": {
+    "one": "%Ln semana",
+    "many": "%Ln semanas",
+    "other": "%Ln semanas"
   },
-  "%n days old": {
-    "one": "%n dia",
-    "many": "%n dias",
-    "other": "%n dias"
+  "%Ln days old": {
+    "one": "%Ln dia",
+    "many": "%Ln dias",
+    "other": "%Ln dias"
   },
-  "%n files couldn't be copied.": {
-    "one": "Não foi possível copiar %n ficheiro.",
-    "many": "Não foi possível copiar %n de ficheiros.",
-    "other": "Não foi possível copiar %n ficheiros."
+  "%Ln files couldn't be copied.": {
+    "one": "Não foi possível copiar %Ln ficheiro.",
+    "many": "Não foi possível copiar %Ln de ficheiros.",
+    "other": "Não foi possível copiar %Ln ficheiros."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n das imagens pode mostrar os dados do doente na própria imagem, que uma cópia não consegue remover. Veja-a antes de a partilhar.",
-    "many": "%n de imagens podem mostrar os dados do doente na própria imagem, que uma cópia não consegue remover. Veja-as antes de as partilhar.",
-    "other": "%n das imagens podem mostrar os dados do doente na própria imagem, que uma cópia não consegue remover. Veja-as antes de as partilhar."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln das imagens pode mostrar os dados do doente na própria imagem, que uma cópia não consegue remover. Veja-a antes de a partilhar.",
+    "many": "%Ln de imagens podem mostrar os dados do doente na própria imagem, que uma cópia não consegue remover. Veja-as antes de as partilhar.",
+    "other": "%Ln das imagens podem mostrar os dados do doente na própria imagem, que uma cópia não consegue remover. Veja-as antes de as partilhar."
   },
-  "Saved %n files in %1": {
-    "one": "%n ficheiro guardado em %1",
-    "many": "%n de ficheiros guardados em %1",
-    "other": "%n ficheiros guardados em %1"
+  "Saved %Ln files in %1": {
+    "one": "%Ln ficheiro guardado em %1",
+    "many": "%Ln de ficheiros guardados em %1",
+    "other": "%Ln ficheiros guardados em %1"
   },
   "Male": "Masculino",
   "Mean %1  ·  SD %2": "Média %1  ·  DP %2",
@@ -139,10 +139,10 @@
   "%1 doesn't exist": "%1 não existe",
   "No DICOM images were found there": "Não foram encontradas imagens DICOM nesse local",
   "The DICOM files there couldn't be read: %1": "Não foi possível ler os ficheiros DICOM nesse local: %1",
-  "%n files couldn't be read": {
-    "one": "Não foi possível ler %n ficheiro",
-    "many": "Não foi possível ler %n de ficheiros",
-    "other": "Não foi possível ler %n ficheiros"
+  "%Ln files couldn't be read": {
+    "one": "Não foi possível ler %Ln ficheiro",
+    "many": "Não foi possível ler %Ln de ficheiros",
+    "other": "Não foi possível ler %Ln ficheiros"
   },
   "Untitled series": "Série sem título",
   "Series %1": "Série %1",
@@ -176,21 +176,21 @@
   "Some slices can't be read, so this picture can't be made": "Não é possível ler alguns cortes, por isso esta imagem não pode ser criada",
   "Lung": "Pulmão",
   "Bone": "Osso",
-  "%n items": {
-    "one": "%n item",
-    "many": "%n de itens",
-    "other": "%n itens"
+  "%Ln items": {
+    "one": "%Ln item",
+    "many": "%Ln de itens",
+    "other": "%Ln itens"
   },
   "Compressed image data, %1": "Dados de imagem comprimidos, %1",
-  "Image data, %n bytes": {
-    "one": "Dados de imagem, %n byte",
-    "many": "Dados de imagem, %n de bytes",
-    "other": "Dados de imagem, %n bytes"
+  "Image data, %Ln bytes": {
+    "one": "Dados de imagem, %Ln byte",
+    "many": "Dados de imagem, %Ln de bytes",
+    "other": "Dados de imagem, %Ln bytes"
   },
-  "%n bytes": {
-    "one": "%n byte",
-    "many": "%n de bytes",
-    "other": "%n bytes"
+  "%Ln bytes": {
+    "one": "%Ln byte",
+    "many": "%Ln de bytes",
+    "other": "%Ln bytes"
   },
   "DICOM images": "Imagens DICOM",
   "All files": "Todos os ficheiros",

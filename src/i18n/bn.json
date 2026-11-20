@@ -80,9 +80,9 @@
   "Zoom %1%": "জুম %1%",
   "Reading %1 of %2 files": "%2টির মধ্যে %1টি ফাইল পড়া হচ্ছে",
   "Looking for scans…": "স্ক্যান খোঁজা হচ্ছে…",
-  "%n images": {
-    "one": "%nটি ছবি",
-    "other": "%nটি ছবি"
+  "%Ln images": {
+    "one": "%Lnটি ছবি",
+    "other": "%Lnটি ছবি"
   },
   "Can't be decoded": "ডিকোড করা যায় না",
   "Click": "ক্লিক",
@@ -95,33 +95,33 @@
   "Unknown": "অজানা",
   "No tags match": "কোনো ট্যাগ মেলেনি",
   "Oblique": "তির্যক",
-  "%n years old": {
-    "one": "%n বছর",
-    "other": "%n বছর"
+  "%Ln years old": {
+    "one": "%Ln বছর",
+    "other": "%Ln বছর"
   },
-  "%n months old": {
-    "one": "%n মাস",
-    "other": "%n মাস"
+  "%Ln months old": {
+    "one": "%Ln মাস",
+    "other": "%Ln মাস"
   },
-  "%n weeks old": {
-    "one": "%n সপ্তাহ",
-    "other": "%n সপ্তাহ"
+  "%Ln weeks old": {
+    "one": "%Ln সপ্তাহ",
+    "other": "%Ln সপ্তাহ"
   },
-  "%n days old": {
-    "one": "%n দিন",
-    "other": "%n দিন"
+  "%Ln days old": {
+    "one": "%Ln দিন",
+    "other": "%Ln দিন"
   },
-  "%n files couldn't be copied.": {
-    "one": "%nটি ফাইল কপি করা যায়নি।",
-    "other": "%nটি ফাইল কপি করা যায়নি।"
+  "%Ln files couldn't be copied.": {
+    "one": "%Lnটি ফাইল কপি করা যায়নি।",
+    "other": "%Lnটি ফাইল কপি করা যায়নি।"
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%nটি ছবির ভেতরেই রোগীর তথ্য দেখা যেতে পারে, যা কপি সরাতে পারে না। শেয়ার করার আগে সেটি দেখে নিন।",
-    "other": "%nটি ছবির ভেতরেই রোগীর তথ্য দেখা যেতে পারে, যা কপি সরাতে পারে না। শেয়ার করার আগে সেগুলো দেখে নিন।"
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Lnটি ছবির ভেতরেই রোগীর তথ্য দেখা যেতে পারে, যা কপি সরাতে পারে না। শেয়ার করার আগে সেটি দেখে নিন।",
+    "other": "%Lnটি ছবির ভেতরেই রোগীর তথ্য দেখা যেতে পারে, যা কপি সরাতে পারে না। শেয়ার করার আগে সেগুলো দেখে নিন।"
   },
-  "Saved %n files in %1": {
-    "one": "%1-এ %nটি ফাইল সংরক্ষিত হয়েছে",
-    "other": "%1-এ %nটি ফাইল সংরক্ষিত হয়েছে"
+  "Saved %Ln files in %1": {
+    "one": "%1-এ %Lnটি ফাইল সংরক্ষিত হয়েছে",
+    "other": "%1-এ %Lnটি ফাইল সংরক্ষিত হয়েছে"
   },
   "Male": "পুরুষ",
   "Mean %1  ·  SD %2": "গড় %1  ·  SD %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 নেই",
   "No DICOM images were found there": "সেখানে কোনো DICOM ছবি পাওয়া যায়নি",
   "The DICOM files there couldn't be read: %1": "সেখানকার DICOM ফাইলগুলো পড়া যায়নি: %1",
-  "%n files couldn't be read": {
-    "one": "%nটি ফাইল পড়া যায়নি",
-    "other": "%nটি ফাইল পড়া যায়নি"
+  "%Ln files couldn't be read": {
+    "one": "%Lnটি ফাইল পড়া যায়নি",
+    "other": "%Lnটি ফাইল পড়া যায়নি"
   },
   "Untitled series": "নামহীন সিরিজ",
   "Series %1": "সিরিজ %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "কিছু স্লাইস পড়া যায় না, তাই এই ছবিটি তৈরি করা যায় না",
   "Lung": "ফুসফুস",
   "Bone": "হাড়",
-  "%n items": {
-    "one": "%nটি আইটেম",
-    "other": "%nটি আইটেম"
+  "%Ln items": {
+    "one": "%Lnটি আইটেম",
+    "other": "%Lnটি আইটেম"
   },
   "Compressed image data, %1": "সংকুচিত ছবির ডেটা, %1",
-  "Image data, %n bytes": {
-    "one": "ছবির ডেটা, %n বাইট",
-    "other": "ছবির ডেটা, %n বাইট"
+  "Image data, %Ln bytes": {
+    "one": "ছবির ডেটা, %Ln বাইট",
+    "other": "ছবির ডেটা, %Ln বাইট"
   },
-  "%n bytes": {
-    "one": "%n বাইট",
-    "other": "%n বাইট"
+  "%Ln bytes": {
+    "one": "%Ln বাইট",
+    "other": "%Ln বাইট"
   },
   "DICOM images": "DICOM ছবি",
   "All files": "সব ফাইল",

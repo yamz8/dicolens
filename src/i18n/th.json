@@ -80,8 +80,8 @@
   "Zoom %1%": "ซูม %1%",
   "Reading %1 of %2 files": "กำลังอ่านไฟล์ %1 จาก %2",
   "Looking for scans…": "กำลังค้นหาภาพสแกน…",
-  "%n images": {
-    "other": "%n ภาพ"
+  "%Ln images": {
+    "other": "%Ln ภาพ"
   },
   "Can't be decoded": "ถอดรหัสไม่ได้",
   "Click": "คลิก",
@@ -94,26 +94,26 @@
   "Unknown": "ไม่ทราบ",
   "No tags match": "ไม่มีแท็กที่ตรงกัน",
   "Oblique": "ออบลีก",
-  "%n years old": {
-    "other": "อายุ %n ปี"
+  "%Ln years old": {
+    "other": "อายุ %Ln ปี"
   },
-  "%n months old": {
-    "other": "อายุ %n เดือน"
+  "%Ln months old": {
+    "other": "อายุ %Ln เดือน"
   },
-  "%n weeks old": {
-    "other": "อายุ %n สัปดาห์"
+  "%Ln weeks old": {
+    "other": "อายุ %Ln สัปดาห์"
   },
-  "%n days old": {
-    "other": "อายุ %n วัน"
+  "%Ln days old": {
+    "other": "อายุ %Ln วัน"
   },
-  "%n files couldn't be copied.": {
-    "other": "คัดลอกไฟล์ไม่ได้ %n ไฟล์"
+  "%Ln files couldn't be copied.": {
+    "other": "คัดลอกไฟล์ไม่ได้ %Ln ไฟล์"
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "other": "ภาพ %n ภาพอาจแสดงข้อมูลผู้ป่วยอยู่ในตัวภาพเอง ซึ่งสำเนาลบออกไม่ได้ โปรดตรวจดูก่อนแชร์"
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "other": "ภาพ %Ln ภาพอาจแสดงข้อมูลผู้ป่วยอยู่ในตัวภาพเอง ซึ่งสำเนาลบออกไม่ได้ โปรดตรวจดูก่อนแชร์"
   },
-  "Saved %n files in %1": {
-    "other": "บันทึก %n ไฟล์ไว้ใน %1 แล้ว"
+  "Saved %Ln files in %1": {
+    "other": "บันทึก %Ln ไฟล์ไว้ใน %1 แล้ว"
   },
   "Male": "ชาย",
   "Mean %1  ·  SD %2": "เฉลี่ย %1  ·  SD %2",
@@ -123,8 +123,8 @@
   "%1 doesn't exist": "ไม่มี %1 อยู่",
   "No DICOM images were found there": "ไม่พบภาพ DICOM ในตำแหน่งนั้น",
   "The DICOM files there couldn't be read: %1": "อ่านไฟล์ DICOM ในตำแหน่งนั้นไม่ได้: %1",
-  "%n files couldn't be read": {
-    "other": "อ่านไฟล์ไม่ได้ %n ไฟล์"
+  "%Ln files couldn't be read": {
+    "other": "อ่านไฟล์ไม่ได้ %Ln ไฟล์"
   },
   "Untitled series": "ซีรีส์ไม่มีชื่อ",
   "Series %1": "ซีรีส์ %1",
@@ -158,15 +158,15 @@
   "Some slices can't be read, so this picture can't be made": "อ่านบางสไลซ์ไม่ได้ จึงสร้างภาพนี้ไม่ได้",
   "Lung": "ปอด",
   "Bone": "กระดูก",
-  "%n items": {
-    "other": "%n รายการ"
+  "%Ln items": {
+    "other": "%Ln รายการ"
   },
   "Compressed image data, %1": "ข้อมูลภาพแบบบีบอัด, %1",
-  "Image data, %n bytes": {
-    "other": "ข้อมูลภาพ %n ไบต์"
+  "Image data, %Ln bytes": {
+    "other": "ข้อมูลภาพ %Ln ไบต์"
   },
-  "%n bytes": {
-    "other": "%n ไบต์"
+  "%Ln bytes": {
+    "other": "%Ln ไบต์"
   },
   "DICOM images": "ภาพ DICOM",
   "All files": "ไฟล์ทั้งหมด",

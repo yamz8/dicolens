@@ -80,8 +80,8 @@
   "Zoom %1%": "縮放 %1%",
   "Reading %1 of %2 files": "正在讀取檔案 %1 / %2",
   "Looking for scans…": "正在尋找影像…",
-  "%n images": {
-    "other": "%n 張影像"
+  "%Ln images": {
+    "other": "%Ln 張影像"
   },
   "Can't be decoded": "無法解碼",
   "Click": "點按",
@@ -94,26 +94,26 @@
   "Unknown": "未知",
   "No tags match": "沒有符合的標籤",
   "Oblique": "斜切面",
-  "%n years old": {
-    "other": "%n 歲"
+  "%Ln years old": {
+    "other": "%Ln 歲"
   },
-  "%n months old": {
-    "other": "%n 個月"
+  "%Ln months old": {
+    "other": "%Ln 個月"
   },
-  "%n weeks old": {
-    "other": "%n 週"
+  "%Ln weeks old": {
+    "other": "%Ln 週"
   },
-  "%n days old": {
-    "other": "%n 天"
+  "%Ln days old": {
+    "other": "%Ln 天"
   },
-  "%n files couldn't be copied.": {
-    "other": "%n 個檔案無法複製。"
+  "%Ln files couldn't be copied.": {
+    "other": "%Ln 個檔案無法複製。"
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "other": "有 %n 張影像的畫面本身可能顯示病患資料，副本無法移除。分享前請先檢查。"
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "other": "有 %Ln 張影像的畫面本身可能顯示病患資料，副本無法移除。分享前請先檢查。"
   },
-  "Saved %n files in %1": {
-    "other": "已將 %n 個檔案儲存至 %1"
+  "Saved %Ln files in %1": {
+    "other": "已將 %Ln 個檔案儲存至 %1"
   },
   "Male": "男",
   "Mean %1  ·  SD %2": "平均值 %1  ·  標準差 %2",
@@ -123,8 +123,8 @@
   "%1 doesn't exist": "%1 不存在",
   "No DICOM images were found there": "該處找不到 DICOM 影像",
   "The DICOM files there couldn't be read: %1": "無法讀取該處的 DICOM 檔案：%1",
-  "%n files couldn't be read": {
-    "other": "%n 個檔案無法讀取"
+  "%Ln files couldn't be read": {
+    "other": "%Ln 個檔案無法讀取"
   },
   "Untitled series": "未命名序列",
   "Series %1": "序列 %1",
@@ -158,15 +158,15 @@
   "Some slices can't be read, so this picture can't be made": "部分切片無法讀取，因此無法產生此影像",
   "Lung": "肺",
   "Bone": "骨",
-  "%n items": {
-    "other": "%n 個項目"
+  "%Ln items": {
+    "other": "%Ln 個項目"
   },
   "Compressed image data, %1": "壓縮影像資料，%1",
-  "Image data, %n bytes": {
-    "other": "影像資料，%n 位元組"
+  "Image data, %Ln bytes": {
+    "other": "影像資料，%Ln 位元組"
   },
-  "%n bytes": {
-    "other": "%n 位元組"
+  "%Ln bytes": {
+    "other": "%Ln 位元組"
   },
   "DICOM images": "DICOM 影像",
   "All files": "所有檔案",

@@ -80,9 +80,9 @@
   "Zoom %1%": "Masshtab %1%",
   "Reading %1 of %2 files": "%2 ta fayldan %1 tasi oʻqilmoqda",
   "Looking for scans…": "Skanlar qidirilmoqda…",
-  "%n images": {
-    "one": "%n ta tasvir",
-    "other": "%n ta tasvir"
+  "%Ln images": {
+    "one": "%Ln ta tasvir",
+    "other": "%Ln ta tasvir"
   },
   "Can't be decoded": "Dekodlab boʻlmaydi",
   "Click": "Bosish",
@@ -95,33 +95,33 @@
   "Unknown": "Nomaʼlum",
   "No tags match": "Mos teg topilmadi",
   "Oblique": "Qiya",
-  "%n years old": {
-    "one": "%n yosh",
-    "other": "%n yosh"
+  "%Ln years old": {
+    "one": "%Ln yosh",
+    "other": "%Ln yosh"
   },
-  "%n months old": {
-    "one": "%n oylik",
-    "other": "%n oylik"
+  "%Ln months old": {
+    "one": "%Ln oylik",
+    "other": "%Ln oylik"
   },
-  "%n weeks old": {
-    "one": "%n haftalik",
-    "other": "%n haftalik"
+  "%Ln weeks old": {
+    "one": "%Ln haftalik",
+    "other": "%Ln haftalik"
   },
-  "%n days old": {
-    "one": "%n kunlik",
-    "other": "%n kunlik"
+  "%Ln days old": {
+    "one": "%Ln kunlik",
+    "other": "%Ln kunlik"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n ta fayldan nusxa olib boʻlmadi.",
-    "other": "%n ta fayldan nusxa olib boʻlmadi."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln ta fayldan nusxa olib boʻlmadi.",
+    "other": "%Ln ta fayldan nusxa olib boʻlmadi."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n ta tasvirning oʻzida bemor maʼlumotlari koʻrinishi mumkin, nusxa ularni olib tashlay olmaydi. Ulashishdan oldin uni koʻrib chiqing.",
-    "other": "%n ta tasvirning oʻzida bemor maʼlumotlari koʻrinishi mumkin, nusxa ularni olib tashlay olmaydi. Ulashishdan oldin ularni koʻrib chiqing."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln ta tasvirning oʻzida bemor maʼlumotlari koʻrinishi mumkin, nusxa ularni olib tashlay olmaydi. Ulashishdan oldin uni koʻrib chiqing.",
+    "other": "%Ln ta tasvirning oʻzida bemor maʼlumotlari koʻrinishi mumkin, nusxa ularni olib tashlay olmaydi. Ulashishdan oldin ularni koʻrib chiqing."
   },
-  "Saved %n files in %1": {
-    "one": "%n ta fayl %1 ga saqlandi",
-    "other": "%n ta fayl %1 ga saqlandi"
+  "Saved %Ln files in %1": {
+    "one": "%Ln ta fayl %1 ga saqlandi",
+    "other": "%Ln ta fayl %1 ga saqlandi"
   },
   "Male": "Erkak",
   "Mean %1  ·  SD %2": "Oʻrtacha %1  ·  SO %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 mavjud emas",
   "No DICOM images were found there": "U yerda DICOM tasvirlari topilmadi",
   "The DICOM files there couldn't be read: %1": "U yerdagi DICOM fayllarini oʻqib boʻlmadi: %1",
-  "%n files couldn't be read": {
-    "one": "%n ta faylni oʻqib boʻlmadi",
-    "other": "%n ta faylni oʻqib boʻlmadi"
+  "%Ln files couldn't be read": {
+    "one": "%Ln ta faylni oʻqib boʻlmadi",
+    "other": "%Ln ta faylni oʻqib boʻlmadi"
   },
   "Untitled series": "Nomsiz seriya",
   "Series %1": "Seriya %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "Baʼzi kesimlarni oʻqib boʻlmaydi, shuning uchun bu tasvirni yaratib boʻlmaydi",
   "Lung": "Oʻpka",
   "Bone": "Suyak",
-  "%n items": {
-    "one": "%n ta element",
-    "other": "%n ta element"
+  "%Ln items": {
+    "one": "%Ln ta element",
+    "other": "%Ln ta element"
   },
   "Compressed image data, %1": "Siqilgan tasvir maʼlumotlari, %1",
-  "Image data, %n bytes": {
-    "one": "Tasvir maʼlumotlari, %n bayt",
-    "other": "Tasvir maʼlumotlari, %n bayt"
+  "Image data, %Ln bytes": {
+    "one": "Tasvir maʼlumotlari, %Ln bayt",
+    "other": "Tasvir maʼlumotlari, %Ln bayt"
   },
-  "%n bytes": {
-    "one": "%n bayt",
-    "other": "%n bayt"
+  "%Ln bytes": {
+    "one": "%Ln bayt",
+    "other": "%Ln bayt"
   },
   "DICOM images": "DICOM tasvirlari",
   "All files": "Barcha fayllar",

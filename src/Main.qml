@@ -64,7 +64,11 @@ ApplicationWindow {
     readonly property bool reading: backend.reportIndex >= 0
     // Letter keys go to the tag search while it's being typed in.
     readonly property bool typing: tagPanel.searching
-    readonly property bool keys: !typing && !reading
+    // The shortcut list covers the scans, so the keys move through it
+    // rather than act on what it hides; under it, a report takes them.
+    readonly property bool keys: !typing && !reading && !helpVisible
+    readonly property bool reportKeys: reading && !helpVisible
+    readonly property bool rightToLeft: Qt.application.layoutDirection === Qt.RightToLeft
 
     onTagsVisibleChanged: { backend.tagsWanted = tagsVisible; partner.tagsWanted = tagsVisible }
 
@@ -276,19 +280,24 @@ ApplicationWindow {
             win.inUse.announce(win.linked ? qsTr("Scrolling together") : qsTr("Scrolling apart"))
         }
     }
-    Shortcut { sequence: "P"; enabled: !win.typing; onActivated: win.reading ? backend.closeReport() : backend.openStudyReport() }
-    Shortcut { sequences: ["Left", "Shift+Tab"]; enabled: win.reading; onActivated: backend.stepReport(-1) }
-    Shortcut { sequences: ["Right", "Tab"]; enabled: win.reading; onActivated: backend.stepReport(1) }
-    Shortcut { sequences: ["Up", "K"]; enabled: win.reading; onActivated: reportPanel.scroll(-60) }
-    Shortcut { sequences: ["Down", "J"]; enabled: win.reading; onActivated: reportPanel.scroll(60) }
-    Shortcut { sequence: "PgUp"; enabled: win.reading; onActivated: reportPanel.scroll(-reportPanel.height * 0.8) }
-    Shortcut { sequences: ["PgDown", "Space"]; enabled: win.reading; onActivated: reportPanel.scroll(reportPanel.height * 0.8) }
-    Shortcut { sequences: ["Return", "Enter"]; enabled: win.reading && backend.reportIsPdf; onActivated: backend.openReport(backend.reportIndex) }
+    Shortcut { sequence: "P"; enabled: !win.typing && !win.helpVisible; onActivated: win.reading ? backend.closeReport() : backend.openStudyReport() }
+    Shortcut { sequences: ["Left", "Shift+Tab"]; enabled: win.reportKeys; onActivated: backend.stepReport(-1) }
+    Shortcut { sequences: ["Right", "Tab"]; enabled: win.reportKeys; onActivated: backend.stepReport(1) }
+    Shortcut { sequences: ["Up", "K"]; enabled: win.reportKeys; onActivated: reportPanel.scroll(-60) }
+    Shortcut { sequences: ["Down", "J"]; enabled: win.reportKeys; onActivated: reportPanel.scroll(60) }
+    Shortcut { sequence: "PgUp"; enabled: win.reportKeys; onActivated: reportPanel.scroll(-reportPanel.height * 0.8) }
+    Shortcut { sequences: ["PgDown", "Space"]; enabled: win.reportKeys; onActivated: reportPanel.scroll(reportPanel.height * 0.8) }
+    Shortcut { sequences: ["Return", "Enter"]; enabled: win.reportKeys && backend.reportIsPdf; onActivated: backend.openReport(backend.reportIndex) }
+    // The shortcut list is longer than a small window.
+    Shortcut { sequences: ["Up", "K"]; enabled: win.helpVisible; onActivated: help.scroll(-60) }
+    Shortcut { sequences: ["Down", "J"]; enabled: win.helpVisible; onActivated: help.scroll(60) }
+    Shortcut { sequence: "PgUp"; enabled: win.helpVisible; onActivated: help.scroll(-help.height * 0.8) }
+    Shortcut { sequences: ["PgDown", "Space"]; enabled: win.helpVisible; onActivated: help.scroll(help.height * 0.8) }
     Shortcut { sequence: "S"; enabled: win.keys; onActivated: win.seriesVisible = !win.seriesVisible }
     Shortcut { sequence: "T"; enabled: win.keys; onActivated: win.tagsVisible = !win.tagsVisible }
     Shortcut { sequence: "H"; enabled: win.keys; onActivated: win.infoHidden = !win.infoHidden }
-    Shortcut { sequence: "Ctrl+F"; enabled: !win.reading; onActivated: { win.tagsVisible = true; tagPanel.focusSearch() } }
-    Shortcut { sequence: "Ctrl+E"; onActivated: win.in3d ? win.inUseVolume.exportImage() : win.inUse.exportImage() }
+    Shortcut { sequence: "Ctrl+F"; enabled: !win.reading && !win.helpVisible; onActivated: { win.tagsVisible = true; tagPanel.focusSearch() } }
+    Shortcut { sequence: "Ctrl+E"; enabled: !win.reading && !win.helpVisible; onActivated: win.in3d ? win.inUseVolume.exportImage() : win.inUse.exportImage() }
     Shortcut { sequence: "Ctrl+Shift+E"; enabled: win.keys && !win.in3d; onActivated: win.inUse.exportVideo() }
     Shortcut { sequence: "Ctrl+Shift+S"; enabled: win.keys; onActivated: backend.exportAnonymous() }
     Shortcut { sequence: "Ctrl+C"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.copyImage() : win.inUse.copyImage() }
@@ -312,7 +321,7 @@ ApplicationWindow {
     // application's layout direction.
     Item {
         anchors.fill: parent
-        LayoutMirroring.enabled: Qt.application.layoutDirection === Qt.RightToLeft
+        LayoutMirroring.enabled: win.rightToLeft
         LayoutMirroring.childrenInherit: true
 
         SeriesList {
@@ -515,11 +524,13 @@ ApplicationWindow {
                 }
             }
         }
-    }
 
-    HelpOverlay {
-        objectName: "help"
-        anchors.fill: parent
-        visible: win.helpVisible
+        // Over everything, and mirrored with it.
+        HelpOverlay {
+            id: help
+            objectName: "help"
+            anchors.fill: parent
+            visible: win.helpVisible
+        }
     }
 }

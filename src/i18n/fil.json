@@ -80,9 +80,9 @@
   "Zoom %1%": "Zoom %1%",
   "Reading %1 of %2 files": "Binabasa ang %1 ng %2 file",
   "Looking for scans…": "Naghahanap ng mga scan…",
-  "%n images": {
-    "one": "%n larawan",
-    "other": "%n larawan"
+  "%Ln images": {
+    "one": "%Ln larawan",
+    "other": "%Ln larawan"
   },
   "Can't be decoded": "Hindi ma-decode",
   "Click": "I-click",
@@ -95,33 +95,33 @@
   "Unknown": "Hindi kilala",
   "No tags match": "Walang tumutugmang tag",
   "Oblique": "Oblique",
-  "%n years old": {
-    "one": "%n taong gulang",
-    "other": "%n taong gulang"
+  "%Ln years old": {
+    "one": "%Ln taong gulang",
+    "other": "%Ln taong gulang"
   },
-  "%n months old": {
-    "one": "%n buwang gulang",
-    "other": "%n buwang gulang"
+  "%Ln months old": {
+    "one": "%Ln buwang gulang",
+    "other": "%Ln buwang gulang"
   },
-  "%n weeks old": {
-    "one": "%n linggong gulang",
-    "other": "%n linggong gulang"
+  "%Ln weeks old": {
+    "one": "%Ln linggong gulang",
+    "other": "%Ln linggong gulang"
   },
-  "%n days old": {
-    "one": "%n araw na gulang",
-    "other": "%n araw na gulang"
+  "%Ln days old": {
+    "one": "%Ln araw na gulang",
+    "other": "%Ln araw na gulang"
   },
-  "%n files couldn't be copied.": {
-    "one": "Hindi makopya ang %n file.",
-    "other": "Hindi makopya ang %n file."
+  "%Ln files couldn't be copied.": {
+    "one": "Hindi makopya ang %Ln file.",
+    "other": "Hindi makopya ang %Ln file."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "Maaaring makita sa mismong larawan ang mga detalye ng pasyente sa %n sa mga larawan, na hindi matatanggal ng kopya. Tingnan muna ito bago ibahagi.",
-    "other": "Maaaring makita sa mismong larawan ang mga detalye ng pasyente sa %n sa mga larawan, na hindi matatanggal ng kopya. Tingnan muna ang mga ito bago ibahagi."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "Maaaring makita sa mismong larawan ang mga detalye ng pasyente sa %Ln sa mga larawan, na hindi matatanggal ng kopya. Tingnan muna ito bago ibahagi.",
+    "other": "Maaaring makita sa mismong larawan ang mga detalye ng pasyente sa %Ln sa mga larawan, na hindi matatanggal ng kopya. Tingnan muna ang mga ito bago ibahagi."
   },
-  "Saved %n files in %1": {
-    "one": "Na-save ang %n file sa %1",
-    "other": "Na-save ang %n file sa %1"
+  "Saved %Ln files in %1": {
+    "one": "Na-save ang %Ln file sa %1",
+    "other": "Na-save ang %Ln file sa %1"
   },
   "Male": "Lalaki",
   "Mean %1  ·  SD %2": "Mean %1  ·  SD %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "Hindi umiiral ang %1",
   "No DICOM images were found there": "Walang nakitang DICOM na larawan doon",
   "The DICOM files there couldn't be read: %1": "Hindi mabasa ang mga DICOM file doon: %1",
-  "%n files couldn't be read": {
-    "one": "Hindi mabasa ang %n file",
-    "other": "Hindi mabasa ang %n file"
+  "%Ln files couldn't be read": {
+    "one": "Hindi mabasa ang %Ln file",
+    "other": "Hindi mabasa ang %Ln file"
   },
   "Untitled series": "Walang pamagat na series",
   "Series %1": "Series %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "Hindi mabasa ang ilang slice, kaya hindi mabuo ang larawang ito",
   "Lung": "Baga",
   "Bone": "Buto",
-  "%n items": {
-    "one": "%n item",
-    "other": "%n item"
+  "%Ln items": {
+    "one": "%Ln item",
+    "other": "%Ln item"
   },
   "Compressed image data, %1": "Naka-compress na image data, %1",
-  "Image data, %n bytes": {
-    "one": "Image data, %n byte",
-    "other": "Image data, %n byte"
+  "Image data, %Ln bytes": {
+    "one": "Image data, %Ln byte",
+    "other": "Image data, %Ln byte"
   },
-  "%n bytes": {
-    "one": "%n byte",
-    "other": "%n byte"
+  "%Ln bytes": {
+    "one": "%Ln byte",
+    "other": "%Ln byte"
   },
   "DICOM images": "Mga DICOM na larawan",
   "All files": "Lahat ng file",

@@ -80,8 +80,8 @@
   "Zoom %1%": "Zoom %1%",
   "Reading %1 of %2 files": "Membaca %1 dari %2 file",
   "Looking for scans…": "Mencari pindaian…",
-  "%n images": {
-    "other": "%n gambar"
+  "%Ln images": {
+    "other": "%Ln gambar"
   },
   "Can't be decoded": "Tidak dapat didekode",
   "Click": "Klik",
@@ -94,26 +94,26 @@
   "Unknown": "Tidak dikenal",
   "No tags match": "Tidak ada tag yang cocok",
   "Oblique": "Oblik",
-  "%n years old": {
-    "other": "%n tahun"
+  "%Ln years old": {
+    "other": "%Ln tahun"
   },
-  "%n months old": {
-    "other": "%n bulan"
+  "%Ln months old": {
+    "other": "%Ln bulan"
   },
-  "%n weeks old": {
-    "other": "%n minggu"
+  "%Ln weeks old": {
+    "other": "%Ln minggu"
   },
-  "%n days old": {
-    "other": "%n hari"
+  "%Ln days old": {
+    "other": "%Ln hari"
   },
-  "%n files couldn't be copied.": {
-    "other": "%n file tidak dapat disalin."
+  "%Ln files couldn't be copied.": {
+    "other": "%Ln file tidak dapat disalin."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "other": "%n gambar mungkin menampilkan data pasien di dalam gambarnya sendiri, yang tidak dapat dihapus oleh salinan. Periksa dulu sebelum dibagikan."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "other": "%Ln gambar mungkin menampilkan data pasien di dalam gambarnya sendiri, yang tidak dapat dihapus oleh salinan. Periksa dulu sebelum dibagikan."
   },
-  "Saved %n files in %1": {
-    "other": "%n file disimpan di %1"
+  "Saved %Ln files in %1": {
+    "other": "%Ln file disimpan di %1"
   },
   "Male": "Laki-laki",
   "Mean %1  ·  SD %2": "Rata-rata %1  ·  SD %2",
@@ -123,8 +123,8 @@
   "%1 doesn't exist": "%1 tidak ada",
   "No DICOM images were found there": "Tidak ditemukan gambar DICOM di sana",
   "The DICOM files there couldn't be read: %1": "File DICOM di sana tidak dapat dibaca: %1",
-  "%n files couldn't be read": {
-    "other": "%n file tidak dapat dibaca"
+  "%Ln files couldn't be read": {
+    "other": "%Ln file tidak dapat dibaca"
   },
   "Untitled series": "Seri tanpa judul",
   "Series %1": "Seri %1",
@@ -158,15 +158,15 @@
   "Some slices can't be read, so this picture can't be made": "Beberapa irisan tidak dapat dibaca, jadi gambar ini tidak dapat dibuat",
   "Lung": "Paru",
   "Bone": "Tulang",
-  "%n items": {
-    "other": "%n item"
+  "%Ln items": {
+    "other": "%Ln item"
   },
   "Compressed image data, %1": "Data gambar terkompresi, %1",
-  "Image data, %n bytes": {
-    "other": "Data gambar, %n byte"
+  "Image data, %Ln bytes": {
+    "other": "Data gambar, %Ln byte"
   },
-  "%n bytes": {
-    "other": "%n byte"
+  "%Ln bytes": {
+    "other": "%Ln byte"
   },
   "DICOM images": "Gambar DICOM",
   "All files": "Semua file",

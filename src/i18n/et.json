@@ -80,9 +80,9 @@
   "Zoom %1%": "Suum %1%",
   "Reading %1 of %2 files": "Loen faile %1/%2",
   "Looking for scans…": "Otsin uuringuid…",
-  "%n images": {
-    "one": "%n pilt",
-    "other": "%n pilti"
+  "%Ln images": {
+    "one": "%Ln pilt",
+    "other": "%Ln pilti"
   },
   "Can't be decoded": "Ei saa dekodeerida",
   "Click": "Klõps",
@@ -95,33 +95,33 @@
   "Unknown": "Tundmatu",
   "No tags match": "Sobivaid silte pole",
   "Oblique": "Kaldne",
-  "%n years old": {
-    "one": "%n aasta",
-    "other": "%n aastat"
+  "%Ln years old": {
+    "one": "%Ln aasta",
+    "other": "%Ln aastat"
   },
-  "%n months old": {
-    "one": "%n kuu",
-    "other": "%n kuud"
+  "%Ln months old": {
+    "one": "%Ln kuu",
+    "other": "%Ln kuud"
   },
-  "%n weeks old": {
-    "one": "%n nädal",
-    "other": "%n nädalat"
+  "%Ln weeks old": {
+    "one": "%Ln nädal",
+    "other": "%Ln nädalat"
   },
-  "%n days old": {
-    "one": "%n päev",
-    "other": "%n päeva"
+  "%Ln days old": {
+    "one": "%Ln päev",
+    "other": "%Ln päeva"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n faili ei saanud kopeerida.",
-    "other": "%n faili ei saanud kopeerida."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln faili ei saanud kopeerida.",
+    "other": "%Ln faili ei saanud kopeerida."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n piltidest võib näidata patsiendi andmeid pildil endal, mida koopia eemaldada ei saa. Vaata see enne jagamist üle.",
-    "other": "%n piltidest võivad näidata patsiendi andmeid pildil endal, mida koopia eemaldada ei saa. Vaata need enne jagamist üle."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln piltidest võib näidata patsiendi andmeid pildil endal, mida koopia eemaldada ei saa. Vaata see enne jagamist üle.",
+    "other": "%Ln piltidest võivad näidata patsiendi andmeid pildil endal, mida koopia eemaldada ei saa. Vaata need enne jagamist üle."
   },
-  "Saved %n files in %1": {
-    "one": "%n fail salvestati kausta %1",
-    "other": "%n faili salvestati kausta %1"
+  "Saved %Ln files in %1": {
+    "one": "%Ln fail salvestati kausta %1",
+    "other": "%Ln faili salvestati kausta %1"
   },
   "Male": "Mees",
   "Mean %1  ·  SD %2": "Keskmine %1  ·  SH %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 ei ole olemas",
   "No DICOM images were found there": "Sealt ei leitud DICOM-pilte",
   "The DICOM files there couldn't be read: %1": "Sealseid DICOM-faile ei saanud lugeda: %1",
-  "%n files couldn't be read": {
-    "one": "%n faili ei saanud lugeda",
-    "other": "%n faili ei saanud lugeda"
+  "%Ln files couldn't be read": {
+    "one": "%Ln faili ei saanud lugeda",
+    "other": "%Ln faili ei saanud lugeda"
   },
   "Untitled series": "Nimetu seeria",
   "Series %1": "Seeria %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "Mõnda lõiget ei saa lugeda, seega seda pilti ei saa teha",
   "Lung": "Kops",
   "Bone": "Luu",
-  "%n items": {
-    "one": "%n element",
-    "other": "%n elementi"
+  "%Ln items": {
+    "one": "%Ln element",
+    "other": "%Ln elementi"
   },
   "Compressed image data, %1": "Tihendatud pildiandmed, %1",
-  "Image data, %n bytes": {
-    "one": "Pildiandmed, %n bait",
-    "other": "Pildiandmed, %n baiti"
+  "Image data, %Ln bytes": {
+    "one": "Pildiandmed, %Ln bait",
+    "other": "Pildiandmed, %Ln baiti"
   },
-  "%n bytes": {
-    "one": "%n bait",
-    "other": "%n baiti"
+  "%Ln bytes": {
+    "one": "%Ln bait",
+    "other": "%Ln baiti"
   },
   "DICOM images": "DICOM-pildid",
   "All files": "Kõik failid",

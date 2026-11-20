@@ -161,8 +161,10 @@ Item {
             if (drag === "measure")
                 view.release(event.x, event.y)
             else if (drag === "click") {
+                // A place in the patient counts from the middle of the first
+                // pixel; the picture from its corner.
                 const p = view.toImage(event.x, event.y)
-                win.goThroughAll(pane.source.pointAt(p.x, p.y))
+                win.goThroughAll(pane.source.pointAt(p.x - 0.5, p.y - 0.5))
             } else if (drag === "click3d") {
                 win.goThroughAll(volumeView.pointAt(event.x, event.y))
             }
@@ -263,8 +265,8 @@ Item {
                 color: "#34343c"
             }
             Rectangle {
-                x: parent.width * pane.source.sliceIndex / pane.source.sliceCount
-                width: Math.max(3, parent.width / pane.source.sliceCount)
+                x: parent.width * pane.source.sliceIndex / Math.max(1, pane.source.sliceCount)
+                width: Math.max(3, parent.width / Math.max(1, pane.source.sliceCount))
                 height: parent.height
                 color: theme.accent
             }

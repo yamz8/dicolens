@@ -80,10 +80,10 @@
   "Zoom %1%": "Tālummaiņa %1%",
   "Reading %1 of %2 files": "Nolasa %1 no %2 failiem",
   "Looking for scans…": "Meklē izmeklējumus…",
-  "%n images": {
-    "zero": "%n attēli",
-    "one": "%n attēls",
-    "other": "%n attēli"
+  "%Ln images": {
+    "zero": "%Ln attēli",
+    "one": "%Ln attēls",
+    "other": "%Ln attēli"
   },
   "Can't be decoded": "Nevar atkodēt",
   "Click": "Klikšķis",
@@ -96,40 +96,40 @@
   "Unknown": "Nezināms",
   "No tags match": "Neviens tags neatbilst",
   "Oblique": "Slīpā",
-  "%n years old": {
-    "zero": "%n gadi",
-    "one": "%n gads",
-    "other": "%n gadi"
+  "%Ln years old": {
+    "zero": "%Ln gadi",
+    "one": "%Ln gads",
+    "other": "%Ln gadi"
   },
-  "%n months old": {
-    "zero": "%n mēneši",
-    "one": "%n mēnesis",
-    "other": "%n mēneši"
+  "%Ln months old": {
+    "zero": "%Ln mēneši",
+    "one": "%Ln mēnesis",
+    "other": "%Ln mēneši"
   },
-  "%n weeks old": {
-    "zero": "%n nedēļas",
-    "one": "%n nedēļa",
-    "other": "%n nedēļas"
+  "%Ln weeks old": {
+    "zero": "%Ln nedēļas",
+    "one": "%Ln nedēļa",
+    "other": "%Ln nedēļas"
   },
-  "%n days old": {
-    "zero": "%n dienas",
-    "one": "%n diena",
-    "other": "%n dienas"
+  "%Ln days old": {
+    "zero": "%Ln dienas",
+    "one": "%Ln diena",
+    "other": "%Ln dienas"
   },
-  "%n files couldn't be copied.": {
-    "zero": "Nevarēja nokopēt %n failus.",
-    "one": "Nevarēja nokopēt %n failu.",
-    "other": "Nevarēja nokopēt %n failus."
+  "%Ln files couldn't be copied.": {
+    "zero": "Nevarēja nokopēt %Ln failus.",
+    "one": "Nevarēja nokopēt %Ln failu.",
+    "other": "Nevarēja nokopēt %Ln failus."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "zero": "%n attēlos pašā attēlā var būt redzami pacienta dati, ko kopija nevar noņemt. Apskatiet tos pirms kopīgošanas.",
-    "one": "%n attēlā pašā attēlā var būt redzami pacienta dati, ko kopija nevar noņemt. Apskatiet to pirms kopīgošanas.",
-    "other": "%n attēlos pašā attēlā var būt redzami pacienta dati, ko kopija nevar noņemt. Apskatiet tos pirms kopīgošanas."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "zero": "%Ln attēlos pašā attēlā var būt redzami pacienta dati, ko kopija nevar noņemt. Apskatiet tos pirms kopīgošanas.",
+    "one": "%Ln attēlā pašā attēlā var būt redzami pacienta dati, ko kopija nevar noņemt. Apskatiet to pirms kopīgošanas.",
+    "other": "%Ln attēlos pašā attēlā var būt redzami pacienta dati, ko kopija nevar noņemt. Apskatiet tos pirms kopīgošanas."
   },
-  "Saved %n files in %1": {
-    "zero": "Saglabāti %n faili mapē %1",
-    "one": "Saglabāts %n fails mapē %1",
-    "other": "Saglabāti %n faili mapē %1"
+  "Saved %Ln files in %1": {
+    "zero": "Saglabāti %Ln faili mapē %1",
+    "one": "Saglabāts %Ln fails mapē %1",
+    "other": "Saglabāti %Ln faili mapē %1"
   },
   "Male": "Vīrietis",
   "Mean %1  ·  SD %2": "Vidējā %1  ·  SN %2",
@@ -139,10 +139,10 @@
   "%1 doesn't exist": "%1 neeksistē",
   "No DICOM images were found there": "Tur netika atrasti DICOM attēli",
   "The DICOM files there couldn't be read: %1": "Turienes DICOM failus nevarēja nolasīt: %1",
-  "%n files couldn't be read": {
-    "zero": "Nevarēja nolasīt %n failus",
-    "one": "Nevarēja nolasīt %n failu",
-    "other": "Nevarēja nolasīt %n failus"
+  "%Ln files couldn't be read": {
+    "zero": "Nevarēja nolasīt %Ln failus",
+    "one": "Nevarēja nolasīt %Ln failu",
+    "other": "Nevarēja nolasīt %Ln failus"
   },
   "Untitled series": "Nenosaukta sērija",
   "Series %1": "Sērija %1",
@@ -176,21 +176,21 @@
   "Some slices can't be read, so this picture can't be made": "Dažus slāņus nevar nolasīt, tāpēc šo attēlu nevar izveidot",
   "Lung": "Plaušas",
   "Bone": "Kauli",
-  "%n items": {
-    "zero": "%n elementi",
-    "one": "%n elements",
-    "other": "%n elementi"
+  "%Ln items": {
+    "zero": "%Ln elementi",
+    "one": "%Ln elements",
+    "other": "%Ln elementi"
   },
   "Compressed image data, %1": "Saspiesti attēla dati, %1",
-  "Image data, %n bytes": {
-    "zero": "Attēla dati, %n baiti",
-    "one": "Attēla dati, %n baits",
-    "other": "Attēla dati, %n baiti"
+  "Image data, %Ln bytes": {
+    "zero": "Attēla dati, %Ln baiti",
+    "one": "Attēla dati, %Ln baits",
+    "other": "Attēla dati, %Ln baiti"
   },
-  "%n bytes": {
-    "zero": "%n baiti",
-    "one": "%n baits",
-    "other": "%n baiti"
+  "%Ln bytes": {
+    "zero": "%Ln baiti",
+    "one": "%Ln baits",
+    "other": "%Ln baiti"
   },
   "DICOM images": "DICOM attēli",
   "All files": "Visi faili",

@@ -200,7 +200,7 @@ Rectangle {
                                 Layout.fillWidth: true
                             }
                             Label {
-                                text: [row.modelData.modality, qsTr("%n images", "", row.modelData.count)].filter(x => x).join("  ·  ")
+                                text: [row.modelData.modality, qsTr("%Ln images", "", row.modelData.count)].filter(x => x).join("  ·  ")
                                 color: win.muted
                                 font.pixelSize: 12
                                 Layout.fillWidth: true

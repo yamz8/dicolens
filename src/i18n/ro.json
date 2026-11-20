@@ -80,10 +80,10 @@
   "Zoom %1%": "Zoom %1%",
   "Reading %1 of %2 files": "Se citesc %1 din %2 fișiere",
   "Looking for scans…": "Se caută investigații…",
-  "%n images": {
-    "one": "%n imagine",
-    "few": "%n imagini",
-    "other": "%n de imagini"
+  "%Ln images": {
+    "one": "%Ln imagine",
+    "few": "%Ln imagini",
+    "other": "%Ln de imagini"
   },
   "Can't be decoded": "Nu poate fi decodată",
   "Click": "Clic",
@@ -96,40 +96,40 @@
   "Unknown": "Necunoscută",
   "No tags match": "Nicio etichetă nu corespunde",
   "Oblique": "Oblic",
-  "%n years old": {
-    "one": "%n an",
-    "few": "%n ani",
-    "other": "%n de ani"
+  "%Ln years old": {
+    "one": "%Ln an",
+    "few": "%Ln ani",
+    "other": "%Ln de ani"
   },
-  "%n months old": {
-    "one": "%n lună",
-    "few": "%n luni",
-    "other": "%n de luni"
+  "%Ln months old": {
+    "one": "%Ln lună",
+    "few": "%Ln luni",
+    "other": "%Ln de luni"
   },
-  "%n weeks old": {
-    "one": "%n săptămână",
-    "few": "%n săptămâni",
-    "other": "%n de săptămâni"
+  "%Ln weeks old": {
+    "one": "%Ln săptămână",
+    "few": "%Ln săptămâni",
+    "other": "%Ln de săptămâni"
   },
-  "%n days old": {
-    "one": "%n zi",
-    "few": "%n zile",
-    "other": "%n de zile"
+  "%Ln days old": {
+    "one": "%Ln zi",
+    "few": "%Ln zile",
+    "other": "%Ln de zile"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n fișier nu a putut fi copiat.",
-    "few": "%n fișiere nu au putut fi copiate.",
-    "other": "%n de fișiere nu au putut fi copiate."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln fișier nu a putut fi copiat.",
+    "few": "%Ln fișiere nu au putut fi copiate.",
+    "other": "%Ln de fișiere nu au putut fi copiate."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n imagine poate arăta datele pacientului chiar în imagine, iar o copie nu le poate elimina. Verificați-o înainte de a o partaja.",
-    "few": "%n imagini pot arăta datele pacientului chiar în imagine, iar o copie nu le poate elimina. Verificați-le înainte de a le partaja.",
-    "other": "%n de imagini pot arăta datele pacientului chiar în imagine, iar o copie nu le poate elimina. Verificați-le înainte de a le partaja."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln imagine poate arăta datele pacientului chiar în imagine, iar o copie nu le poate elimina. Verificați-o înainte de a o partaja.",
+    "few": "%Ln imagini pot arăta datele pacientului chiar în imagine, iar o copie nu le poate elimina. Verificați-le înainte de a le partaja.",
+    "other": "%Ln de imagini pot arăta datele pacientului chiar în imagine, iar o copie nu le poate elimina. Verificați-le înainte de a le partaja."
   },
-  "Saved %n files in %1": {
-    "one": "S-a salvat %n fișier în %1",
-    "few": "S-au salvat %n fișiere în %1",
-    "other": "S-au salvat %n de fișiere în %1"
+  "Saved %Ln files in %1": {
+    "one": "S-a salvat %Ln fișier în %1",
+    "few": "S-au salvat %Ln fișiere în %1",
+    "other": "S-au salvat %Ln de fișiere în %1"
   },
   "Male": "Masculin",
   "Mean %1  ·  SD %2": "Medie %1  ·  DS %2",
@@ -139,10 +139,10 @@
   "%1 doesn't exist": "%1 nu există",
   "No DICOM images were found there": "Nu s-au găsit imagini DICOM acolo",
   "The DICOM files there couldn't be read: %1": "Fișierele DICOM de acolo nu au putut fi citite: %1",
-  "%n files couldn't be read": {
-    "one": "%n fișier nu a putut fi citit",
-    "few": "%n fișiere nu au putut fi citite",
-    "other": "%n de fișiere nu au putut fi citite"
+  "%Ln files couldn't be read": {
+    "one": "%Ln fișier nu a putut fi citit",
+    "few": "%Ln fișiere nu au putut fi citite",
+    "other": "%Ln de fișiere nu au putut fi citite"
   },
   "Untitled series": "Serie fără titlu",
   "Series %1": "Seria %1",
@@ -176,21 +176,21 @@
   "Some slices can't be read, so this picture can't be made": "Unele secțiuni nu pot fi citite, așa că această imagine nu poate fi creată",
   "Lung": "Plămân",
   "Bone": "Os",
-  "%n items": {
-    "one": "%n element",
-    "few": "%n elemente",
-    "other": "%n de elemente"
+  "%Ln items": {
+    "one": "%Ln element",
+    "few": "%Ln elemente",
+    "other": "%Ln de elemente"
   },
   "Compressed image data, %1": "Date de imagine comprimate, %1",
-  "Image data, %n bytes": {
-    "one": "Date de imagine, %n octet",
-    "few": "Date de imagine, %n octeți",
-    "other": "Date de imagine, %n de octeți"
+  "Image data, %Ln bytes": {
+    "one": "Date de imagine, %Ln octet",
+    "few": "Date de imagine, %Ln octeți",
+    "other": "Date de imagine, %Ln de octeți"
   },
-  "%n bytes": {
-    "one": "%n octet",
-    "few": "%n octeți",
-    "other": "%n de octeți"
+  "%Ln bytes": {
+    "one": "%Ln octet",
+    "few": "%Ln octeți",
+    "other": "%Ln de octeți"
   },
   "DICOM images": "Imagini DICOM",
   "All files": "Toate fișierele",

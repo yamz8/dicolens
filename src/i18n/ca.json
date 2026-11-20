@@ -80,10 +80,10 @@
   "Zoom %1%": "Zoom %1%",
   "Reading %1 of %2 files": "S’estan llegint %1 de %2 fitxers",
   "Looking for scans…": "S’estan cercant estudis…",
-  "%n images": {
-    "one": "%n imatge",
-    "many": "%n d’imatges",
-    "other": "%n imatges"
+  "%Ln images": {
+    "one": "%Ln imatge",
+    "many": "%Ln d’imatges",
+    "other": "%Ln imatges"
   },
   "Can't be decoded": "No es pot descodificar",
   "Click": "Clic",
@@ -96,40 +96,40 @@
   "Unknown": "Desconeguda",
   "No tags match": "Cap etiqueta coincideix",
   "Oblique": "Oblic",
-  "%n years old": {
-    "one": "%n any",
-    "many": "%n anys",
-    "other": "%n anys"
+  "%Ln years old": {
+    "one": "%Ln any",
+    "many": "%Ln anys",
+    "other": "%Ln anys"
   },
-  "%n months old": {
-    "one": "%n mes",
-    "many": "%n mesos",
-    "other": "%n mesos"
+  "%Ln months old": {
+    "one": "%Ln mes",
+    "many": "%Ln mesos",
+    "other": "%Ln mesos"
   },
-  "%n weeks old": {
-    "one": "%n setmana",
-    "many": "%n setmanes",
-    "other": "%n setmanes"
+  "%Ln weeks old": {
+    "one": "%Ln setmana",
+    "many": "%Ln setmanes",
+    "other": "%Ln setmanes"
   },
-  "%n days old": {
-    "one": "%n dia",
-    "many": "%n dies",
-    "other": "%n dies"
+  "%Ln days old": {
+    "one": "%Ln dia",
+    "many": "%Ln dies",
+    "other": "%Ln dies"
   },
-  "%n files couldn't be copied.": {
-    "one": "No s’ha pogut copiar %n fitxer.",
-    "many": "No s’han pogut copiar %n de fitxers.",
-    "other": "No s’han pogut copiar %n fitxers."
+  "%Ln files couldn't be copied.": {
+    "one": "No s’ha pogut copiar %Ln fitxer.",
+    "many": "No s’han pogut copiar %Ln de fitxers.",
+    "other": "No s’han pogut copiar %Ln fitxers."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n de les imatges pot mostrar les dades del pacient a la mateixa imatge, i una còpia no les pot treure. Reviseu-la abans de compartir-la.",
-    "many": "%n d’imatges poden mostrar les dades del pacient a la mateixa imatge, i una còpia no les pot treure. Reviseu-les abans de compartir-les.",
-    "other": "%n de les imatges poden mostrar les dades del pacient a la mateixa imatge, i una còpia no les pot treure. Reviseu-les abans de compartir-les."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln de les imatges pot mostrar les dades del pacient a la mateixa imatge, i una còpia no les pot treure. Reviseu-la abans de compartir-la.",
+    "many": "%Ln d’imatges poden mostrar les dades del pacient a la mateixa imatge, i una còpia no les pot treure. Reviseu-les abans de compartir-les.",
+    "other": "%Ln de les imatges poden mostrar les dades del pacient a la mateixa imatge, i una còpia no les pot treure. Reviseu-les abans de compartir-les."
   },
-  "Saved %n files in %1": {
-    "one": "S’ha desat %n fitxer a %1",
-    "many": "S’han desat %n de fitxers a %1",
-    "other": "S’han desat %n fitxers a %1"
+  "Saved %Ln files in %1": {
+    "one": "S’ha desat %Ln fitxer a %1",
+    "many": "S’han desat %Ln de fitxers a %1",
+    "other": "S’han desat %Ln fitxers a %1"
   },
   "Male": "Home",
   "Mean %1  ·  SD %2": "Mitjana %1  ·  DE %2",
@@ -139,10 +139,10 @@
   "%1 doesn't exist": "%1 no existeix",
   "No DICOM images were found there": "No s’hi ha trobat cap imatge DICOM",
   "The DICOM files there couldn't be read: %1": "No s’han pogut llegir els fitxers DICOM d’aquí: %1",
-  "%n files couldn't be read": {
-    "one": "No s’ha pogut llegir %n fitxer",
-    "many": "No s’han pogut llegir %n de fitxers",
-    "other": "No s’han pogut llegir %n fitxers"
+  "%Ln files couldn't be read": {
+    "one": "No s’ha pogut llegir %Ln fitxer",
+    "many": "No s’han pogut llegir %Ln de fitxers",
+    "other": "No s’han pogut llegir %Ln fitxers"
   },
   "Untitled series": "Sèrie sense títol",
   "Series %1": "Sèrie %1",
@@ -176,21 +176,21 @@
   "Some slices can't be read, so this picture can't be made": "Alguns talls no es poden llegir, així que no es pot crear aquesta imatge",
   "Lung": "Pulmó",
   "Bone": "Os",
-  "%n items": {
-    "one": "%n element",
-    "many": "%n d’elements",
-    "other": "%n elements"
+  "%Ln items": {
+    "one": "%Ln element",
+    "many": "%Ln d’elements",
+    "other": "%Ln elements"
   },
   "Compressed image data, %1": "Dades d’imatge comprimides, %1",
-  "Image data, %n bytes": {
-    "one": "Dades d’imatge, %n byte",
-    "many": "Dades d’imatge, %n de bytes",
-    "other": "Dades d’imatge, %n bytes"
+  "Image data, %Ln bytes": {
+    "one": "Dades d’imatge, %Ln byte",
+    "many": "Dades d’imatge, %Ln de bytes",
+    "other": "Dades d’imatge, %Ln bytes"
   },
-  "%n bytes": {
-    "one": "%n byte",
-    "many": "%n de bytes",
-    "other": "%n bytes"
+  "%Ln bytes": {
+    "one": "%Ln byte",
+    "many": "%Ln de bytes",
+    "other": "%Ln bytes"
   },
   "DICOM images": "Imatges DICOM",
   "All files": "Tots els fitxers",

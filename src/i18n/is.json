@@ -80,9 +80,9 @@
   "Zoom %1%": "Aðdráttur %1%",
   "Reading %1 of %2 files": "Les %1 af %2 skrám",
   "Looking for scans…": "Leita að myndum…",
-  "%n images": {
-    "one": "%n mynd",
-    "other": "%n myndir"
+  "%Ln images": {
+    "one": "%Ln mynd",
+    "other": "%Ln myndir"
   },
   "Can't be decoded": "Ekki hægt að afkóða",
   "Click": "Smella",
@@ -95,33 +95,33 @@
   "Unknown": "Óþekkt",
   "No tags match": "Engin merki passa",
   "Oblique": "Skáplan",
-  "%n years old": {
-    "one": "%n árs",
-    "other": "%n ára"
+  "%Ln years old": {
+    "one": "%Ln árs",
+    "other": "%Ln ára"
   },
-  "%n months old": {
-    "one": "%n mánaðar",
-    "other": "%n mánaða"
+  "%Ln months old": {
+    "one": "%Ln mánaðar",
+    "other": "%Ln mánaða"
   },
-  "%n weeks old": {
-    "one": "%n viku",
-    "other": "%n vikna"
+  "%Ln weeks old": {
+    "one": "%Ln viku",
+    "other": "%Ln vikna"
   },
-  "%n days old": {
-    "one": "%n dags",
-    "other": "%n daga"
+  "%Ln days old": {
+    "one": "%Ln dags",
+    "other": "%Ln daga"
   },
-  "%n files couldn't be copied.": {
-    "one": "Ekki tókst að afrita %n skrá.",
-    "other": "Ekki tókst að afrita %n skrár."
+  "%Ln files couldn't be copied.": {
+    "one": "Ekki tókst að afrita %Ln skrá.",
+    "other": "Ekki tókst að afrita %Ln skrár."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n af myndunum gæti sýnt upplýsingar um sjúklinginn í myndinni sjálfri, sem afrit getur ekki fjarlægt. Skoðaðu hana áður en þú deilir.",
-    "other": "%n af myndunum gætu sýnt upplýsingar um sjúklinginn í myndinni sjálfri, sem afrit getur ekki fjarlægt. Skoðaðu þær áður en þú deilir."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln af myndunum gæti sýnt upplýsingar um sjúklinginn í myndinni sjálfri, sem afrit getur ekki fjarlægt. Skoðaðu hana áður en þú deilir.",
+    "other": "%Ln af myndunum gætu sýnt upplýsingar um sjúklinginn í myndinni sjálfri, sem afrit getur ekki fjarlægt. Skoðaðu þær áður en þú deilir."
   },
-  "Saved %n files in %1": {
-    "one": "Vistaði %n skrá í %1",
-    "other": "Vistaði %n skrár í %1"
+  "Saved %Ln files in %1": {
+    "one": "Vistaði %Ln skrá í %1",
+    "other": "Vistaði %Ln skrár í %1"
   },
   "Male": "Karl",
   "Mean %1  ·  SD %2": "Meðaltal %1  ·  SF %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 er ekki til",
   "No DICOM images were found there": "Engar DICOM-myndir fundust þar",
   "The DICOM files there couldn't be read: %1": "Ekki tókst að lesa DICOM-skrárnar þar: %1",
-  "%n files couldn't be read": {
-    "one": "Ekki tókst að lesa %n skrá",
-    "other": "Ekki tókst að lesa %n skrár"
+  "%Ln files couldn't be read": {
+    "one": "Ekki tókst að lesa %Ln skrá",
+    "other": "Ekki tókst að lesa %Ln skrár"
   },
   "Untitled series": "Ónefnd myndröð",
   "Series %1": "Myndröð %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "Ekki er hægt að lesa sumar sneiðar, svo ekki er hægt að gera þessa mynd",
   "Lung": "Lunga",
   "Bone": "Bein",
-  "%n items": {
-    "one": "%n atriði",
-    "other": "%n atriði"
+  "%Ln items": {
+    "one": "%Ln atriði",
+    "other": "%Ln atriði"
   },
   "Compressed image data, %1": "Þjöppuð myndgögn, %1",
-  "Image data, %n bytes": {
-    "one": "Myndgögn, %n bæti",
-    "other": "Myndgögn, %n bæti"
+  "Image data, %Ln bytes": {
+    "one": "Myndgögn, %Ln bæti",
+    "other": "Myndgögn, %Ln bæti"
   },
-  "%n bytes": {
-    "one": "%n bæti",
-    "other": "%n bæti"
+  "%Ln bytes": {
+    "one": "%Ln bæti",
+    "other": "%Ln bæti"
   },
   "DICOM images": "DICOM-myndir",
   "All files": "Allar skrár",

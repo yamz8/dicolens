@@ -80,8 +80,8 @@
   "Zoom %1%": "缩放 %1%",
   "Reading %1 of %2 files": "正在读取文件 %1 / %2",
   "Looking for scans…": "正在查找影像…",
-  "%n images": {
-    "other": "%n 幅图像"
+  "%Ln images": {
+    "other": "%Ln 幅图像"
   },
   "Can't be decoded": "无法解码",
   "Click": "点击",
@@ -94,26 +94,26 @@
   "Unknown": "未知",
   "No tags match": "没有匹配的标签",
   "Oblique": "斜位",
-  "%n years old": {
-    "other": "%n 岁"
+  "%Ln years old": {
+    "other": "%Ln 岁"
   },
-  "%n months old": {
-    "other": "%n 个月"
+  "%Ln months old": {
+    "other": "%Ln 个月"
   },
-  "%n weeks old": {
-    "other": "%n 周"
+  "%Ln weeks old": {
+    "other": "%Ln 周"
   },
-  "%n days old": {
-    "other": "%n 天"
+  "%Ln days old": {
+    "other": "%Ln 天"
   },
-  "%n files couldn't be copied.": {
-    "other": "%n 个文件无法复制。"
+  "%Ln files couldn't be copied.": {
+    "other": "%Ln 个文件无法复制。"
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "other": "有 %n 张图像的画面本身可能显示患者信息，副本无法去除。分享前请先检查。"
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "other": "有 %Ln 张图像的画面本身可能显示患者信息，副本无法去除。分享前请先检查。"
   },
-  "Saved %n files in %1": {
-    "other": "已将 %n 个文件保存到 %1"
+  "Saved %Ln files in %1": {
+    "other": "已将 %Ln 个文件保存到 %1"
   },
   "Male": "男",
   "Mean %1  ·  SD %2": "平均值 %1  ·  标准差 %2",
@@ -123,8 +123,8 @@
   "%1 doesn't exist": "%1 不存在",
   "No DICOM images were found there": "那里没有找到 DICOM 图像",
   "The DICOM files there couldn't be read: %1": "无法读取那里的 DICOM 文件：%1",
-  "%n files couldn't be read": {
-    "other": "%n 个文件无法读取"
+  "%Ln files couldn't be read": {
+    "other": "%Ln 个文件无法读取"
   },
   "Untitled series": "未命名序列",
   "Series %1": "序列 %1",
@@ -158,15 +158,15 @@
   "Some slices can't be read, so this picture can't be made": "部分层无法读取，因此无法生成此图像",
   "Lung": "肺",
   "Bone": "骨",
-  "%n items": {
-    "other": "%n 项"
+  "%Ln items": {
+    "other": "%Ln 项"
   },
   "Compressed image data, %1": "压缩图像数据，%1",
-  "Image data, %n bytes": {
-    "other": "图像数据，%n 字节"
+  "Image data, %Ln bytes": {
+    "other": "图像数据，%Ln 字节"
   },
-  "%n bytes": {
-    "other": "%n 字节"
+  "%Ln bytes": {
+    "other": "%Ln 字节"
   },
   "DICOM images": "DICOM 图像",
   "All files": "所有文件",

@@ -80,9 +80,9 @@
   "Zoom %1%": "Zoom %1%",
   "Reading %1 of %2 files": "Luetaan tiedostoja %1/%2",
   "Looking for scans…": "Etsitään kuvia…",
-  "%n images": {
-    "one": "%n kuva",
-    "other": "%n kuvaa"
+  "%Ln images": {
+    "one": "%Ln kuva",
+    "other": "%Ln kuvaa"
   },
   "Can't be decoded": "Ei voida purkaa",
   "Click": "Napsautus",
@@ -95,33 +95,33 @@
   "Unknown": "Tuntematon",
   "No tags match": "Ei vastaavia tageja",
   "Oblique": "Vino",
-  "%n years old": {
-    "one": "%n vuosi",
-    "other": "%n vuotta"
+  "%Ln years old": {
+    "one": "%Ln vuosi",
+    "other": "%Ln vuotta"
   },
-  "%n months old": {
-    "one": "%n kuukausi",
-    "other": "%n kuukautta"
+  "%Ln months old": {
+    "one": "%Ln kuukausi",
+    "other": "%Ln kuukautta"
   },
-  "%n weeks old": {
-    "one": "%n viikko",
-    "other": "%n viikkoa"
+  "%Ln weeks old": {
+    "one": "%Ln viikko",
+    "other": "%Ln viikkoa"
   },
-  "%n days old": {
-    "one": "%n päivä",
-    "other": "%n päivää"
+  "%Ln days old": {
+    "one": "%Ln päivä",
+    "other": "%Ln päivää"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n tiedostoa ei voitu kopioida.",
-    "other": "%n tiedostoa ei voitu kopioida."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln tiedostoa ei voitu kopioida.",
+    "other": "%Ln tiedostoa ei voitu kopioida."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "%n kuvista voi näyttää potilaan tiedot itse kuvassa, eikä kopio voi poistaa niitä. Katso se ennen jakamista.",
-    "other": "%n kuvista voi näyttää potilaan tiedot itse kuvassa, eikä kopio voi poistaa niitä. Katso ne ennen jakamista."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "%Ln kuvista voi näyttää potilaan tiedot itse kuvassa, eikä kopio voi poistaa niitä. Katso se ennen jakamista.",
+    "other": "%Ln kuvista voi näyttää potilaan tiedot itse kuvassa, eikä kopio voi poistaa niitä. Katso ne ennen jakamista."
   },
-  "Saved %n files in %1": {
-    "one": "Tallennettiin %n tiedosto kansioon %1",
-    "other": "Tallennettiin %n tiedostoa kansioon %1"
+  "Saved %Ln files in %1": {
+    "one": "Tallennettiin %Ln tiedosto kansioon %1",
+    "other": "Tallennettiin %Ln tiedostoa kansioon %1"
   },
   "Male": "Mies",
   "Mean %1  ·  SD %2": "Keskiarvo %1  ·  KH %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 ei ole olemassa",
   "No DICOM images were found there": "Sieltä ei löytynyt DICOM-kuvia",
   "The DICOM files there couldn't be read: %1": "Siellä olevia DICOM-tiedostoja ei voitu lukea: %1",
-  "%n files couldn't be read": {
-    "one": "%n tiedostoa ei voitu lukea",
-    "other": "%n tiedostoa ei voitu lukea"
+  "%Ln files couldn't be read": {
+    "one": "%Ln tiedostoa ei voitu lukea",
+    "other": "%Ln tiedostoa ei voitu lukea"
   },
   "Untitled series": "Nimetön sarja",
   "Series %1": "Sarja %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "Joitakin leikkeitä ei voi lukea, joten tätä kuvaa ei voi muodostaa",
   "Lung": "Keuhko",
   "Bone": "Luu",
-  "%n items": {
-    "one": "%n kohde",
-    "other": "%n kohdetta"
+  "%Ln items": {
+    "one": "%Ln kohde",
+    "other": "%Ln kohdetta"
   },
   "Compressed image data, %1": "Pakattu kuvadata, %1",
-  "Image data, %n bytes": {
-    "one": "Kuvadata, %n tavu",
-    "other": "Kuvadata, %n tavua"
+  "Image data, %Ln bytes": {
+    "one": "Kuvadata, %Ln tavu",
+    "other": "Kuvadata, %Ln tavua"
   },
-  "%n bytes": {
-    "one": "%n tavu",
-    "other": "%n tavua"
+  "%Ln bytes": {
+    "one": "%Ln tavu",
+    "other": "%Ln tavua"
   },
   "DICOM images": "DICOM-kuvat",
   "All files": "Kaikki tiedostot",

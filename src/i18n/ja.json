@@ -80,8 +80,8 @@
   "Zoom %1%": "ズーム %1%",
   "Reading %1 of %2 files": "%2 個中 %1 個のファイルを読み込み中",
   "Looking for scans…": "画像を検索中…",
-  "%n images": {
-    "other": "%n 枚"
+  "%Ln images": {
+    "other": "%Ln 枚"
   },
   "Can't be decoded": "デコードできません",
   "Click": "クリック",
@@ -94,26 +94,26 @@
   "Unknown": "不明",
   "No tags match": "一致するタグはありません",
   "Oblique": "オブリーク",
-  "%n years old": {
-    "other": "%n 歳"
+  "%Ln years old": {
+    "other": "%Ln 歳"
   },
-  "%n months old": {
-    "other": "%n か月"
+  "%Ln months old": {
+    "other": "%Ln か月"
   },
-  "%n weeks old": {
-    "other": "%n 週"
+  "%Ln weeks old": {
+    "other": "%Ln 週"
   },
-  "%n days old": {
-    "other": "%n 日"
+  "%Ln days old": {
+    "other": "%Ln 日"
   },
-  "%n files couldn't be copied.": {
-    "other": "%n 個のファイルをコピーできませんでした。"
+  "%Ln files couldn't be copied.": {
+    "other": "%Ln 個のファイルをコピーできませんでした。"
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "other": "%n 枚の画像には、画像そのものに患者情報が写っている可能性があり、コピーでは消せません。共有する前に確認してください。"
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "other": "%Ln 枚の画像には、画像そのものに患者情報が写っている可能性があり、コピーでは消せません。共有する前に確認してください。"
   },
-  "Saved %n files in %1": {
-    "other": "%n 個のファイルを %1 に保存しました"
+  "Saved %Ln files in %1": {
+    "other": "%Ln 個のファイルを %1 に保存しました"
   },
   "Male": "男性",
   "Mean %1  ·  SD %2": "平均 %1  ·  SD %2",
@@ -123,8 +123,8 @@
   "%1 doesn't exist": "%1 は存在しません",
   "No DICOM images were found there": "DICOM画像が見つかりませんでした",
   "The DICOM files there couldn't be read: %1": "DICOMファイルを読み込めませんでした: %1",
-  "%n files couldn't be read": {
-    "other": "%n 個のファイルを読み込めませんでした"
+  "%Ln files couldn't be read": {
+    "other": "%Ln 個のファイルを読み込めませんでした"
   },
   "Untitled series": "無題のシリーズ",
   "Series %1": "シリーズ %1",
@@ -158,15 +158,15 @@
   "Some slices can't be read, so this picture can't be made": "読み込めないスライスがあるため、この画像は作成できません",
   "Lung": "肺",
   "Bone": "骨",
-  "%n items": {
-    "other": "%n 項目"
+  "%Ln items": {
+    "other": "%Ln 項目"
   },
   "Compressed image data, %1": "圧縮画像データ、%1",
-  "Image data, %n bytes": {
-    "other": "画像データ、%n バイト"
+  "Image data, %Ln bytes": {
+    "other": "画像データ、%Ln バイト"
   },
-  "%n bytes": {
-    "other": "%n バイト"
+  "%Ln bytes": {
+    "other": "%Ln バイト"
   },
   "DICOM images": "DICOM画像",
   "All files": "すべてのファイル",

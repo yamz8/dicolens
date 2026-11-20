@@ -80,9 +80,9 @@
   "Zoom %1%": "Yakınlaştırma %1%",
   "Reading %1 of %2 files": "%1 / %2 dosya okunuyor",
   "Looking for scans…": "Görüntüler aranıyor…",
-  "%n images": {
-    "one": "%n görüntü",
-    "other": "%n görüntü"
+  "%Ln images": {
+    "one": "%Ln görüntü",
+    "other": "%Ln görüntü"
   },
   "Can't be decoded": "Çözülemiyor",
   "Click": "Tıklama",
@@ -95,33 +95,33 @@
   "Unknown": "Bilinmiyor",
   "No tags match": "Eşleşen etiket yok",
   "Oblique": "Oblik",
-  "%n years old": {
-    "one": "%n yaşında",
-    "other": "%n yaşında"
+  "%Ln years old": {
+    "one": "%Ln yaşında",
+    "other": "%Ln yaşında"
   },
-  "%n months old": {
-    "one": "%n aylık",
-    "other": "%n aylık"
+  "%Ln months old": {
+    "one": "%Ln aylık",
+    "other": "%Ln aylık"
   },
-  "%n weeks old": {
-    "one": "%n haftalık",
-    "other": "%n haftalık"
+  "%Ln weeks old": {
+    "one": "%Ln haftalık",
+    "other": "%Ln haftalık"
   },
-  "%n days old": {
-    "one": "%n günlük",
-    "other": "%n günlük"
+  "%Ln days old": {
+    "one": "%Ln günlük",
+    "other": "%Ln günlük"
   },
-  "%n files couldn't be copied.": {
-    "one": "%n dosya kopyalanamadı.",
-    "other": "%n dosya kopyalanamadı."
+  "%Ln files couldn't be copied.": {
+    "one": "%Ln dosya kopyalanamadı.",
+    "other": "%Ln dosya kopyalanamadı."
   },
-  "%n of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
-    "one": "Görüntülerden %n tanesi hastanın bilgilerini görüntünün içinde gösteriyor olabilir; kopya bunları çıkaramaz. Paylaşmadan önce ona bakın.",
-    "other": "Görüntülerden %n tanesi hastanın bilgilerini görüntünün içinde gösteriyor olabilir; kopya bunları çıkaramaz. Paylaşmadan önce onlara bakın."
+  "%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.": {
+    "one": "Görüntülerden %Ln tanesi hastanın bilgilerini görüntünün içinde gösteriyor olabilir; kopya bunları çıkaramaz. Paylaşmadan önce ona bakın.",
+    "other": "Görüntülerden %Ln tanesi hastanın bilgilerini görüntünün içinde gösteriyor olabilir; kopya bunları çıkaramaz. Paylaşmadan önce onlara bakın."
   },
-  "Saved %n files in %1": {
-    "one": "%n dosya %1 konumuna kaydedildi",
-    "other": "%n dosya %1 konumuna kaydedildi"
+  "Saved %Ln files in %1": {
+    "one": "%Ln dosya %1 konumuna kaydedildi",
+    "other": "%Ln dosya %1 konumuna kaydedildi"
   },
   "Male": "Erkek",
   "Mean %1  ·  SD %2": "Ortalama %1  ·  SS %2",
@@ -131,9 +131,9 @@
   "%1 doesn't exist": "%1 mevcut değil",
   "No DICOM images were found there": "Orada DICOM görüntüsü bulunamadı",
   "The DICOM files there couldn't be read: %1": "Oradaki DICOM dosyaları okunamadı: %1",
-  "%n files couldn't be read": {
-    "one": "%n dosya okunamadı",
-    "other": "%n dosya okunamadı"
+  "%Ln files couldn't be read": {
+    "one": "%Ln dosya okunamadı",
+    "other": "%Ln dosya okunamadı"
   },
   "Untitled series": "Adsız seri",
   "Series %1": "Seri %1",
@@ -167,18 +167,18 @@
   "Some slices can't be read, so this picture can't be made": "Bazı kesitler okunamıyor, bu yüzden bu görüntü oluşturulamıyor",
   "Lung": "Akciğer",
   "Bone": "Kemik",
-  "%n items": {
-    "one": "%n öğe",
-    "other": "%n öğe"
+  "%Ln items": {
+    "one": "%Ln öğe",
+    "other": "%Ln öğe"
   },
   "Compressed image data, %1": "Sıkıştırılmış görüntü verisi, %1",
-  "Image data, %n bytes": {
-    "one": "Görüntü verisi, %n bayt",
-    "other": "Görüntü verisi, %n bayt"
+  "Image data, %Ln bytes": {
+    "one": "Görüntü verisi, %Ln bayt",
+    "other": "Görüntü verisi, %Ln bayt"
   },
-  "%n bytes": {
-    "one": "%n bayt",
-    "other": "%n bayt"
+  "%Ln bytes": {
+    "one": "%Ln bayt",
+    "other": "%Ln bayt"
   },
   "DICOM images": "DICOM görüntüleri",
   "All files": "Tüm dosyalar",
