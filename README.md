@@ -1,8 +1,8 @@
 # Dicolens
 
-![Dicolens opening a made-up chest CT: scrolling slices, windowing, zooming, measuring, playing the series, and searching its tags](docs/demo.gif)
+![Dicolens with a made-up chest CT: scrolling the slices, changing the window, measuring, four views, turning it in 3D, a PET over its CT, and the shortcut list](docs/demos/tour.gif)
 
-<sub>A 30-second tour, with made-up scans. [Watch it as a video](docs/demo.mp4).</sub>
+<sub>A short tour, with made-up scans. [Watch it as a video](docs/demos/tour.mp4), or see [everything it does](docs/features.md).</sub>
 
 Dicolens is a DICOM viewer for [Omarchy](https://omarchy.org). Open the CD a
 hospital gave you, a folder, or a single file, and look through it: every

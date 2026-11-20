@@ -854,7 +854,8 @@ public:
         m_next = 0;
     }
 
-    void finish() {
+    // The tour is also saved as a video, which is far smaller for its length.
+    void finish(bool video = false) {
         const QString gif = m_out + "/" + m_name + ".gif";
         QProcess ffmpeg;
         ffmpeg.setProcessChannelMode(QProcess::ForwardedErrorChannel);
@@ -864,6 +865,13 @@ public:
                                 gif});
         ffmpeg.waitForFinished(-1);
         qInfo().noquote() << QStringLiteral("%1: %2 frames, %3 KB").arg(gif).arg(m_index).arg(QFileInfo(gif).size() / 1024);
+        if (!video)
+            return;
+        const QString mp4 = m_out + "/" + m_name + ".mp4";
+        ffmpeg.start("ffmpeg", {"-v", "error", "-y", "-framerate", QString::number(Fps), "-i", m_frames->path() + "/%05d.png",
+                                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "24", "-movflags", "+faststart", mp4});
+        ffmpeg.waitForFinished(-1);
+        qInfo().noquote() << QStringLiteral("%1: %2 KB").arg(mp4).arg(QFileInfo(mp4).size() / 1024);
     }
 
     void hold(int ms) {
@@ -1429,15 +1437,14 @@ int main(int argc, char *argv[]) {
              ready();
              rec.hold(1200);
              const QPointF middle = volume->mapToScene(QPointF(volume->width() / 2, volume->height() / 2));
-             rec.drag(middle, middle + QPointF(260, 0), Qt::LeftButton, 2200, "Drag: turn it");
-             rec.drag(middle + QPointF(260, 0), middle + QPointF(260, -110), Qt::LeftButton, 1300, "Drag");
+             rec.drag(middle, middle + QPointF(220, -60), Qt::LeftButton, 1400, "Drag: turn it");
              ready();
              rec.hold(900);
              rec.hidePointer();
              rec.key("R  Reset", Qt::Key_R, Qt::NoModifier, 0);
              ready();
              rec.hold(500);
-             rec.wheel(middle, -16, 2400, "Wheel: cut into it");
+             rec.wheel(middle, -16, 1800, "Wheel: cut into it");
              ready();
              rec.hold(1200);
              rec.hidePointer();
@@ -1446,24 +1453,23 @@ int main(int argc, char *argv[]) {
              for (const char *look : {"B  Vessels", "B  Skin", "B  Lungs", "B  MIP"}) {
                  rec.key(look, Qt::Key_B, Qt::NoModifier, 0);
                  ready();
-                 rec.hold(1300);
+                 rec.hold(1000);
              }
              rec.key("B  Bone", Qt::Key_B, Qt::NoModifier, 0);
              ready();
-             rec.drag(middle, middle + QPointF(-160, 0), Qt::LeftButton, 1300, "Ctrl+drag: show more or less", Qt::ControlModifier);
+             rec.drag(middle, middle + QPointF(110, 0), Qt::LeftButton, 900, "Ctrl+drag: show more or less", Qt::ControlModifier);
              ready();
              rec.hold(800);
-             rec.drag(middle + QPointF(-160, 0), middle, Qt::LeftButton, 900, "Ctrl+drag", Qt::ControlModifier);
-             ready();
              rec.hidePointer();
              rec.key("V  From the side", Qt::Key_V, Qt::NoModifier, 0);
              ready();
              rec.hold(1300);
-             rec.key("Space  Spin", Qt::Key_Space, Qt::NoModifier, 4200);
+             rec.key("Space  Spin", Qt::Key_Space, Qt::NoModifier, 1700);
              rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 0);
              ready();
              rec.hold(600);
              rec.key("D  Back to slices", Qt::Key_D, Qt::NoModifier, 900);
+             QMetaObject::invokeMethod(volume, "reset");
          }},
         {"four", [&] { showSeries("Axial 2 mm", 60); },
          [&] {
@@ -1530,6 +1536,66 @@ int main(int argc, char *argv[]) {
              rec.key("Shift+V", Qt::Key_V, Qt::ShiftModifier, 300);
              rec.key("U  PET off", Qt::Key_U, Qt::NoModifier, 1300);
          }},
+        // The README's one recording: a little of everything, in about 30 seconds.
+        {"tour", [&] { showSeries("Axial 5 mm", 4); },
+         [&] {
+             rec.hold(900);
+             rec.wheel(at(0, 0), 18, 2200, "Wheel: through the slices");
+             rec.hidePointer();
+             rec.key("3  Lung", Qt::Key_3, Qt::NoModifier, 1000);
+             rec.key("4  Bone", Qt::Key_4, Qt::NoModifier, 1000);
+             rec.key("0  The file's window", Qt::Key_0, Qt::NoModifier, 800);
+             rec.key("M  Measure", Qt::Key_M, Qt::NoModifier, 300);
+             rec.drag(at(-38, -24), at(78, -24), Qt::LeftButton, 1200, "Drag");
+             rec.hold(1300);
+             rec.hidePointer();
+             rec.key("Esc", Qt::Key_Escape, Qt::NoModifier, 0);
+             QTest::keyClick(window, Qt::Key_Delete, Qt::ShiftModifier);
+             // A thin-slice series for the views across it and in 3D.
+             showSeries("Axial 2 mm", 60);
+             rec.key("Shift+V  Four views", Qt::Key_V, Qt::ShiftModifier, 0);
+             auto *quad = qobject_cast<VolumeView *>(findItem(window->contentItem(), "quadView3d"));
+             QTRY_VERIFY_WITH_TIMEOUT(quad->ready(), 30000);
+             QTRY_VERIFY_WITH_TIMEOUT(quad->waitForPicture(20000), 30000);
+             coronal.waitForSlice(10000);
+             sagittal.waitForSlice(10000);
+             rec.hold(1200);
+             rec.click(at(22, 42), "Click: the aorta, in all of them");
+             coronal.waitForSlice(10000);
+             sagittal.waitForSlice(10000);
+             rec.hold(1600);
+             rec.hidePointer();
+             rec.key("Shift+V", Qt::Key_V, Qt::ShiftModifier, 0);
+             // As it first opens, whatever the 3D scene left it as.
+             auto *volume = qobject_cast<VolumeView *>(findItem(window->contentItem(), "view3d"));
+             QMetaObject::invokeMethod(volume, "reset");
+             rec.key("D  3D", Qt::Key_D, Qt::NoModifier, 0);
+             QTRY_VERIFY_WITH_TIMEOUT(volume->ready(), 30000);
+             QTRY_VERIFY_WITH_TIMEOUT(volume->waitForPicture(20000), 30000);
+             rec.hold(900);
+             const QPointF middle = volume->mapToScene(QPointF(volume->width() / 2, volume->height() / 2));
+             rec.drag(middle, middle + QPointF(170, -40), Qt::LeftButton, 1200, "Drag: turn it");
+             QTRY_VERIFY_WITH_TIMEOUT(volume->waitForPicture(20000), 30000);
+             rec.hold(1300);
+             // Back as it was, for the scenes after.
+             QMetaObject::invokeMethod(volume, "reset");
+             rec.key("D  Back to slices", Qt::Key_D, Qt::NoModifier, 0);
+             showSeries("CT low dose", 20);
+             rec.key("U  The PET over its CT", Qt::Key_U, Qt::NoModifier, 0);
+             QTRY_VERIFY_WITH_TIMEOUT(backend.fused() && !backend.fusionName().contains("…"), 30000);
+             backend.waitForSlice(10000);
+             rec.hold(900);
+             rec.moveTo(at(-62, -6, 1.4), 800);
+             rec.hold(1600);
+             rec.hidePointer();
+             QTest::keyClick(window, Qt::Key_U);
+             showSeries("Axial 5 mm", 22);
+             rec.badge("?  Every shortcut");
+             QTest::keyClick(window, '?');
+             rec.hold(2400);
+             QTest::keyClick(window, Qt::Key_Escape);
+             rec.hold(500);
+         }},
         {"help", [&] { showSeries("Axial 5 mm", 22); },
          [&] {
              rec.hold(600);
@@ -1569,7 +1635,7 @@ int main(int argc, char *argv[]) {
         scene.prepare();
         rec.begin(scene.name);
         scene.play();
-        rec.finish();
+        rec.finish(scene.name == "tour");
     }
     return 0;
 }
