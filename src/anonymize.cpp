@@ -43,8 +43,64 @@ const QSet<quint32> &removed() {
         0x00401001, 0x00401010, 0x00401400, 0x00402400, 0x00403001, // Requested procedure details
         0x00880200, // Icon Image Sequence: a small picture of its own
         0x4008010C, 0x40080114, 0x4008011A, 0x40080202, // Interpretation authors
+        // Free text people type, which says whatever they knew.
+        0x00084000, 0x00184000, 0x00209158, 0x00284000, 0x00400280, // Comments on the study, acquisition, frame, image, step
+        0x40000010, 0x40004000, 0x4008010B, 0x40080300, 0x40084000, // Arbitrary text, interpretations, impressions
+        0x00880904, 0x00880906, 0x00880910, 0x00880912, // A file-set's topic, author, and keywords
+        // More of who the patient is and who saw them.
+        0x00080051, 0x0008009D, 0x00321031, // Issuer of the accession number, physicians' identification
+        0x00100024, 0x00100033, 0x00100034, 0x00100050, 0x00100101, // ID qualifiers, other calendars' dates, insurance, language
+        0x00101100, 0x00102155, // The patient's photo, and how to reach them
+        0x00120040, 0x00120042, // A clinical trial's subject IDs
+        0x00181007, 0x00181008, 0x00181010, 0x0018700A, // Cassette, gantry, capture device, and detector IDs
+        0x00380014, 0x0038001E, 0x00380040, 0x00380050, 0x00380060, 0x00380061, 0x00380062, 0x00380064, // Admission and episode
+        0x00400009, 0x00401101, 0x00401102, 0x00401103, 0x00401104, // Step ID; a person's codes, address, and phones
+        0x00402009, 0x00402010, 0x00402011, 0x00402016, 0x00402017, // Who entered the order, and its numbers
+        0x0040A027, 0x0040A073, 0x0040A078, 0x0040A07A, 0x0040A07C, 0x0040A088, // Observers, authors, and custodians
+        0x00700086, // Content Creator's Identification Code Sequence
+        0x40080042, 0x40080111, 0x40080118, // Results' issuer, approvers, and distribution
+        // What the values were before a system changed them, the patient's
+        // name among them; and signatures, which name their signers and no
+        // longer hold once anything is changed.
+        0x04000500, 0x04000561, 0xFFFAFFFA,
+        // What an earlier anonymizing said of itself; this one says its own.
+        0x00120062, 0x00120063, 0x00120064, 0x00280303,
     };
     return tags;
+}
+
+// A file written implicitly says no value's kind, and the bundled list of
+// tags, made for showing them, doesn't have every one. So what the profile
+// goes by is listed here by tag: every person's name in the standard, and
+// the UIDs the profile replaces.
+const QSet<quint32> &names() {
+    static const QSet<quint32> tags{
+        0x00080090, 0x0008009C, 0x00081048, 0x00081050, 0x00081060, 0x00081070, // Physicians and operators
+        0x00100010, 0x00101001, 0x00101005, 0x00101060, 0x00102297, // The patient, by every name, and their family
+        0x00321032, 0x00400006, 0x00401010, 0x00402008, 0x00404037, // Who asked, was scheduled, and did it
+        0x0040A075, 0x0040A123, 0x00700084, // Observers, people named in reports, who drew the marks
+        0x300600A6, 0x300E0008, // Radiotherapy's interpreters and reviewers
+        0x40080102, 0x4008010A, 0x4008010C, 0x40080114, 0x40080119, // Interpretations' recorders and authors
+    };
+    return tags;
+}
+
+const QSet<quint32> &uidTags() {
+    static const QSet<quint32> tags{
+        0x00080014, 0x00080017, 0x00080018, 0x00080019, 0x00080058, 0x0008010D, 0x00081155, 0x00081195,
+        0x00083010, 0x00089123, 0x00181002, 0x0020000D, 0x0020000E, 0x00200052, 0x00200200, 0x00200242,
+        0x00209161, 0x00209164, 0x00281199, 0x00281214, 0x00404023, 0x0040A124, 0x0040A171, 0x0040A172,
+        0x0040A402, 0x0040DB0C, 0x0040DB0D, 0x00620021, 0x0070031A, 0x00701101, 0x00701102, 0x00880140,
+        0x04000100, 0x30060024, 0x300600C2, 0x300A0013, 0x30100006, 0x3010000B, 0x30100013, 0x30100015,
+        0x30100031, 0x3010006E, 0x3010006F,
+    };
+    return tags;
+}
+
+// A sequence that couldn't be read as one is bytes nothing here can look
+// into: it starts with an item, in little-endian as copies are.
+bool unreadSequence(const DicomElement &e) {
+    return e.items.isEmpty() && e.value.startsWith(QByteArray("\xFE\xFF\x00\xE0", 4));
 }
 
 // Kept, but emptied: the module needs them present.
@@ -126,7 +182,8 @@ QList<DicomElement> clean(const QList<DicomElement> &elements, Anonymize::Sessio
     QList<DicomElement> out;
     for (DicomElement e : elements) {
         const quint16 group = e.tag >> 16;
-        if (group == 0x0002 || (group & 1) || (group & 0xFF00) == 0x5000 || removed().contains(e.tag))
+        if (group == 0x0002 || (group & 1) || (group & 0xFF00) == 0x5000 || removed().contains(e.tag)
+            || unreadSequence(e))
             continue;
         if (e.tag == 0x00100010) {
             out << text(e.tag, "PN", "Anonymous");
@@ -141,12 +198,12 @@ QList<DicomElement> clean(const QList<DicomElement> &elements, Anonymize::Sessio
             out << text(e.tag, "LO", it->toLatin1());
             continue;
         }
-        if (e.vr == "PN" || emptied().contains(e.tag)) {
+        if (e.vr == "PN" || names().contains(e.tag) || emptied().contains(e.tag)) {
             if (emptied().contains(e.tag))
                 out << text(e.tag, e.vr, {});
             continue;
         }
-        if (e.vr == "UI")
+        if (e.vr == "UI" || uidTags().contains(e.tag))
             e.value = uids(e.value, session);
         for (auto &item : e.items)
             item = clean(item, session, file);

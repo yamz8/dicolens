@@ -106,7 +106,8 @@ DicomFile DicomFile::parse(const uchar *data, qint64 size, QString *error) {
     qint64 pos = 0;
     if (size >= 132 && std::memcmp(data + 128, "DICM", 4) == 0)
         pos = 132;
-    else if (size < 8)
+    // Nothing after the preamble, or too little to be an element.
+    if (size < pos + 8)
         return fail(QT_TRANSLATE_NOOP("dicolens", "Not a DICOM file"));
 
     // Files from before Part 10 have no preamble and start straight into
@@ -257,32 +258,30 @@ bool DicomFile::parseDataSet(const uchar *data, qint64 size, qint64 &pos, qint64
             continue;
         }
 
+        // A sequence under a tag the bundled list doesn't have arrives from
+        // an implicit file as a value of no known kind, and one a system
+        // passed on without knowing it as UN: bytes that nothing could read
+        // into, or take a patient's name out of. Its first item gives it
+        // away, and it is one if it reads as items all the way.
+        if (element.vr == "UN" && length != Undefined && length >= 8 && pos + qint64(length) <= end
+            && u16(data + pos, littleEndian) == 0xFFFE && u16(data + pos + 2, littleEndian) == 0xE000) {
+            qint64 at = pos;
+            QList<QList<DicomElement>> items;
+            if (parseItems(data, size, at, pos + qint64(length), false, littleEndian, items, depth, nullptr)) {
+                element.vr = "SQ";
+                element.items = items;
+                pos += length;
+                out.append(element);
+                continue;
+            }
+        }
+
         if (element.vr == "SQ" || length == Undefined) {
             // An undefined-length UN is a sequence written implicitly.
             const bool itemsExplicit = element.vr == "UN" ? false : explicitVr;
             const qint64 sequenceEnd = length == Undefined ? end : qMin(pos + qint64(length), end);
-            while (pos + 8 <= sequenceEnd) {
-                const quint32 itemTag = quint32(u16(data + pos, littleEndian)) << 16 | u16(data + pos + 2, littleEndian);
-                const quint32 itemLength = u32(data + pos + 4, littleEndian);
-                pos += 8;
-                if (itemTag == Tag::SequenceEnd)
-                    break;
-                if (itemTag != Tag::Item)
-                    return fail(QT_TRANSLATE_NOOP("dicolens", "A sequence is damaged"));
-                QList<DicomElement> item;
-                if (itemLength == Undefined) {
-                    if (!parseDataSet(data, size, pos, sequenceEnd, itemsExplicit, littleEndian, item, depth + 1, error))
-                        return false;
-                } else {
-                    const qint64 itemEnd = pos + itemLength;
-                    if (itemEnd > sequenceEnd)
-                        return fail(QT_TRANSLATE_NOOP("dicolens", "The file is cut short"));
-                    if (!parseDataSet(data, size, pos, itemEnd, itemsExplicit, littleEndian, item, depth + 1, error))
-                        return false;
-                    pos = itemEnd;
-                }
-                element.items.append(item);
-            }
+            if (!parseItems(data, size, pos, sequenceEnd, itemsExplicit, littleEndian, element.items, depth, error))
+                return false;
             if (length != Undefined)
                 pos = sequenceEnd;
             out.append(element);
@@ -298,6 +297,38 @@ bool DicomFile::parseDataSet(const uchar *data, qint64 size, qint64 &pos, qint64
         if (tag == Tag::SpecificCharacterSet && depth == 0)
             m_charset = element.value;
         out.append(element);
+    }
+    return true;
+}
+
+bool DicomFile::parseItems(const uchar *data, qint64 size, qint64 &pos, qint64 sequenceEnd, bool itemsExplicit,
+                           bool littleEndian, QList<QList<DicomElement>> &items, int depth, QString *error) {
+    auto fail = [&](const char *reason) {
+        if (error)
+            *error = reason;
+        return false;
+    };
+    while (pos + 8 <= sequenceEnd) {
+        const quint32 itemTag = quint32(u16(data + pos, littleEndian)) << 16 | u16(data + pos + 2, littleEndian);
+        const quint32 itemLength = u32(data + pos + 4, littleEndian);
+        pos += 8;
+        if (itemTag == Tag::SequenceEnd)
+            break;
+        if (itemTag != Tag::Item)
+            return fail(QT_TRANSLATE_NOOP("dicolens", "A sequence is damaged"));
+        QList<DicomElement> item;
+        if (itemLength == Undefined) {
+            if (!parseDataSet(data, size, pos, sequenceEnd, itemsExplicit, littleEndian, item, depth + 1, error))
+                return false;
+        } else {
+            const qint64 itemEnd = pos + itemLength;
+            if (itemEnd > sequenceEnd)
+                return fail(QT_TRANSLATE_NOOP("dicolens", "The file is cut short"));
+            if (!parseDataSet(data, size, pos, itemEnd, itemsExplicit, littleEndian, item, depth + 1, error))
+                return false;
+            pos = itemEnd;
+        }
+        items.append(item);
     }
     return true;
 }
@@ -375,11 +406,11 @@ const DicomElement *DicomFile::find(quint32 tag, int frame) const {
                         return &e;
         return nullptr;
     };
-    if (const DicomElement *perFrame = element(0x52009230))
+    if (const DicomElement *perFrame = element(Tag::PerFrameGroups))
         if (frame >= 0 && frame < perFrame->items.size())
             if (const DicomElement *e = inGroups(perFrame->items[frame]))
                 return e;
-    if (const DicomElement *shared = element(0x52009229))
+    if (const DicomElement *shared = element(Tag::SharedGroups))
         if (!shared->items.isEmpty())
             if (const DicomElement *e = inGroups(shared->items.first()))
                 return e;
@@ -477,10 +508,10 @@ QString DicomFile::formatTime(const QString &value) {
 
 QString DicomFile::display(const DicomElement &e) const {
     if (e.vr == "SQ" || !e.items.isEmpty())
-        return tr("%n items", nullptr, e.items.size());
+        return tr("%Ln items", nullptr, e.items.size());
     if (e.tag == Tag::PixelData) {
         return m_encapsulated ? tr("Compressed image data, %1").arg(Dictionary::transferSyntaxName(m_transferSyntax))
-                              : tr("Image data, %n bytes", nullptr, int(qMin<qint64>(m_pixelLength, INT_MAX)));
+                              : tr("Image data, %Ln bytes", nullptr, int(qMin<qint64>(m_pixelLength, INT_MAX)));
     }
 
     static const QList<QByteArray> numeric{"US", "SS", "UL", "SL", "FL", "FD"};
@@ -505,7 +536,7 @@ QString DicomFile::display(const DicomElement &e) const {
             return {};
         if (e.value.size() <= 12)
             return QString::fromLatin1(e.value.toHex(' '));
-        return tr("%n bytes", nullptr, int(e.value.size()));
+        return tr("%Ln bytes", nullptr, int(e.value.size()));
     }
 
     QStringList values = decode(e.value).split('\\');
@@ -569,7 +600,7 @@ QList<QByteArray> DicomFile::splitFrames(const QByteArray &encapsulated, int fra
     }
 
     // The basic offset table says where each frame's first fragment starts.
-    if (offsetTable.size() >= frameCount * 4) {
+    if (offsetTable.size() >= qint64(frameCount) * 4) {
         QList<qint64> starts;
         for (int i = 0; i < frameCount; ++i)
             starts << qFromLittleEndian<quint32>(offsetTable.constData() + i * 4);

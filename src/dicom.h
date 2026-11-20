@@ -121,6 +121,10 @@ constexpr quint32 OverlayOrigin = 0x60000050;
 constexpr quint32 OverlayFrameOrigin = 0x60000051;
 constexpr quint32 OverlayBitsAllocated = 0x60000100;
 constexpr quint32 OverlayData = 0x60003000;
+// Enhanced multi-frame files group what varies frame by frame, and what
+// every frame shares.
+constexpr quint32 SharedGroups = 0x52009229;
+constexpr quint32 PerFrameGroups = 0x52009230;
 constexpr quint32 PixelData = 0x7FE00010;
 constexpr quint32 Item = 0xFFFEE000;
 constexpr quint32 ItemEnd = 0xFFFEE00D;
@@ -191,6 +195,9 @@ public:
 private:
     bool parseDataSet(const uchar *data, qint64 size, qint64 &pos, qint64 end, bool explicitVr,
                       bool littleEndian, QList<DicomElement> &out, int depth, QString *error);
+    // A sequence's items, up to its end or its delimiter.
+    bool parseItems(const uchar *data, qint64 size, qint64 &pos, qint64 sequenceEnd, bool itemsExplicit,
+                    bool littleEndian, QList<QList<DicomElement>> &items, int depth, QString *error);
     void index();
 
     QString m_path;
