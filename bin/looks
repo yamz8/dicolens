@@ -1,0 +1,85 @@
+#!/bin/bash
+set -euo pipefail
+
+# Draws the window in each of its modes, offscreen, on a dark and a light
+# theme, in English, Danish, and Arabic, and at a larger text size, into a
+# folder of PNGs to look through (looks/ unless another is given). Fails
+# when a mode can't be drawn or the window logs a QML warning while it is.
+# CI keeps the pictures of every push.
+root="$(cd "$(dirname "$0")/.." && pwd)"
+out="$(realpath -m "${1:-$root/looks}")"
+"$root/bin/build"
+cmake --build "$root/build" --target dicolens_demo -j"$(nproc)"
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+QT_QPA_PLATFORM=offscreen "$root/build/dicolens_demo" --scans "$work/cd" >/dev/null
+mkdir -p "$out"
+
+# A home of its own for each look, so nothing of the desktop's is read:
+# the theme's colours, the language, and the text size, where Omarchy
+# keeps them.
+home() {
+  local theme="$1" language="$2" size="$3" home="$work/home-$1-$2-$3"
+  mkdir -p "$home/.local/state/omarchy/current/theme" "$home/.config/omarchy"
+  if [[ $theme == light ]]; then
+    printf 'mode = "light"\naccent = "#1e66f5"\nbackground = "#eff1f5"\nforeground = "#4c4f69"\nred = "#d20f39"\n' \
+      > "$home/.local/state/omarchy/current/theme/colors.toml"
+  fi
+  echo "$language" > "$home/.config/omarchy/language"
+  printf '[font]\nbase-size = %s\n' "$size" > "$home/.config/omarchy/shell.toml"
+  echo "$home"
+}
+
+# name, then the keys that reach the mode from a scan just opened.
+modes=(
+  "scan:"
+  "tags:T"
+  "help:?"
+  "report:P"
+  "compare:C"
+  "four:Shift+V"
+  "3d:Right Right Right D"
+  "pet:Right Right Right Right U"
+  "measure:M"
+)
+
+failed=0
+look() {
+  local name="$1" keys="$2" theme="$3" language="$4" size="$5" scans="${6-$work/cd}"
+  local file="$out/$name-$theme-$language-$size.png" log="$work/log"
+  local home; home="$(home "$theme" "$language" "$size")"
+  # shellcheck disable=SC2086
+  if ! HOME="$home" XDG_CONFIG_HOME="$home/.config" XDG_DATA_HOME="$home/.local/share" \
+       XDG_CACHE_HOME="$home/.cache" XDG_STATE_HOME="$home/.local/state" OMARCHY_PATH="${OMARCHY_PATH-}" \
+       QT_QPA_PLATFORM=offscreen QT_FORCE_STDERR_LOGGING=1 OMARCHY_LOOK_SCREENSHOT="$file" \
+       OMARCHY_LOOK_SIZE=1280x820 OMARCHY_LOOK_KEYS="$keys" OMARCHY_LOOK_DELAY_MS=2500 \
+       timeout 120 "$root/build/dicolens" $scans 2>"$log"; then
+    echo "FAILED $file: the window didn't draw" >&2
+    failed=1
+  fi
+  if [[ ! -s $file ]]; then
+    echo "FAILED $file: no picture" >&2
+    failed=1
+  fi
+  if grep -E 'qrc:.*(Error|Warning|TypeError|ReferenceError|Unable to assign|Binding loop)|^qml:|QML ' "$log" >&2; then
+    echo "FAILED $file: the window logged the above" >&2
+    failed=1
+  fi
+}
+
+look empty "" dark en 12 ""
+look empty "" light ar 12 ""
+for mode in "${modes[@]}"; do
+  name="${mode%%:*}" keys="${mode#*:}"
+  look "$name" "$keys" dark en 12
+  look "$name" "$keys" light da 12
+  look "$name" "$keys" dark ar 12
+done
+# Larger text, where clipping shows first.
+for mode in "scan:" "tags:T" "help:?" "report:P"; do
+  look "${mode%%:*}" "${mode#*:}" dark da 18
+done
+
+echo "$(find "$out" -name '*.png' | wc -l) pictures in $out"
+exit $failed

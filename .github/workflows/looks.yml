@@ -1,0 +1,55 @@
+name: Looks
+
+# Draws the window in every mode, on a dark and a light theme, in English,
+# Danish, and Arabic, and at a larger text size, and keeps the pictures of
+# each push to look through. Tests can't tell a clipped layout from a good
+# one; a person can, at a glance. The job itself fails only when a mode
+# can't be drawn or the window logs a QML warning while it is.
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  looks:
+    name: Draw every mode
+    runs-on: ubuntu-latest
+    # Drawn against Arch's Qt, like the tests.
+    container: archlinux:latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install git for the checkout
+        run: pacman -Syu --noconfirm --needed git
+
+      - uses: actions/checkout@v4
+
+      - name: Install the package's dependencies, and fonts to draw with
+        # The package's PKGBUILD in omarchy-pkgs is the one list of what the app needs; the container has no fonts at all, and Arabic needs one of its own.
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/omacom/omarchy-pkgs/master/pkgbuilds/${{ github.event.repository.name }}/PKGBUILD" -o "$RUNNER_TEMP/PKGBUILD"
+          source "$RUNNER_TEMP/PKGBUILD"
+          deps=("${depends[@]}" "${makedepends[@]}" "${checkdepends[@]}")
+          pacman -S --noconfirm --needed base-devel cmake noto-fonts "${deps[@]%%[<>=]*}"
+
+      - name: Set up a user and a locale like a desktop's
+        run: |
+          useradd -m tester
+          chown -R tester .
+          sed -i 's/^#en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen
+          locale-gen
+
+      - name: Draw
+        run: su tester -c 'LANG=en_US.UTF-8 bin/looks looks'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: looks
+          path: looks/*.png
+          retention-days: 14
+          if-no-files-found: error

@@ -149,8 +149,12 @@ with Omarchy.
 bin/build                                 # build/dicolens
 bin/test                                  # the tests, offscreen
 bin/demos                                 # record the GIFs in docs/demos again
+bin/looks                                 # draw every mode, theme, and language into looks/
 cmake --install build --prefix ~/.local   # try it in the app launcher
 ```
+
+Translations are kept in step with `src/i18n/en.json` as
+[docs/i18n.md](docs/i18n.md) says.
 
 The package's recipe lives in
 [omarchy-pkgs](https://github.com/omacom/omarchy-pkgs), which is also where CI
@@ -159,4 +163,6 @@ reads the dependencies from.
 ## License
 
 MIT. The theme watching and the portal file chooser follow
-[Omacut](https://github.com/omacom/omacut).
+[Omacut](https://github.com/omacom/omacut), the text size
+[Plain](https://github.com/omacom/plain), and the translation sync
+[Folio](https://github.com/omacom/folio).
