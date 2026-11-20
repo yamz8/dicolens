@@ -38,9 +38,9 @@ target_link_libraries(dicolens_tests PRIVATE dicolens_core Qt6::Test)
 add_test(NAME dicolens_tests COMMAND dicolens_tests)
 set_tests_properties(dicolens_tests PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 
-# The dictionary has a test file of its own, with the tables from the
-# standard, which are resources too.
-foreach(suite dictionary_tests)
+# The dictionary and the anonymizer have test files of their own, with the
+# tables from the standard, which are resources too.
+foreach(suite dictionary_tests anonymize_tests)
   add_executable(${suite} tests/${suite}.cpp src/resources.qrc)
   target_link_libraries(${suite} PRIVATE dicolens_core Qt6::Test)
   add_test(NAME ${suite} COMMAND ${suite})
