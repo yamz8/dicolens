@@ -132,8 +132,11 @@ QList<Failure> verify(const DicomFile &copy, const Session &session);
 
 // Writes a copy of a DICOM file, with the rectangles blacked out of its
 // picture, and reads it back to look for what the source said of the
-// patient; a copy that still holds any of it is deleted. Fails with a
-// reason in English.
+// patient; a copy that still holds any of it is deleted. A picture with
+// rectangles is decoded and written uncompressed, and so is one that keeps
+// an overlay in its pixels' spare bits, to clear them; one that can't be
+// drawn again value for value (a video, 32-bit pixels) isn't copied. Fails
+// with a reason in English.
 bool write(const DicomFile &file, const QString &path, Session &session, QString *error = nullptr,
            const Options &options = {}, const QList<QRect> &blackout = {}, Outcome *outcome = nullptr);
 

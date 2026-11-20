@@ -37,8 +37,7 @@ def book(part, folder):
     """A part of the standard, parsed, from a folder or from NEMA."""
     if folder:
         return ET.parse(Path(folder) / f"{part}.xml").getroot()
-    request = urllib.request.Request(SOURCE.format(part), headers={"User-Agent": "dicolens-tools"})
-    with urllib.request.urlopen(request, timeout=300) as response:
+    with urllib.request.urlopen(SOURCE.format(part), timeout=300) as response:
         return ET.fromstring(response.read())
 
 
