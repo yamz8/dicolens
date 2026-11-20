@@ -76,7 +76,8 @@ Frame applyPalette(const Frame &indices, const DicomFile &file) {
         for (int x = 0; x < out.width; ++x) {
             const int index = indices.stored(x, y);
             for (int c = 0; c < 3; ++c) {
-                const int entries = descriptors[c][0] == 0 ? 65536 : int(descriptors[c][0]);
+                // Zero entries means 65536; a count below one is no table.
+                const int entries = descriptors[c][0] == 0 ? 65536 : std::clamp(int(descriptors[c][0]), 1, 65536);
                 const int firstMapped = int(descriptors[c][1]);
                 const int bits = int(descriptors[c][2]);
                 const int i = std::clamp(index - firstMapped, 0, entries - 1);
@@ -427,7 +428,7 @@ Frame convertNative(const uchar *data, qint64 size, const ImageFormat &f) {
         if (size < pixels * bytes)
             return failed(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
         const int bits = std::clamp(f.bitsStored, 1, f.bitsAllocated);
-        const int shift = std::max(0, f.highBit + 1 - bits);
+        const int shift = std::clamp(f.highBit + 1 - bits, 0, 31);
         const quint32 mask = bits >= 32 ? 0xFFFFFFFF : (1u << bits) - 1;
         frame.mono.resize(pixels);
         for (qint64 i = 0; i < pixels; ++i) {

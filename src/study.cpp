@@ -19,6 +19,12 @@ void cross(const double *a, const double *b, double *out) {
 
 double dot(const double *a, const double *b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
 
+// A decimal string may spell "nan" or "inf", and a binary value be one.
+// Geometry made of those would send every index computed from it anywhere.
+bool finite(const QList<double> &values, int count) {
+    return values.size() >= count && std::all_of(values.begin(), values.begin() + count, [](double v) { return std::isfinite(v); });
+}
+
 // The patient direction a vector points towards, strongest axis first, as
 // radiologists label an image's edges.
 QString direction(const double *v) {
@@ -189,14 +195,15 @@ void addFile(Scan &scan, const DicomFile &file) {
         auto spacing = file.numbers(file.find(Tag::PixelSpacing, 0));
         if (spacing.size() < 2)
             spacing = file.numbers(Tag::ImagerPixelSpacing);
-        if (spacing.size() >= 2 && spacing[0] > 0 && spacing[1] > 0) {
+        if (finite(spacing, 2) && spacing[0] > 0 && spacing[1] > 0) {
             s.hasSpacing = true;
             s.spacing[0] = spacing[0];
             s.spacing[1] = spacing[1];
         }
-        s.thickness = file.numbers(file.find(Tag::SliceThickness, 0)).value(0);
+        const auto thickness = file.numbers(file.find(Tag::SliceThickness, 0));
+        s.thickness = finite(thickness, 1) ? thickness.first() : 0;
         const auto orientation = file.numbers(file.find(Tag::ImageOrientation, 0));
-        if (orientation.size() >= 6) {
+        if (finite(orientation, 6)) {
             s.hasOrientation = true;
             for (int i = 0; i < 6; ++i)
                 s.orientation[i] = orientation[i];
@@ -226,7 +233,8 @@ void addFile(Scan &scan, const DicomFile &file) {
                 r.y1 = int(value(Tag::RegionMaxY));
                 r.deltaX = std::abs(value(Tag::PhysicalDeltaX)) * 10;
                 r.deltaY = std::abs(value(Tag::PhysicalDeltaY)) * 10;
-                if (r.deltaX > 0 && r.deltaY > 0 && r.x1 >= r.x0 && r.y1 >= r.y0)
+                if (std::isfinite(r.deltaX) && std::isfinite(r.deltaY) && r.deltaX > 0 && r.deltaY > 0 && r.x1 >= r.x0
+                    && r.y1 >= r.y0)
                     s.regions << r;
             }
         scan.series.append(s);
@@ -242,14 +250,14 @@ void addFile(Scan &scan, const DicomFile &file) {
         slice.frame = frame;
         slice.instance = instance;
         const auto position = file.numbers(file.find(Tag::ImagePosition, frame));
-        if (position.size() >= 3) {
+        if (finite(position, 3)) {
             slice.hasPosition = true;
             for (int i = 0; i < 3; ++i)
                 slice.position[i] = position[i];
         }
         if (const auto *location = file.find(Tag::SliceLocation, frame)) {
             const auto values = file.numbers(location);
-            if (!values.isEmpty()) {
+            if (finite(values, 1)) {
                 slice.location = values.first();
                 slice.hasLocation = true;
             }

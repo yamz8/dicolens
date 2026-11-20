@@ -133,7 +133,9 @@ QImage overlay(const DicomFile &file, int frame, int rows, int columns) {
             continue;
         const int oRows = file.integer(g | (Tag::OverlayRows & 0xFFFF));
         const int oColumns = file.integer(g | (Tag::OverlayColumns & 0xFFFF));
-        if (oRows <= 0 || oColumns <= 0)
+        // Rows and columns are 16-bit in the standard; a file that says more
+        // has no overlay worth walking through.
+        if (oRows <= 0 || oColumns <= 0 || oRows > 65535 || oColumns > 65535)
             continue;
         // Overlays of a multi-frame image start at a frame of their own.
         const int frames = std::max(1, file.integer(g | (Tag::OverlayFrames & 0xFFFF), 1));
@@ -151,8 +153,12 @@ QImage overlay(const DicomFile &file, int frame, int rows, int columns) {
         // Bits run along each row, the lowest bit of each byte first.
         const auto *bits = reinterpret_cast<const uchar *>(data->value.constData());
         const qint64 available = qint64(data->value.size()) * 8;
-        const qint64 start = qint64(index) * oRows * oColumns;
-        for (int r = 0; r < oRows; ++r) {
+        const qint64 plane = qint64(oRows) * oColumns;
+        // A frame the data doesn't reach has nothing to show.
+        if (index >= available / plane)
+            continue;
+        const qint64 start = index * plane;
+        for (int r = 0; r < oRows && start + qint64(r) * oColumns < available; ++r) {
             const int y = r + top;
             if (y < 0 || y >= rows)
                 continue;

@@ -85,6 +85,19 @@ Volume makeVolume(const Series &series) {
     for (int k = 1; k < n; ++k)
         if (std::abs((along[k] - along[k - 1]) - step) > std::abs(step) * 0.1)
             return v;
+    // And one straight behind another: a CT taken with its gantry tilted
+    // steps sideways from slice to slice, and cut as a block it would come
+    // out sheared, with lengths through it too short.
+    const double pixel = std::max(series.spacing[0], series.spacing[1]);
+    for (int k = 1; k < n; ++k) {
+        double aside = 0;
+        for (int a = 0; a < 3; ++a) {
+            const double d = series.slices[k].position[a] - series.slices[0].position[a] - (along[k] - along[0]) * normal[a];
+            aside += d * d;
+        }
+        if (std::sqrt(aside) > pixel)
+            return v;
+    }
 
     v.valid = true;
     v.size[0] = series.columns;
