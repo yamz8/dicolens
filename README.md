@@ -137,6 +137,10 @@ dicolens measurements <file|folder>               # what was measured in the vie
 dicolens report <file|folder> --report 1          # a structured report as text
 dicolens report <file|folder> --out report.pdf    # or a PDF report, saved
 dicolens anonymize <file|folder|zip> --out shared/  # a copy without the patient's identity
+dicolens anonymize <file|folder|zip> --dry-run      # what such a copy would remove and keep
+dicolens anonymize <file|folder|zip> --out shared/ --keep-descriptions --blackout 2:0,0,640,48
+                                                  # keeping the series' descriptions, with the top
+                                                  # of series 2's pictures blacked out
 dicolens skill install                            # teach Claude Code to use these
 ```
 
@@ -151,7 +155,12 @@ bin/test                                  # the tests, offscreen
 bin/demos                                 # record the GIFs in docs/demos again
 bin/looks                                 # draw every mode, theme, and language into looks/
 cmake --install build --prefix ~/.local   # try it in the app launcher
+uv run tools/standard.py                  # src/data again, from a new edition of DICOM
 ```
+
+What tags are called, how implicit files are read, and what an anonymous copy
+does to each attribute come from the DICOM standard's own tables (Part 6 and
+Part 15's Table E.1-1), kept in `src/data` as the edition they were made from.
 
 Translations are kept in step with `src/i18n/en.json` as
 [docs/i18n.md](docs/i18n.md) says.

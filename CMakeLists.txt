@@ -38,6 +38,15 @@ target_link_libraries(dicolens_tests PRIVATE dicolens_core Qt6::Test)
 add_test(NAME dicolens_tests COMMAND dicolens_tests)
 set_tests_properties(dicolens_tests PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 
+# The dictionary and the anonymizer have test files of their own, with the
+# tables from the standard, which are resources too.
+foreach(suite dictionary_tests anonymize_tests)
+  add_executable(${suite} tests/${suite}.cpp src/resources.qrc)
+  target_link_libraries(${suite} PRIVATE dicolens_core Qt6::Test)
+  add_test(NAME ${suite} COMMAND ${suite})
+  set_tests_properties(${suite} PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+endforeach()
+
 # bin/demos records the GIFs in docs/features.md with this; a plain build leaves it out.
 add_executable(dicolens_demo EXCLUDE_FROM_ALL tools/demo.cpp src/resources.qrc)
 target_link_libraries(dicolens_demo PRIVATE dicolens_core Qt6::Test)

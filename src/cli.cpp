@@ -47,11 +47,20 @@ const char *Usage = R"(Usage:
   dicolens report <file | folder> [--report <n>] [--out <file.pdf>] [--json]
                                               Read a report that came with the scans: a
                                               structured report as text, or a PDF saved with --out
-  dicolens anonymize <file | folder>... --out <folder> [--json]
+  dicolens anonymize <file | folder>... --out <folder> [--keep-descriptions]
+                  [--blackout <series>:<x>,<y>,<width>,<height>]... [--dry-run] [--json]
                                               Copy the images without the patient's name, IDs,
                                               birth date, or institution, into a new folder
-                                              "Anonymous scans" inside the one given; dates, age,
-                                              sex, and weight stay, and reports are left out
+                                              "Anonymous scans" inside the one given, as DICOM's
+                                              Basic Confidentiality Profile says; dates, age, sex,
+                                              and weight stay, and reports and annotations are
+                                              left out. Each copy is read back and searched for
+                                              the patient's details; one that still has any isn't
+                                              kept. --keep-descriptions keeps the study, series,
+                                              and protocol descriptions; --blackout blacks out a
+                                              rectangle, in image pixels, of every image of a
+                                              series (ultrasound has the name in the picture);
+                                              --dry-run says what would be done and writes nothing
   dicolens skill install                      Install the agent skill to ~/.claude/skills/dicolens
   dicolens --help | --version
 
@@ -754,41 +763,131 @@ int report(QStringList args) {
     return 0;
 }
 
+// What became of each kind of attribute, for people: "Study Date (12), …".
+QString listed(const QList<Anonymize::Count> &counts) {
+    QStringList parts;
+    for (const auto &c : counts)
+        parts << QStringLiteral("%1 (%2)").arg(c.name).arg(c.files);
+    return parts.isEmpty() ? QStringLiteral("nothing") : parts.join(", ");
+}
+
+QJsonArray countsJson(const QList<Anonymize::Count> &counts) {
+    QJsonArray array;
+    for (const auto &c : counts)
+        array << QJsonObject{{"tag", c.tag.isEmpty() ? QJsonValue() : QJsonValue(c.tag)}, {"name", c.name}, {"files", c.files}};
+    return array;
+}
+
 int anonymize(QStringList args) {
     const bool json = flag(args, "--json");
+    const bool dryRun = flag(args, "--dry-run");
+    Anonymize::Options options;
+    options.keepDescriptions = flag(args, "--keep-descriptions");
+    const char *regionUsage = "--blackout takes <series>:<x>,<y>,<width>,<height>, such as 2:0,0,640,48";
+    QStringList regions;
+    for (int i = args.indexOf("--blackout"); i >= 0; i = args.indexOf("--blackout")) {
+        if (i + 1 >= args.size())
+            return fail(regionUsage, json);
+        regions << args[i + 1];
+        args.remove(i, 2);
+    }
     const QString output = option(args, "--out");
-    if (args.isEmpty() || output.isEmpty())
-        return fail("anonymize needs files or folders, and --out <folder>", json);
+    if (args.isEmpty() || (output.isEmpty() && !dryRun))
+        return fail("anonymize needs files or folders, and --out <folder> (or --dry-run)", json);
     for (const auto &path : args)
         if (!QFileInfo::exists(path))
             return fail(QStringLiteral("%1 doesn't exist").arg(path), json);
     const Scan scan = scanPaths(args);
     if (scan.series.isEmpty())
         return fail("no DICOM images were found there", json);
-    if (!QDir().mkpath(output))
+
+    // A rectangle that misses the picture would hide nothing, so it's
+    // refused before anything is written rather than file by file.
+    for (const QString &region : std::as_const(regions)) {
+        const QStringList numbers = region.section(':', 1).split(',');
+        bool ok = region.count(':') == 1 && numbers.size() == 4, number = false;
+        QList<int> n{region.section(':', 0, 0).toInt(&number)};
+        ok = ok && number;
+        for (const QString &text : numbers) {
+            n << text.toInt(&number);
+            ok = ok && number;
+        }
+        // No picture is a million pixels across; more is a slip of the hand.
+        if (!ok || n[1] < 0 || n[2] < 0 || n[3] < 1 || n[4] < 1 || *std::max_element(n.begin() + 1, n.end()) > 1000000)
+            return fail(regionUsage, json);
+        if (n[0] < 1 || n[0] > scan.series.size())
+            return fail(QStringLiteral("there are %1 series; --blackout counts them from 1, as info lists them").arg(scan.series.size()), json);
+        const Series &series = scan.series[n[0] - 1];
+        const QRect rectangle(n[1], n[2], n[3], n[4]);
+        if (!rectangle.intersects(QRect(0, 0, series.columns, series.rows)))
+            return fail(QStringLiteral("the rectangle %1 lies outside series %2's %3x%4 picture")
+                            .arg(region.section(':', 1)).arg(n[0]).arg(series.columns).arg(series.rows), json);
+        options.blackout[n[0] - 1] << rectangle;
+    }
+
+    if (!dryRun && !QDir().mkpath(output))
         return fail(QStringLiteral("%1 can't be created").arg(output), json);
-    const Anonymize::Result r = Anonymize::copyScan(scan, output);
+    const Anonymize::Result r = dryRun ? Anonymize::plan(scan, options) : Anonymize::copyScan(scan, output, nullptr, options);
     for (const auto &e : r.errors)
         err() << "dicolens: " << e << "\n";
-    if (r.written == 0)
-        return fail("nothing could be copied", json);
+    err().flush();
+
+    const QString standard = QStringLiteral("DICOM PS3.15 %1").arg(Anonymize::edition());
     if (json) {
-        out() << QJsonDocument(QJsonObject{{"folder", QFileInfo(r.folder).absoluteFilePath()},
-                                           {"written", r.written},
-                                           {"reportsLeftOut", r.skipped},
-                                           {"mayShowDetailsInPicture", r.showDetails},
-                                           {"failed", int(r.errors.size())}})
-                     .toJson(QJsonDocument::Indented);
-    } else {
-        out() << "Copied " << r.written << " files into " << r.folder << "\n";
+        QJsonArray failures;
+        for (const auto &f : r.failures)
+            failures << QJsonObject{{"file", f.path}, {"tag", tagText(f.tag)}, {"name", f.name}, {"found", f.found}, {"what", f.what}};
+        const QJsonObject o{{"dryRun", dryRun},
+                            {"folder", dryRun ? QJsonValue() : QJsonValue(QFileInfo(r.folder).absoluteFilePath())},
+                            {dryRun ? "wouldWrite" : "written", r.written},
+                            {"reportsLeftOut", r.skipped},
+                            {"annotationsLeftOut", r.annotations},
+                            {"mayShowDetailsInPicture", r.showDetails},
+                            {"blackedOut", r.blackedOut},
+                            {"failed", int(r.errors.size())},
+                            {"errors", QJsonArray::fromStringList(r.errors)},
+                            {"verificationFailures", failures},
+                            {"standard", standard},
+                            {"edition", Anonymize::edition()},
+                            {"basicProfile", !options.keepDescriptions},
+                            {"descriptionsKept", options.keepDescriptions},
+                            {"method", QJsonArray::fromStringList(r.method)},
+                            {"summary", QJsonObject{{"removed", countsJson(r.summary.removed)},
+                                                    {"emptied", countsJson(r.summary.emptied)},
+                                                    {"replaced", countsJson(r.summary.replaced)},
+                                                    {"kept", countsJson(r.summary.kept)}}}};
+        out() << QJsonDocument(o).toJson(QJsonDocument::Indented);
+    } else if (r.written > 0) {
+        const QString files = r.written == 1 ? QStringLiteral("1 file") : QStringLiteral("%1 files").arg(r.written);
+        if (dryRun)
+            out() << "Would copy " << files << "; nothing was written\n";
+        else
+            out() << "Copied " << files << " into " << r.folder << "\n";
+        out() << "By " << standard << ", "
+              << (options.keepDescriptions ? "the Basic Profile's table, but with the study, series, and protocol descriptions kept as they are"
+                                           : "the Basic Application Level Confidentiality Profile")
+              << "; dates and the patient's age, sex, size, and weight stay\n"
+              << "  Removed:  " << listed(r.summary.removed) << "\n"
+              << "  Emptied:  " << listed(r.summary.emptied) << "\n"
+              << "  Replaced: " << listed(r.summary.replaced) << "\n"
+              << "  Kept:     " << listed(r.summary.kept) << "\n";
+        if (r.blackedOut)
+            out() << "Blacked out a region of " << r.blackedOut << (r.blackedOut == 1 ? " image\n" : " images\n");
         if (r.skipped)
-            out() << "Left out " << r.skipped << " reports, as their text names the patient\n";
+            out() << "Left out " << r.skipped << (r.skipped == 1 ? " report" : " reports") << ", as their text names the patient\n";
+        if (r.annotations)
+            out() << "Left out " << r.annotations << (r.annotations == 1 ? " annotation file" : " annotation files")
+                  << ", as their text can name the patient\n";
         if (r.showDetails)
-            out() << r.showDetails << " images may show the patient's details in the picture itself; "
-                  << "look at them before sharing\n";
+            out() << r.showDetails << (r.showDetails == 1 ? " image" : " images")
+                  << " may show the patient's details in the picture itself; look at them before sharing"
+                  << " (--blackout takes a region out)\n";
     }
     out().flush();
-    return r.errors.isEmpty() ? 0 : 1;
+    // With --json what happened is all in the document, on stdout.
+    if (r.written == 0 && !json)
+        return fail("nothing could be copied", json);
+    return r.errors.isEmpty() && r.written > 0 ? 0 : 1;
 }
 
 int skill(QStringList args) {

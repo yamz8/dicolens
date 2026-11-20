@@ -203,11 +203,22 @@ whole series (or plane, or slab) as an MP4, as it's shown.
 `Ctrl+Shift+S` copies every image into a new folder, "Anonymous scans",
 without the patient's name, IDs, birth date, address, or the people and
 institution who saw them, and with new UIDs, following DICOM's Basic
-Confidentiality Profile. Dates, age, sex, and weight stay, as reading the scans
-needs them. Reports are left out, as their text names the patient. Some
-images, ultrasound and screen captures especially, can show the name in the
-picture itself, which no copy can take out; Dicolens says how many might, so
-you can look before sending them.
+Confidentiality Profile attribute by attribute, from the standard's own
+table. Dates, age, sex, and weight stay, as reading the scans needs them. The
+descriptions people typed for the study and its series go, as the profile
+says. Reports and saved annotations are left out, as their text names the
+patient.
+
+Each copy is read back and searched for the names, IDs, birth date,
+institution, addresses, and serial numbers the originals held; a copy that
+still has any of them isn't kept, and Dicolens says which file and where.
+
+Some images, ultrasound and screen captures especially, can show the name in
+the picture itself; Dicolens says how many might, so you can look before
+sending them. From the command line, `dicolens anonymize` can black a
+rectangle out of every image of a series (`--blackout`), keep the study's and
+series' descriptions (`--keep-descriptions`), and say what a copy would
+remove and keep without making one (`--dry-run`).
 
 ## Every shortcut, on `?`
 

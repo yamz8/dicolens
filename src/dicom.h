@@ -5,6 +5,7 @@
 #include <QList>
 #include <QString>
 #include <QVector>
+#include <functional>
 
 // Tags are written as 0xGGGGEEEE, group then element, as the standard prints them.
 namespace Tag {
@@ -214,13 +215,32 @@ private:
     QByteArray m_inflated;
 };
 
+// The standard's registry of data elements and UIDs (DICOM Part 6), from the
+// tables in src/data.
 namespace Dictionary {
-// The standard name of a tag ("Patient's Name") and its VR, or empty when
-// it's private or not in the bundled list.
+// The standard name of a tag ("Patient's Name"), or empty when the standard
+// has none; "Private" in odd groups, and "Group Length" for element 0000.
 QString name(quint32 tag);
+// The VR an implicit file's value is read by, or empty when the tag is
+// private or unknown. Where the standard allows several ("US or SS", "OB or
+// OW", "US or OW"), it's OW when that's allowed and US otherwise; vrs() has
+// what the standard says.
 QByteArray vr(quint32 tag);
+QString vrs(quint32 tag);
+bool retired(quint32 tag);
+int count();                 // How many data elements the registry has.
+QString edition();           // The edition of the standard it's from, such as "2026d".
 QString transferSyntaxName(const QString &uid);
 QString sopClassName(const QString &uid);
+QString uidName(const QString &uid);   // Any UID the standard registers.
+
+// Reads one of the bundled tables, handing each row's cells to row, and the
+// edition its first comment names to edition. The cells point into the text
+// returned, for as long as that is kept.
+QByteArray table(const char *resource, QString *edition, const std::function<void(const QList<QByteArrayView> &)> &row);
+// A tag as the tables write it, eight hex digits with x where any digit
+// goes ("60xx3000"), as the digits it has and a mask of which ones count.
+bool pattern(QByteArrayView text, quint32 *mask, quint32 *digits);
 }
 
 QString tagText(quint32 tag);
