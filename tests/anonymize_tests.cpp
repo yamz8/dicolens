@@ -654,6 +654,91 @@ private slots:
         QCOMPARE(Anonymize::copyScan(scanFiles(listFiles({dir.path()}, true)), out.path(), &cancel).written, 0);
     }
 
+    void keepsNothingOfDamagedFiles_data() {
+        QTest::addColumn<bool>("explicitVr");
+        QTest::newRow("explicit") << true;
+        QTest::newRow("implicit") << false;
+    }
+
+    void keepsNothingOfDamagedFiles() {
+        QFETCH(bool, explicitVr);
+        // A file with a byte or two wrong, or cut short, reads as something
+        // nobody wrote: lengths that swallow the next element, names under
+        // other tags, values of other kinds. Whatever it reads as, copying
+        // it must neither fall over nor let the patient through. The other
+        // files of a scan say who the patient is, as the intact one does here.
+        auto writer = [explicitVr] {
+            Writer w;
+            w.explicitVr = explicitVr;
+            return w;
+        };
+        Writer reference = writer(), request = writer();
+        reference.add(0x00081150, "UI", CtImage).add(0x00081155, "UI", "1.2.7.44");
+        request.add(0x00321032, "PN", "Zimmermann^Bartholomew").add(0x00400009, "SH", "STEP-778899");
+        Writer w = writer();
+        w.add(Tag::SopClass, "UI", CtImage)
+            .add(Tag::SopInstance, "UI", "1.2.7.1")
+            .add(Tag::StudyDate, "DA", "20250101")
+            .add(0x00080050, "SH", "ACC-998877")
+            .add(Tag::Modality, "CS", "CT")
+            .add(Tag::Institution, "LO", "Saint Elsewhere")
+            .add(0x00080090, "PN", "Hernandez^Guillermo")
+            .add(Tag::SeriesDescription, "LO", "Axial 5 mm")
+            .sequence(Tag::ReferencedImage, {reference})
+            .add(0x00090010, "LO", "VENDOR")
+            .add(0x00091001, "LO", "Montgomery")
+            .add(Tag::PatientName, "PN", "Montgomery^Alexandra")
+            .add(Tag::PatientId, "LO", "MRN-424242")
+            .add(Tag::PatientBirthDate, "DA", "19700101")
+            .add(Tag::StudyInstance, "UI", "1.2.7");
+        module(w, "1.2.7.3", 2, 2, 16, 12, false);
+        w.sequence(0x00400275, {request}).pixels(le16({1, 2, 3, 4}));
+        const QByteArray intact = w.file(explicitVr ? ExplicitLE : ImplicitLE);
+        Anonymize::Session learned;
+        Anonymize::learn(DicomFile::parse(intact), learned);
+        const QList<QByteArray> theirs{"montgomery", "alexandra", "hernandez", "guillermo", "zimmermann", "bartholomew",
+                                       "mrn-424242", "acc-998877", "step-778899", "saint elsewhere"};
+
+        quint32 state = explicitVr ? 12345 : 67890;
+        auto random = [&state](int below) {
+            state = state * 1664525u + 1013904223u;
+            return int((state >> 8) % quint32(below));
+        };
+        Anonymize::Options keep;
+        keep.keepDescriptions = true;
+        const QString source = fresh(".src"), path = fresh(".dcm");
+        int copied = 0, refused = 0;
+        for (int round = 0; round < 3000; ++round) {
+            QByteArray damaged = intact;
+            for (int flips = 1 + random(3); flips > 0; --flips)
+                damaged[132 + random(int(damaged.size()) - 132)] = char(random(256));
+            if (random(8) == 0)
+                damaged.truncate(140 + random(int(damaged.size()) - 140));
+            QVERIFY(write(source, damaged));
+            const DicomFile file = DicomFile::read(source);
+            if (!file.isValid())
+                continue;
+            Anonymize::Session session = learned;
+            QString error;
+            const bool planned = Anonymize::check(file, session, &error, keep, round % 3 ? QList<QRect>() : QList<QRect>{QRect(0, 0, 1, 1)});
+            Q_UNUSED(planned);
+            session = learned;
+            if (!Anonymize::write(file, path, session, &error, keep)) {
+                ++refused;
+                QVERIFY(!QFileInfo::exists(path) && !QFileInfo::exists(path + ".unchecked"));
+                continue;
+            }
+            ++copied;
+            const QByteArray bytes = bytesOf(path).toLower();
+            for (const QByteArray &name : theirs)
+                QVERIFY2(!bytes.contains(name), qPrintable(QStringLiteral("round %1: %2").arg(round).arg(QString::fromLatin1(name))));
+            QVERIFY(DicomFile::read(path).isValid());
+        }
+        // Most damage leaves a file that can be copied; some of it moves a
+        // name to where only the check afterwards finds it.
+        QVERIFY2(copied > 1000 && refused > 10, qPrintable(QStringLiteral("%1 copied, %2 refused").arg(copied).arg(refused)));
+    }
+
     void clearsAnOverlayKeptInThePixels() {
         // Files once kept an overlay plane in the bits of each pixel the
         // picture didn't use. Taking away what describes the plane leaves
@@ -849,7 +934,12 @@ private slots:
         row("a phone number written otherwise", Description, "LO", "tel 1-555-123-4567", "+1 (555) 123-4567");
         row("an institution", Description, "LO", "SAINT ELSEWHERE CT1", "Saint Elsewhere");
         row("a town of the address", 0x00081030, "LO", "Springfield protocol", "Springfield");
-        row("a serial number in a coded value", 0x00180015, "CS", "SN-998877", "SN-998877");
+        row("an ID in a coded value", 0x00180015, "CS", "REF 1024", "1024");
+        row("a serial number in what's written as a code", 0x00180015, "CS", "SN-998877", "SN-998877");
+        row("a name in what's written as a code and isn't one", 0x00180015, "CS", "Colon, sigmoid", "Colon");
+        row("a name in what's written as a number", Tag::SliceThickness, "DS", "5 (Cruz)", "Cruz");
+        row("an ID in what's written as a number", Tag::SliceThickness, "DS", "5 mm, ID 1024", "1024");
+        row("a name in what's written as a UID", 0x00200052, "UI", "1.2.840.10008.Cruz", "Cruz");
         row("a name in bytes that are text", Unregistered, "UN", "Lee", "Lee");
         row("a long name in bytes that aren't", 0x00282000, "OB", QByteArray("\x00\x01 Saint Elsewhere \x02\x00", 20), "Saint Elsewhere");
         row("one of the original's UIDs", 0x00200052, "UI", "1.2.7", "1.2.7");

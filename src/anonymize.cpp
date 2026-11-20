@@ -201,8 +201,12 @@ QString newUid() {
 }
 
 // Standard UIDs (SOP classes, transfer syntaxes, coding schemes) name kinds
-// of things, not this patient's.
-bool standardUid(const QString &uid) { return uid.startsWith("1.2.840.10008."); }
+// of things, not this patient's. Only digits and dots make one: a value
+// that starts as the standard's and goes on in words is kept by nothing.
+bool standardUid(const QString &uid) {
+    return uid.startsWith("1.2.840.10008.")
+           && std::all_of(uid.begin(), uid.end(), [](QChar c) { return (c >= '0' && c <= '9') || c == '.'; });
+}
 
 QString uidFor(const QString &old, Anonymize::Session &session) {
     if (old.isEmpty() || standardUid(old))
@@ -895,6 +899,13 @@ bool looksLikeText(const QByteArray &vr, QByteArray value) {
     });
 }
 
+// Whether a value has only the characters its kind is written with, bar
+// the padding at its end.
+bool madeOf(const QString &text, const char *characters) {
+    const QLatin1StringView allowed(characters);
+    return std::all_of(text.begin(), text.end(), [&](QChar c) { return c.isNull() || allowed.contains(c); });
+}
+
 // Whether a text holds an identifier, by the identifier's rule.
 bool holds(const QString &text, const Identifier &id) {
     if (id.match == Identifier::Match::Anywhere)
@@ -954,28 +965,33 @@ void look(const DicomFile &copy, const QList<DicomElement> &elements, const Anon
             failures << Anonymize::Failure{{}, e.tag, name.isEmpty() ? QStringLiteral("an unnamed attribute") : name,
                                            found, what};
         };
-        if (isUid(e)) {
-            for (const QString &uid : uidValues(e.value))
-                if (session.sourceUids.contains(uid)) {
-                    fail(uid, QStringLiteral("one of the original's UIDs"));
-                    break;
-                }
-            continue;
-        }
-
         // Three ways to read a value: text people wrote, a coded value,
         // and bytes. In bytes only what's long enough not to be there by
         // chance is looked for. In coded values no names are: the body
         // part of Mr Colon's scan is COLON; and nothing short, where MR and
         // PA are codes. Numbers and dates aren't looked for among numbers
         // and dates, where an ID of 1024 would be every other matrix size.
+        // A value is only read as a code, a number, or a UID when it's
+        // made of nothing else: a damaged length can put the elements that
+        // followed, names and all, inside one that claims to be any of them.
         const QByteArray vr = vrOf(e);
         const bool bytes = binaryVr(vr) && !looksLikeText(vr, e.value);
         if (bytes && e.value.size() < 5)
             continue;
-        const bool coded = vr == "CS";
-        const bool numeric = vr == "DS" || vr == "IS" || vr == "DA" || vr == "DT" || vr == "TM" || vr == "AS";
-        const QString text = (bytes ? QString::fromLatin1(e.value) : copy.decode(e.value)).toCaseFolded();
+        const QString written = bytes ? QString::fromLatin1(e.value) : copy.decode(e.value);
+        const QString text = written.toCaseFolded();
+        const bool coded = vr == "CS" && madeOf(written, "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_ \\");
+        const bool numeric = (vr == "DS" || vr == "IS" || vr == "DA" || vr == "DT" || vr == "TM" || vr == "AS")
+                             && madeOf(text, "0123456789+-.:e dwmy\\");
+        if (isUid(e)) {
+            for (const QString &uid : uidValues(e.value))
+                if (session.sourceUids.contains(uid)) {
+                    fail(uid, QStringLiteral("one of the original's UIDs"));
+                    break;
+                }
+            if (madeOf(text, "0123456789. \\"))
+                continue;
+        }
         for (const Identifier &id : session.identifiers) {
             const bool number = id.match == Identifier::Match::Number || id.match == Identifier::Match::Squeezed;
             if (bytes && (id.text.size() < 5 || id.match == Identifier::Match::Squeezed))
