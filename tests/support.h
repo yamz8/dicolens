@@ -261,6 +261,44 @@ inline QByteArray encode(const QList<int> &values, int width, const QString &pix
     return ffmpeg.exitCode() == 0 ? ffmpeg.readAllStandardOutput() : QByteArray();
 }
 
+// One plane of bytes as an RLE segment (PS3.5 annex G): runs of a byte
+// repeated, and stretches of bytes as they are.
+inline QByteArray packBits(const QByteArray &plane) {
+    QByteArray out;
+    for (qsizetype i = 0; i < plane.size();) {
+        qsizetype run = 1;
+        while (i + run < plane.size() && run < 128 && plane[i + run] == plane[i])
+            ++run;
+        if (run > 1) {
+            out += char(1 - run);
+            out += plane[i];
+            i += run;
+            continue;
+        }
+        qsizetype n = 1;
+        while (i + n < plane.size() && n < 128 && (i + n + 1 == plane.size() || plane[i + n] != plane[i + n + 1]))
+            ++n;
+        out += char(n - 1);
+        out += plane.mid(i, n);
+        i += n;
+    }
+    return out;
+}
+
+// An RLE frame: a header of where each segment starts, then the segments,
+// one for each byte of each sample, the most significant first.
+inline QByteArray rleFrame(const QList<QByteArray> &planes) {
+    QByteArray header(64, 0), body;
+    qToLittleEndian<quint32>(quint32(planes.size()), header.data());
+    for (qsizetype i = 0; i < planes.size(); ++i) {
+        qToLittleEndian<quint32>(quint32(64 + body.size()), header.data() + 4 + 4 * i);
+        body += packBits(planes[i]);
+        if (body.size() % 2)
+            body += '\0';
+    }
+    return header + body;
+}
+
 // A plain lossless JPEG encoder (T.81 process 14), with one Huffman table
 // giving each difference category a 5-bit code.
 inline QByteArray losslessJpeg(const QVector<quint16> &samples, int width, int height, int components, int precision,

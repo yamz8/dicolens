@@ -12,6 +12,28 @@ endif()
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Network Qml Quick QuickControls2 DBus Test)
 find_package(ZLIB REQUIRED)
 
+# The decoders read whatever a file says, so they are proven two more ways
+# than the tests. -DDICOLENS_SANITIZE=ON builds everything with
+# AddressSanitizer and UndefinedBehaviorSanitizer, to run the tests under
+# (bin/sanitize); -DDICOLENS_FUZZ=ON builds the fuzz targets in fuzz/ as well
+# (bin/fuzz), which takes clang. Either goes in a build folder of its own.
+option(DICOLENS_SANITIZE "Build with AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(DICOLENS_FUZZ "Build the fuzz targets in fuzz/ (clang only)" OFF)
+if(DICOLENS_FUZZ)
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(FATAL_ERROR "The fuzz targets need libFuzzer: configure with -DCMAKE_CXX_COMPILER=clang++")
+  endif()
+  set(DICOLENS_SANITIZE ON)
+  # Coverage for libFuzzer to steer by, in the library as well as the targets.
+  add_compile_options(-fsanitize=fuzzer-no-link)
+endif()
+if(DICOLENS_SANITIZE)
+  # Undefined behaviour stops the program like a bad read does, so a test
+  # or a fuzz run can't pass over it.
+  add_compile_options(-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1)
+  add_link_options(-fsanitize=address,undefined)
+endif()
+
 # Everything but main.cpp, shared by the app and the tests, so each source
 # compiles once and a new file in src/ needs no line here.
 file(GLOB dicolens_sources CONFIGURE_DEPENDS src/*.cpp src/*.h)
@@ -36,11 +58,21 @@ enable_testing()
 add_executable(dicolens_tests tests/dicolens_tests.cpp src/resources.qrc)
 target_link_libraries(dicolens_tests PRIVATE dicolens_core Qt6::Test)
 add_test(NAME dicolens_tests COMMAND dicolens_tests)
-set_tests_properties(dicolens_tests PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+
+set(test_environment QT_QPA_PLATFORM=offscreen)
+if(DICOLENS_SANITIZE)
+  list(APPEND test_environment
+    LSAN_OPTIONS=suppressions=${CMAKE_SOURCE_DIR}/tests/sanitizers/lsan.supp:print_suppressions=0)
+endif()
+set_tests_properties(dicolens_tests PROPERTIES ENVIRONMENT "${test_environment}")
 
 # bin/demos records the GIFs in docs/features.md with this; a plain build leaves it out.
 add_executable(dicolens_demo EXCLUDE_FROM_ALL tools/demo.cpp src/resources.qrc)
 target_link_libraries(dicolens_demo PRIVATE dicolens_core Qt6::Test)
+
+if(DICOLENS_FUZZ)
+  add_subdirectory(fuzz)
+endif()
 
 # `cmake --install build --prefix ~/.local` puts the app in the launcher
 # before it is packaged; a package installs the same files under /usr.

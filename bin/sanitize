@@ -1,0 +1,10 @@
+#!/bin/bash
+set -euo pipefail
+
+# Builds everything with AddressSanitizer and UndefinedBehaviorSanitizer into
+# build-sanitize/ and runs the tests under them. Arguments go to ctest.
+root="$(cd "$(dirname "$0")/.." && pwd)"
+build="$root/build-sanitize"
+cmake -S "$root" -B "$build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DDICOLENS_SANITIZE=ON >/dev/null
+cmake --build "$build" -j"${JOBS:-$(nproc)}"
+QT_QPA_PLATFORM=offscreen ctest --test-dir "$build" --output-on-failure --no-tests=error "$@"
