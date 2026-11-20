@@ -873,12 +873,14 @@ int anonymize(QStringList args) {
         if (r.blackedOut)
             out() << "Blacked out a region of " << r.blackedOut << (r.blackedOut == 1 ? " image\n" : " images\n");
         if (r.skipped)
-            out() << "Left out " << r.skipped << " reports, as their text names the patient\n";
+            out() << "Left out " << r.skipped << (r.skipped == 1 ? " report" : " reports") << ", as their text names the patient\n";
         if (r.annotations)
-            out() << "Left out " << r.annotations << " annotation files, as their text can name the patient\n";
+            out() << "Left out " << r.annotations << (r.annotations == 1 ? " annotation file" : " annotation files")
+                  << ", as their text can name the patient\n";
         if (r.showDetails)
-            out() << r.showDetails << " images may show the patient's details in the picture itself; "
-                  << "look at them before sharing\n";
+            out() << r.showDetails << (r.showDetails == 1 ? " image" : " images")
+                  << " may show the patient's details in the picture itself; look at them before sharing"
+                  << " (--blackout takes a region out)\n";
     }
     out().flush();
     // With --json what happened is all in the document, on stdout.

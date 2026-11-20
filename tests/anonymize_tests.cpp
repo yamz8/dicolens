@@ -654,6 +654,60 @@ private slots:
         QCOMPARE(Anonymize::copyScan(scanFiles(listFiles({dir.path()}, true)), out.path(), &cancel).written, 0);
     }
 
+    void clearsAnOverlayKeptInThePixels() {
+        // Files once kept an overlay plane in the bits of each pixel the
+        // picture didn't use. Taking away what describes the plane leaves
+        // the bits; drawing the picture again from its own twelve doesn't.
+        Writer w = janeDoe(true, "1.2.7.1");
+        w.us(Tag::OverlayRows, 2).us(Tag::OverlayColumns, 2).us(Tag::OverlayBitsAllocated, 16).us(0x60000102, 12)
+            .pixels(le16({0x1001, 0x0002, 0x1003, 0x0004}));
+        const Made made = anonymized(w.file(ExplicitLE));
+        QVERIFY2(made.written, qPrintable(made.error));
+        QCOMPARE(made.copy.readPixels(0, made.copy.pixelLength()), le16({1, 2, 3, 4}));
+        QCOMPARE(decodeFrame(made.copy, 0).mono, (QVector<quint16>{1, 2, 3, 4}));
+        QVERIFY(!made.copy.has(Tag::OverlayRows) && !made.copy.has(0x60000102));
+        QVERIFY(made.outcome.changes.removed.contains(Anonymize::Family::Overlays));
+        // Nothing was blacked out, and the copy doesn't say anything was.
+        QVERIFY(!made.outcome.blackedOut);
+        QVERIFY(!made.copy.string(0x00120063).contains("blacked out"));
+
+        // A plane with data of its own leaves the pixels alone, compressed
+        // as they came.
+        QVector<quint16> samples{100, 200, 300, 400};
+        Writer plane = janeDoe(true, "1.2.7.1");
+        plane.us(Tag::OverlayRows, 2).us(Tag::OverlayColumns, 2).us(Tag::OverlayBitsAllocated, 1).us(0x60000102, 0)
+            .add(Tag::OverlayData, "OW", QByteArray(2, '\x0F'))
+            .encapsulated({losslessJpeg(samples, 2, 2, 1, 12, 1, 0)});
+        const Made kept = anonymized(plane.file("1.2.840.10008.1.2.4.70"));
+        QVERIFY2(kept.written, qPrintable(kept.error));
+        QCOMPARE(kept.copy.transferSyntax(), QString("1.2.840.10008.1.2.4.70"));
+        QVERIFY(!kept.copy.has(Tag::OverlayData) && !kept.copy.has(Tag::OverlayRows));
+
+        // Where the picture can't be drawn again, the file isn't copied.
+        Writer wide;
+        wide.add(Tag::SopClass, "UI", CtImage).image(1, 2, 32, 32, false).us(Tag::OverlayBitsAllocated, 32).us(0x60000102, 31)
+            .pixels(QByteArray(8, 1));
+        const Made refused = anonymized(wide.file(ExplicitLE));
+        QVERIFY(!refused.written);
+        QCOMPARE(refused.error, QString("This image keeps an overlay in its pixels, which can't be taken out: "
+                                        "its pixels are 32-bit, which aren't kept value for value"));
+    }
+
+    void doesNotMistakeItsOwnWords() {
+        // What a copy says of itself has words a patient can be called by
+        // and codes an accession number can be; they're Dicolens' own.
+        Writer w = janeDoe(true, "1.2.7.1");
+        w.body.replace("Doe^Jane", "Free^Tex");
+        w.body.replace("ACC123", "113100");
+        w.body.replace("Saint Elsewhere", "UIDs replaced  ");
+        const Made made = anonymized(w.pixels(le16({1, 2, 3, 4})).file(ExplicitLE));
+        QVERIFY2(made.written, qPrintable(made.error));
+        QVERIFY(made.copy.string(0x00120063).contains("free text"));
+        QVERIFY(made.copy.string(0x00120063).contains("UIDs replaced"));
+        const DicomElement *codes = made.copy.element(0x00120064);
+        QVERIFY(codes && valueOf(in(codes->items.first(), 0x00080100)) == "113100");
+    }
+
     void removesDescriptionsUnlessAsked() {
         Writer w = janeDoe(true, "1.2.7.1");
         w.add(0x00321060, "LO", "CT of the head").add(0x00400254, "LO", "Head without contrast").pixels(le16({1, 2, 3, 4}));
@@ -979,7 +1033,7 @@ private slots:
         QVERIFY(p);
         QCOMPARE(p->exitCode(), 0);
         const QString said = QString::fromUtf8(p->readAllStandardOutput());
-        QVERIFY2(said.contains("Copied 2 files into ") && said.contains("Left out 1 reports") && said.contains("Left out 1 annotation files"),
+        QVERIFY2(said.contains("Copied 2 files into ") && said.contains("Left out 1 report,") && said.contains("Left out 1 annotation file,"),
                  qPrintable(said));
     }
 

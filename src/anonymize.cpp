@@ -514,6 +514,23 @@ bool lossy(const QString &syntax) {
     return syntaxes.contains(syntax);
 }
 
+// Whether an overlay plane is kept in the pixels' spare bits, as files once
+// did (its bits allocated are the image's, or its bit position isn't 0).
+// Removing what describes the plane leaves those bits where they were, for
+// anyone who looks; they hold the text a scanner drew over the picture.
+bool overlayInPixels(const DicomFile &file) {
+    if (!file.hasPixelData())
+        return false;
+    for (const DicomElement &e : file.elements()) {
+        const quint16 number = e.tag & 0xFFFF;
+        if (((e.tag >> 16) & 0xFF01) != 0x6000 || (number != 0x0100 && number != 0x0102))
+            continue;
+        if (file.numbers(&e).value(0) > (number == 0x0100 ? 1 : 0))
+            return true;
+    }
+    return false;
+}
+
 // Why a file's picture can't be drawn again value for value, or nothing
 // when it can. The decoder keeps grey values of 8 and 16 bits as stored and
 // colour of 8 bits a sample; anything else it rescales to show, which is no
@@ -670,10 +687,9 @@ bool generic(const QString &folded) {
         // The small words of a name, which every other sentence has.
         "de", "la", "le", "du", "des", "van", "von", "der", "den", "di", "da", "del", "dos", "das", "el", "al",
         "bin", "ben", "ibn", "mac", "mc", "st", "san", "ter", "ten", "of", "the",
-        "ar", "asmt", "au", "bdus", "bi", "bmd", "cr", "ct", "dg", "doc", "dx", "ecg", "eps", "es", "gm", "hc", "hd",
-        "io", "iol", "ivoct", "ivus", "ker", "ko", "len", "ls", "mg", "mr", "nm", "oam", "oct", "op", "opm", "opt",
-        "opv", "oss", "ot", "pa", "plan", "pr", "pt", "px", "reg", "resp", "rf", "rg", "rtdose", "rtimage", "rtplan",
-        "rtrecord", "rtstruct", "rwv", "seg", "sm", "smr", "sr", "srf", "tg", "us", "va", "xa", "xc",
+        // The modalities scans come in, as the standard codes them. Not
+        // every code: LEN and REG are also what people are called.
+        "cr", "ct", "dx", "mg", "mr", "nm", "ot", "pt", "rf", "sc", "sr", "us", "xa",
     };
     if (words.contains(folded))
         return true;
@@ -922,6 +938,11 @@ void look(const DicomFile &copy, const QList<DicomElement> &elements, const Anon
         // The first few say enough of a copy that isn't kept.
         if (failures.size() >= 20)
             return;
+        // What the copy says of itself is Dicolens' own words, and says
+        // nothing of the source: a patient called Free, or an accession
+        // number that is one of the method's codes, isn't found in them.
+        if (isStatement(e.tag) || e.tag == 0x00020012 || e.tag == 0x00020013)
+            continue;
         for (const auto &item : e.items)
             look(copy, item, session, failures);
         // The pixels themselves aren't searched, as numbers or as floats.
@@ -995,16 +1016,24 @@ bool process(const DicomFile &file, const QString &path, Anonymize::Session &ses
     if (!file.littleEndian())
         return fail(QT_TRANSLATE_NOOP("dicolens", "Big-endian files can't be copied"));
     const bool planned = path.isEmpty();
-    if (!blackout.isEmpty())
+    // The picture is drawn again to black a region out of it, and to clear
+    // an overlay out of its pixels' spare bits: the decoder reads only the
+    // bits that are the picture's.
+    const bool redrawn = !blackout.isEmpty() || overlayInPixels(file);
+    auto cant = [&](const QString &reason) {
+        return fail((blackout.isEmpty() ? QStringLiteral("This image keeps an overlay in its pixels, which can't be taken out: %1")
+                                        : QStringLiteral("A region can't be blacked out of this image: %1")).arg(reason));
+    };
+    if (redrawn)
         if (const QString reason = cantRedraw(file, blackout); !reason.isEmpty())
-            return fail(QStringLiteral("A region can't be blacked out of this image: %1").arg(reason));
+            return cant(reason);
 
     Anonymize::learn(file, session);
 
     // Values are kept as stored, so the copy keeps the original's encoding;
     // a deflated one is written inflated, and one drawn again uncompressed.
     QString syntax = file.transferSyntax();
-    if (syntax == "1.2.840.10008.1.2.1.99" || !blackout.isEmpty())
+    if (syntax == "1.2.840.10008.1.2.1.99" || redrawn)
         syntax = ExplicitLittle;
     const bool explicitVr = syntax != ImplicitLittle;
 
@@ -1020,10 +1049,10 @@ bool process(const DicomFile &file, const QString &path, Anonymize::Session &ses
     Picture picture;
     if (planned) {
         picture.from = Picture::From::Nowhere;
-    } else if (!blackout.isEmpty()) {
+    } else if (redrawn) {
         QString reason;
         if (!redraw(file, blackout, elements, picture, &reason))
-            return fail(QStringLiteral("A region can't be blacked out of this image: %1").arg(reason));
+            return cant(reason);
     }
     std::stable_sort(elements.begin(), elements.end(), [](const DicomElement &a, const DicomElement &b) { return a.tag < b.tag; });
     elements.erase(std::unique(elements.begin(), elements.end(),
