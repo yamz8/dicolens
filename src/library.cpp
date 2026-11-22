@@ -65,27 +65,8 @@ QList<Mark> Library::marksOn(const Slice &slice) const {
 }
 
 void Library::open(const QStringList &paths, QObject *asker) {
-    QStringList existing;
-    for (const auto &path : paths)
-        if (QFileInfo::exists(path))
-            existing << QFileInfo(path).absoluteFilePath();
-    if (existing.isEmpty()) {
-        if (!paths.isEmpty())
-            emit problem(asker, [path = paths.first()] { return tr("%1 doesn't exist").arg(path); });
+    if (paths.isEmpty())
         return;
-    }
-
-    // One file opens with the rest of its folder, as scans come a file a
-    // slice; that file's slice is the one shown.
-    QString focus;
-    QStringList roots = existing;
-    bool recursive = true;
-    if (existing.size() == 1 && QFileInfo(existing.first()).isFile() && !Archive::isZip(existing.first())) {
-        focus = existing.first();
-        roots = {QFileInfo(focus).absolutePath()};
-        recursive = false;
-    }
-
     if (m_scanCancel)
         *m_scanCancel = true;
     auto cancel = std::make_shared<std::atomic<bool>>(false);
@@ -100,26 +81,45 @@ void Library::open(const QStringList &paths, QObject *asker) {
 
     // Whoever asked may be gone by the time the scan is read.
     const QPointer<QObject> who(asker);
-    m_scanPool.start([this, roots, recursive, focus, cancel, generation, who]() mutable {
+    auto fail = [this, generation, who](const Words &words) {
+        QMetaObject::invokeMethod(this, [this, generation, who, words] {
+            if (generation != m_generation)
+                return;
+            m_scanning = false;
+            emit scanningChanged();
+            emit problem(who, words);
+        }, Qt::QueuedConnection);
+    };
+    // Even asking whether a path is there, or is a zip, touches the disk,
+    // which can be a slow one: all of it is the worker's.
+    m_scanPool.start([this, paths, cancel, generation, who, fail] {
+        QStringList roots;
+        for (const auto &path : paths)
+            if (QFileInfo::exists(path))
+                roots << QFileInfo(path).absoluteFilePath();
+        if (roots.isEmpty()) {
+            fail([path = paths.first()] { return tr("%1 doesn't exist").arg(path); });
+            return;
+        }
+        // One file opens with the rest of its folder, as scans come a file
+        // a slice; that file's slice is the one shown.
+        QString focus;
+        bool recursive = true;
+        if (roots.size() == 1 && QFileInfo(roots.first()).isFile() && !Archive::isZip(roots.first())) {
+            focus = roots.first();
+            roots = {QFileInfo(focus).absolutePath()};
+            recursive = false;
+        }
         // A zip is unpacked and read as the folder it holds.
         for (QString &root : roots)
             if (QFileInfo(root).isFile() && Archive::isZip(root)) {
                 QString error;
                 const QString dir = Archive::unpack(root, &error);
                 if (dir.isEmpty()) {
-                    QMetaObject::invokeMethod(this, [this, error, generation, who] {
-                        if (generation != m_generation)
-                            return;
-                        m_scanning = false;
-                        emit scanningChanged();
-                        emit problem(who, [error] { return tr(error.toUtf8().constData()); });
-                    }, Qt::QueuedConnection);
+                    fail([error] { return tr(error.toUtf8().constData()); });
                     return;
                 }
-                if (root == focus)
-                    focus.clear();
                 root = dir;
-                recursive = true;
             }
         const QStringList files = listFiles(roots, recursive);
         QElapsedTimer throttle;

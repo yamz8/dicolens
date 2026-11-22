@@ -1,12 +1,21 @@
+#include <QGuiApplication>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QLocale>
 #include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QTranslator>
 #include <QtTest>
 
+#include "backend.h"
 #include "framecache.h"
 #include "library.h"
+#include "notices.h"
 #include "reportreader.h"
 #include "seriesmodel.h"
 #include "tagmodel.h"
+#include "translator.h"
+#include "volumeview.h"
 
 #include "support.h"
 
@@ -336,6 +345,328 @@ private slots:
         reports.setStudy("1.2.2", true);
         QCOMPARE(changes.count(), 1);
         QCOMPARE(resets.count(), 0);
+    }
+
+    void panesOnOneSeriesReadItOnce() {
+        QTemporaryDir dir;
+        QVERIFY(writeStack(dir.path(), "1.2.77.1", 12));
+        QVERIFY(writeStack(dir.path(), "1.2.77.2", 6));
+        const auto library = std::make_shared<Library>();
+        FrameCache *cache = library->cache();
+        Backend left(nullptr, library), right(nullptr, library);
+        // Opened from one pane, it's open in both; the other shows none of
+        // it, and reads none of it, until it's given a series.
+        left.loadPaths({dir.path()});
+        QVERIFY(left.waitForSlice(10000));
+        QVERIFY(right.hasImages());
+        QCOMPARE(right.seriesIndex(), -1);
+        QCOMPARE(left.seriesIndex(), 0);
+        QCOMPARE(left.sliceCount(), 12);
+        // Both on one series, at different slices of it.
+        right.selectSeries(0);
+        right.setSliceIndex(9);
+        QVERIFY(right.waitForSlice(10000));
+        QTRY_VERIFY(cache->idle() && cache->complete(0));
+        QCOMPARE(cache->decodes(), 12);
+        QCOMPARE(left.decodedCount(), 12);
+        QCOMPARE(right.decodedCount(), 12);
+        QCOMPARE(left.picture().frame.value(0, 0), -1024.0);
+        QCOMPARE(right.picture().frame.value(0, 0), 9 - 1024.0);
+
+        // A pane with a library of its own joins this one to go beside the
+        // first, on the next series, which is the only one read for it.
+        Backend third(nullptr);
+        QVERIFY(third.library() != library.get());
+        third.share(&left);
+        QCOMPARE(third.library(), library.get());
+        QCOMPARE(third.seriesIndex(), 1);
+        QVERIFY(third.waitForSlice(10000));
+        QTRY_VERIFY(cache->idle() && cache->complete(1));
+        QCOMPARE(cache->decodes(), 18);
+        // Shared again, it keeps what it shows.
+        third.setSliceIndex(4);
+        third.share(&left);
+        QCOMPARE(third.seriesIndex(), 1);
+        QCOMPARE(third.sliceIndex(), 4);
+
+        // Cut another way for four views, it takes the first pane's
+        // slices as they are: its picture is there at once.
+        third.mirror(&left, 1);
+        QCOMPARE(third.seriesIndex(), 0);
+        QCOMPARE(third.plane(), 1);
+        QVERIFY(third.frameReady());
+        QCOMPARE(third.imageHeight(), 12);
+        QCOMPARE(cache->decodes(), 18);
+        QVERIFY(cache->idle());
+    }
+
+    void showsASeriesAlreadyReadAtOnce() {
+        QTemporaryDir dir;
+        QVERIFY(writeStack(dir.path(), "1.2.77.1", 8));
+        QVERIFY(writeStack(dir.path(), "1.2.77.2", 8));
+        const auto library = std::make_shared<Library>();
+        FrameCache *cache = library->cache();
+        Backend left(nullptr, library), right(nullptr, library);
+        left.loadPaths({dir.path()});
+        QVERIFY(left.waitForSlice(10000));
+        QTRY_VERIFY(cache->idle() && cache->complete(0));
+        QCOMPARE(cache->decodes(), 8);
+
+        // Another pane picking it has its picture before any event is
+        // handled, so before anything could have been read for it.
+        right.selectSeries(0);
+        QVERIFY(right.frameReady());
+        QCOMPARE(right.imageWidth(), 16);
+        QCOMPARE(right.decodedCount(), 8);
+        QVERIFY(!right.image().isNull());
+        QCOMPARE(cache->decodes(), 8);
+
+        // And so has a pane coming back to a series it left.
+        left.selectSeries(1);
+        QVERIFY(!left.frameReady());
+        QVERIFY(left.waitForSlice(10000));
+        QTRY_VERIFY(cache->idle() && cache->complete(1));
+        left.selectSeries(0);
+        QVERIFY(left.frameReady());
+        left.setSliceIndex(7);
+        QVERIFY(left.frameReady());
+        QCOMPARE(left.picture().frame.value(0, 0), 7 - 1024.0);
+        QCOMPARE(cache->decodes(), 16);
+    }
+
+    void keepsTheLastPictureUpWhileASliceComesBack() {
+        QTemporaryDir dir;
+        QVERIFY(writeStack(dir.path(), "1.2.77.1", 20));
+        const auto library = std::make_shared<Library>();
+        FrameCache *cache = library->cache();
+        cache->setBudget(8 * SliceBytes);
+        Backend backend(nullptr, library);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        QTRY_VERIFY(cache->idle() && cache->count(0) == 8);
+        QCOMPARE(backend.decodedCount(), 8);
+        // Far enough on that the first slice is let go of.
+        backend.setSliceIndex(10);
+        QVERIFY(backend.waitForSlice(10000));
+        backend.setSliceIndex(19);
+        QVERIFY(backend.waitForSlice(10000));
+        QTRY_VERIFY(cache->idle());
+        QVERIFY(!cache->has(0, 0));
+        QVERIFY(cache->used() <= cache->budget());
+        QCOMPARE(backend.decodedCount(), 8);
+
+        // Back at it: slice 19's picture stays until slice 0 is read again.
+        const int read = cache->decodes();
+        backend.setSliceIndex(0);
+        QVERIFY(!backend.frameReady());
+        QCOMPARE(backend.imageWidth(), 16);
+        QCOMPARE(backend.picture().frame.value(0, 0), 19 - 1024.0);
+        QVERIFY(!backend.image().isNull());
+        QVERIFY(backend.waitForSlice(10000));
+        QCOMPARE(backend.picture().frame.value(0, 0), -1024.0);
+        QVERIFY(cache->decodes() > read);
+        // What the pane shows, and the slices either side, are kept.
+        for (int i = 0; i <= FrameCache::Neighbours; ++i)
+            QVERIFY(cache->pinned(0, i));
+        QVERIFY(!cache->pinned(0, FrameCache::Neighbours + 1));
+    }
+
+    void refusesAVolumeTooBigForTheBudget() {
+        QTemporaryDir dir;
+        QVERIFY(writeStack(dir.path(), "1.2.77.1", 20));
+        const auto library = std::make_shared<Library>();
+        FrameCache *cache = library->cache();
+        cache->setBudget(8 * SliceBytes);
+        Backend backend(nullptr, library);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        QVERIFY(backend.canReformat());
+        const QString tooBig = "This series is too big to cut another way or show in 3D";
+
+        // Cut another way, a slab, a tilt, and 3D each need all twenty
+        // slices at once, and there's room for eight: each is refused
+        // before a slice is read for it, and says why.
+        QVERIFY(!backend.volumeFits());
+        QVERIFY2(backend.problem().startsWith(tooBig), qPrintable(backend.problem()));
+        backend.dismissProblem();
+        backend.nextPlane();
+        QCOMPARE(backend.plane(), 0);
+        QVERIFY(backend.problem().startsWith(tooBig));
+        backend.dismissProblem();
+        backend.nextSlab();
+        QCOMPARE(backend.slabName(), QString());
+        QVERIFY(backend.problem().startsWith(tooBig));
+        backend.dismissProblem();
+        backend.tilt(0, 20);
+        QCOMPARE(backend.plane(), 0);
+        QVERIFY(backend.problem().startsWith(tooBig));
+        backend.dismissProblem();
+        VolumeView view;
+        view.setSize({100, 100});
+        view.setBackend(&backend);
+        view.setActive(true);
+        QVERIFY2(view.status().startsWith(tooBig), qPrintable(view.status()));
+        QVERIFY(!view.busy());
+        QVERIFY(!view.ready());
+
+        // Refused, nothing is read round and round or let go of: the
+        // slices that fit are read once, and the pane goes on showing them.
+        QTRY_VERIFY(cache->idle() && cache->count(0) == 8);
+        QTest::qWait(100);
+        QCOMPARE(cache->decodes(), 8);
+        QCOMPARE(cache->evictions(), 0);
+        backend.setSliceIndex(19);
+        QVERIFY(backend.waitForSlice(10000));
+        QCOMPARE(backend.picture().frame.value(0, 0), 19 - 1024.0);
+        QTRY_VERIFY(cache->idle());
+        QVERIFY(cache->used() <= cache->budget());
+
+        // With room for the series and the 3D view's volume beside it,
+        // both are granted.
+        cache->setBudget(64 * SliceBytes);
+        backend.nextPlane();
+        QCOMPARE(backend.plane(), 1);
+        QVERIFY(backend.waitForSlice(10000));
+        QVERIFY(backend.problem().isEmpty());
+        QCOMPARE(backend.imageHeight(), 20);
+        QVERIFY(view.waitForPicture(10000));
+        QCOMPARE(view.status(), QString());
+        QVERIFY(cache->complete(0));
+
+        // And when the room goes from under a plane already cut, the pane
+        // goes back to the slices as scanned and says why.
+        cache->setBudget(8 * SliceBytes);
+        backend.step(1);
+        QCOMPARE(backend.plane(), 0);
+        QVERIFY(backend.problem().startsWith(tooBig));
+        QVERIFY(backend.waitForSlice(10000));
+        QTRY_VERIFY(cache->idle());
+        QVERIFY(cache->used() <= cache->budget());
+        QVERIFY(view.status().startsWith(tooBig));
+    }
+
+    void makesThePictureOnlyWhenAsked() {
+        QTemporaryDir dir;
+        QVERIFY(writeVolume(dir.path()));
+        Backend backend(nullptr);
+        backend.loadPaths({dir.path()});
+        QVERIFY(backend.waitForSlice(10000));
+        // Its size, the slice, and the window are all known and changed
+        // without the windowed picture being made.
+        QCOMPARE(backend.imageWidth(), 4);
+        QCOMPARE(backend.imageHeight(), 3);
+        backend.preset(3);
+        backend.step(1);
+        QVERIFY(backend.waitForSlice(10000));
+        backend.toggleInvert();
+        QCOMPARE(backend.renders(), 0);
+
+        // What a shader would draw from: the stored values and how to read
+        // them, the window, and where the picture lies.
+        const Picture picture = backend.picture();
+        QVERIFY(!picture.isNull());
+        QCOMPARE(picture.size(), QSize(4, 3));
+        QCOMPARE(picture.frame.mono.size(), 12);
+        QCOMPARE(picture.frame.stored(1, 2), 100 + 20 + 1);
+        QVERIFY(!picture.frame.isSigned);
+        QCOMPARE(picture.frame.slope, 1.0);
+        QCOMPARE(picture.frame.intercept, 0.0);
+        QCOMPARE(picture.center, -600.0);
+        QCOMPARE(picture.width, 1500.0);
+        QVERIFY(picture.inverted);
+        QCOMPARE(picture.colorMap, 0);
+        QVERIFY(!picture.pet);
+        QVERIFY(picture.plane.valid);
+        QCOMPARE(picture.plane.origin[2], 3.0);
+
+        // Asked for, it's made once, and again only after something it's
+        // made from has changed.
+        const QImage image = backend.image();
+        QCOMPARE(image.size(), QSize(4, 3));
+        QCOMPARE(image, picture.render());
+        QCOMPARE(backend.renders(), 1);
+        backend.image();
+        QCOMPARE(backend.renders(), 1);
+        backend.toggleInvert();
+        QCOMPARE(backend.renders(), 1);
+        QVERIFY(backend.image() != image);
+        QCOMPARE(backend.renders(), 2);
+    }
+
+    void saysANoticeAgainInTheLanguageSwitchedTo() {
+        // A translator switched by hand, as the notices only ever see
+        // QCoreApplication's.
+        struct Danish : QTranslator {
+            bool on = false;
+            bool isEmpty() const override { return false; }
+            QString translate(const char *, const char *source, const char *, int) const override {
+                return on && qstrcmp(source, "PET off") == 0 ? QStringLiteral("PET fra") : QString();
+            }
+        } danish;
+        QCoreApplication::installTranslator(&danish);
+        Notices notices;
+        QSignalSpy said(&notices, &Notices::noticeChanged);
+        notices.flash([] { return QCoreApplication::translate("dicolens", "PET off"); });
+        notices.setProblem([] { return QCoreApplication::translate("dicolens", "PET off") + "?"; });
+        QCOMPARE(notices.notice(), QString("PET off"));
+        danish.on = true;
+        notices.retranslate();
+        QCOMPARE(notices.notice(), QString("PET fra"));
+        QCOMPARE(notices.problem(), QString("PET fra?"));
+        QCOMPARE(said.count(), 2);
+        // Words made elsewhere stay as they were given.
+        notices.flashText("Scrolling together");
+        notices.retranslate();
+        QCOMPARE(notices.notice(), QString("Scrolling together"));
+        // Dismissed, there's nothing to say again.
+        notices.setProblem({});
+        notices.retranslate();
+        QCOMPARE(notices.problem(), QString());
+        QCoreApplication::removeTranslator(&danish);
+    }
+
+    // Last, as it changes the language the numbers after it are written in.
+    void saysAProblemInTheLanguageSwitchedTo() {
+        QTemporaryDir dir;
+        QVERIFY(write(dir.filePath("language"), "en\n"));
+        const QString missing = "%1 doesn't exist", none = "No DICOM images were found there";
+        const QJsonObject english{{missing, missing}, {none, none}};
+        const QJsonObject danish{{missing, "%1 findes ikke"}, {none, "Der blev ikke fundet DICOM-billeder der"}};
+        QVERIFY(write(dir.filePath("en.json"), QJsonDocument(english).toJson()));
+        QVERIFY(write(dir.filePath("da.json"), QJsonDocument(danish).toJson()));
+        Translator translator(dir.filePath("language"), dir.path());
+        QCoreApplication::installTranslator(&translator);
+        // As main.cpp wires them.
+        Backend backend(nullptr), other(nullptr);
+        connect(&translator, &Translator::changed, &backend, [&] {
+            backend.retranslate();
+            other.retranslate();
+        });
+
+        // A problem made of English and what it's about, and one that is
+        // only words.
+        backend.loadPaths({"/no/such/scan"});
+        QTRY_COMPARE(backend.problem(), QString("/no/such/scan doesn't exist"));
+        QTemporaryDir empty;
+        other.loadPaths({empty.path()});
+        QTRY_COMPARE(other.problem(), QString("No DICOM images were found there"));
+
+        QSignalSpy changed(&backend, &Backend::problemChanged);
+        QVERIFY(write(dir.filePath("language"), "da\n"));
+        QTRY_COMPARE(backend.problem(), QString("/no/such/scan findes ikke"));
+        QCOMPARE(other.problem(), QString("Der blev ikke fundet DICOM-billeder der"));
+        QVERIFY(changed.count() >= 1);
+        // And back.
+        QVERIFY(write(dir.filePath("language"), "en\n"));
+        QTRY_COMPARE(backend.problem(), QString("/no/such/scan doesn't exist"));
+        // Dismissed, a switch brings nothing back.
+        backend.dismissProblem();
+        QVERIFY(write(dir.filePath("language"), "da\n"));
+        QTRY_COMPARE(other.problem(), QString("Der blev ikke fundet DICOM-billeder der"));
+        QCOMPARE(backend.problem(), QString());
+        QCoreApplication::removeTranslator(&translator);
+        QLocale::setDefault(QLocale::system());
+        QGuiApplication::setLayoutDirection(Qt::LeftToRight);
     }
 };
 
