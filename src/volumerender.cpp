@@ -599,6 +599,11 @@ QImage fuseSlice(const QImage &base, const ImagePlane &plane, const VoxelGrid &p
     if (base.isNull() || !plane.valid || !pet.valid)
         return base;
     QImage out = base.convertToFormat(QImage::Format_RGB32);
+    // A base that is in colour already shares its pixels with out until
+    // one is written. It gets its own here, before the rows are handed out
+    // to threads that would each make the copy, and write to the one being
+    // copied from meanwhile.
+    out.detach();
     // Each pixel across and down is a fixed move through the PET's voxels.
     double origin[3], across[3], down[3], p[3];
     toVoxel(pet.volume, plane.origin, origin);
