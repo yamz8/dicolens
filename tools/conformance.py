@@ -423,8 +423,10 @@ def check(dumper: Path, path: Path, work: Path, originals: dict[str, Path]) -> R
         subsampled = syntax in LOSSY and bool(wanted) and wanted[0][0] == "rgb" and chroma_subsampled(ds)
         for index in range(tally.frames):
             got = frames[index] if index < len(frames) else {"error": "No such frame"}
+            # (ffmpeg says the same of a damaged stream now and then; it is
+            # only a decoder it lacks when the reference has one.)
             if "error" in got and (any(got["error"].startswith(reason) for reason in BY_DESIGN)
-                                   or FFMPEG_LACKS in got.get("detail", "")
+                                   or (FFMPEG_LACKS in got.get("detail", "") and index < len(wanted))
                                    or (SEGMENTED_PALETTE in header and "no palette" in got["error"])):
                 tally.by_design += 1
                 result.unread.add(f"{got['error']} ({got.get('detail') or 'no more said'})"[:160])

@@ -161,6 +161,23 @@ private slots:
         QCOMPARE(f.frameBytes(), 8);
     }
 
+    void failsOnUncompressedDataCutShort() {
+        // A file that ends inside its pixels has no picture to show, in any
+        // layout: grey, colour, or a bit a pixel.
+        Writer greyFile, colourFile, bitsFile;
+        greyFile.image(4, 4, 16, 12, false).pixels(QByteArray(30, 1));
+        colourFile.image(2, 4, 8, 8, false, "RGB").pixels(QByteArray(22, 1), "OB");
+        bitsFile.image(5, 5, 1, 1, false).pixels(QByteArray(2, 1), "OB");
+        for (const Writer *w : {&greyFile, &colourFile, &bitsFile})
+            QCOMPARE(decodeFrame(onDisk(w->file(ExplicitLE)), 0).error, QString(CutShort));
+        // The element says 32 bytes and the file stops after 20 of them.
+        Writer whole;
+        whole.image(4, 4, 16, 12, false).pixels(QByteArray(32, 1));
+        const QByteArray file = whole.file(ExplicitLE);
+        QVERIFY(decodeFrame(onDisk(file), 0).error.isEmpty());
+        QCOMPARE(decodeFrame(onDisk(file.left(file.size() - 12)), 0).error, QString(CutShort));
+    }
+
     void failsOnRleCutShort() {
         // A segment that ends before its plane is full used to leave the
         // rest black, as if the picture were whole.
