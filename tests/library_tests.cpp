@@ -136,6 +136,38 @@ private slots:
             QVERIFY(cache.has(0, i));
     }
 
+    void readsNearestWhatEachPaneLooksAt() {
+        QTemporaryDir dir;
+        QVERIFY(writeStack(dir.path(), "1.2.77.1", 20));
+        FrameCache cache;
+        cache.setBudget(10 * SliceBytes);
+        cache.reset(seriesIn(dir.path()));
+        // Two panes far apart in one series, with room for ten slices:
+        // each has its own slice and the two either side, not the first
+        // ten of the series, nor the ten round whoever asked first.
+        QObject left, right;
+        cache.setInterest(&left, {0, 3, false, 0});
+        cache.setInterest(&right, {0, 16, false, 0});
+        QTRY_VERIFY(cache.idle() && cache.has(0, 14) && cache.has(0, 18) && cache.count(0) == 10);
+        for (int i = 0; i < 20; ++i)
+            QCOMPARE(cache.has(0, i), (i >= 1 && i <= 5) || (i >= 14 && i <= 18));
+        QVERIFY(cache.used() <= cache.budget());
+    }
+
+    void takesItsBudgetFromTheMachineOrTheEnvironment() {
+        // A third of the machine's memory, and never less than 512 MB.
+        const QByteArray before = qgetenv("DICOLENS_CACHE_MB");
+        qunsetenv("DICOLENS_CACHE_MB");
+        QVERIFY(FrameCache::defaultBudget() >= (512ll << 20));
+        qputenv("DICOLENS_CACHE_MB", "64");
+        QCOMPARE(FrameCache::defaultBudget(), 64ll << 20);
+        QCOMPARE(FrameCache().budget(), 64ll << 20);
+        // Nonsense is no budget at all, so it's the machine's again.
+        qputenv("DICOLENS_CACHE_MB", "lots");
+        QVERIFY(FrameCache::defaultBudget() >= (512ll << 20));
+        before.isNull() ? qunsetenv("DICOLENS_CACHE_MB") : qputenv("DICOLENS_CACHE_MB", before);
+    }
+
     void grantsAWholeSeriesOnlyWhenItFits() {
         QTemporaryDir dir;
         QVERIFY(writeStack(dir.path(), "1.2.77.1", 20));
