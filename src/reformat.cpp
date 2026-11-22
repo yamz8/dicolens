@@ -85,6 +85,56 @@ int emptyStored(const Volume &volume, const Frame &f) {
     return stored > highest ? highest : int(std::lround(stored));
 }
 
+// A cut's picture from a tilted stack, or its slab from first to last. The
+// walk through the block is a straight stack's, but each voxel is read from
+// its slice at where the slice's shift puts it, and a voxel no slice
+// reaches is left out of the slab: counted as anything, it would win every
+// MinIP and drag every average down. Across the slices themselves the
+// picture is the one slice's own, so its pixels are the layer's voxels from
+// that slice's shift on, and the slab goes through the others square to it,
+// not down the lean.
+void leaningCut(const Volume &volume, const Cut &cut, int index, const QVector<Frame> &slices, int first, int last,
+                Projection projection, bool rescale, double low, double slope, Frame &out) {
+    const int width = out.width, height = out.height;
+    const QPointF own = cut.fixed == 2 ? volume.shift[index] : QPointF();
+    const int nothing = rescale ? int(std::clamp(std::lround((volume.empty - low) / slope), 0L, 65535L))
+                                : emptyStored(volume, slices[0]);
+    int at[3];
+    for (int y = 0; y < height; ++y) {
+        at[cut.vertical] = cut.flipVertical ? height - 1 - y : y;
+        for (int x = 0; x < width; ++x) {
+            at[cut.horizontal] = cut.flipHorizontal ? width - 1 - x : x;
+            double pick = 0;
+            int reached = 0;
+            for (int k = first; k <= last; ++k) {
+                at[cut.fixed] = k;
+                const Frame &f = slices[at[2]];
+                const QPointF &shift = volume.shift[at[2]];
+                double v;
+                if (!sampleSlice(f, at[0] + (own.x() - shift.x()), at[1] + (own.y() - shift.y()), v))
+                    continue;
+                if (rescale)
+                    v = v * f.slope + f.intercept;
+                if (reached++ == 0)
+                    pick = v;
+                else if (projection == Projection::Max)
+                    pick = std::max(pick, v);
+                else if (projection == Projection::Min)
+                    pick = std::min(pick, v);
+                else
+                    pick += v;
+            }
+            int stored = nothing;
+            if (reached > 0) {
+                if (projection == Projection::Mean)
+                    pick /= reached;
+                stored = rescale ? int(std::clamp(std::lround((pick - low) / slope), 0L, 65535L)) : int(std::lround(pick));
+            }
+            out.mono[qsizetype(y) * width + x] = quint16(stored);
+        }
+    }
+}
+
 }
 
 void ImagePlane::normal(double *n) const {
@@ -188,7 +238,7 @@ Volume makeVolume(const Series &series) {
         }
         const double wider = most[0] - least[0], taller = most[1] - least[1];
         if (!((series.columns + wider) * (series.rows + taller) <= MostEmptiness * series.columns * series.rows))
-            return v;
+            return {};
         for (QPointF &s : aside) {
             double shift[2] = {s.x() - least[0], s.y() - least[1]};
             // A millionth of a pixel off a whole one is the file's decimals
@@ -292,53 +342,11 @@ Frame reformat(const Volume &volume, const Cut &cut, int index, const QVector<Fr
         out.isSigned = false;
     }
 
-    int at[3];
     if (tilted) {
-        // The same walk through the block, but each voxel is read from its
-        // slice at where the slice's shift puts it, and a voxel no slice
-        // reaches is left out of the slab: counted as anything, it would
-        // win every MinIP and drag every average down. Across the slices
-        // themselves the picture is the one slice's own, so its pixels are
-        // the layer's voxels from that slice's shift on, and the slab goes
-        // through the others square to it, not along the lean.
-        const QPointF own = cut.fixed == 2 ? volume.shift[index] : QPointF();
-        const int nothing = rescale ? int(std::clamp(std::lround((volume.empty - low) / slope), 0L, 65535L))
-                                    : emptyStored(volume, slices[0]);
-        for (int y = 0; y < height; ++y) {
-            at[cut.vertical] = cut.flipVertical ? height - 1 - y : y;
-            for (int x = 0; x < width; ++x) {
-                at[cut.horizontal] = cut.flipHorizontal ? width - 1 - x : x;
-                double pick = 0;
-                int reached = 0;
-                for (int k = first; k <= last; ++k) {
-                    at[cut.fixed] = k;
-                    const Frame &f = slices[at[2]];
-                    const QPointF &shift = volume.shift[at[2]];
-                    double v;
-                    if (!sampleSlice(f, at[0] + (own.x() - shift.x()), at[1] + (own.y() - shift.y()), v))
-                        continue;
-                    if (rescale)
-                        v = v * f.slope + f.intercept;
-                    if (reached++ == 0)
-                        pick = v;
-                    else if (projection == Projection::Max)
-                        pick = std::max(pick, v);
-                    else if (projection == Projection::Min)
-                        pick = std::min(pick, v);
-                    else
-                        pick += v;
-                }
-                int stored = nothing;
-                if (reached > 0) {
-                    if (projection == Projection::Mean)
-                        pick /= reached;
-                    stored = rescale ? int(std::clamp(std::lround((pick - low) / slope), 0L, 65535L)) : int(std::lround(pick));
-                }
-                out.mono[qsizetype(y) * width + x] = quint16(stored);
-            }
-        }
+        leaningCut(volume, cut, index, slices, first, last, projection, rescale, low, slope, out);
         return out;
     }
+    int at[3];
     for (int y = 0; y < height; ++y) {
         at[cut.vertical] = cut.flipVertical ? height - 1 - y : y;
         for (int x = 0; x < width; ++x) {
@@ -634,26 +642,34 @@ Frame resample(const Volume &volume, const Oblique &oblique, int index, const QV
         deeper[a] = dot(volume.axis[a], oblique.normal) * oblique.step / volume.spacing[a];
     }
     const int first = std::max(-half, -index), last = std::min(half, oblique.count - 1 - index);
-    for (int y = 0; y < out.height; ++y)
-        for (int x = 0; x < out.width; ++x) {
-            double pick = 0;
-            for (int k = first; k <= last; ++k) {
-                double v[3];
-                for (int a = 0; a < 3; ++a)
-                    v[a] = origin[a] + x * across[a] + y * down[a] + k * deeper[a];
-                const double value = tilted ? leaning(v) : sample(v);
-                if (k == first)
-                    pick = value;
-                else if (projection == Projection::Max)
-                    pick = std::max(pick, value);
-                else if (projection == Projection::Min)
-                    pick = std::min(pick, value);
-                else
-                    pick += value;
+    // Written once and made twice, for a straight stack and for a leaning
+    // one, so that neither pays for the other's way of reading a voxel.
+    auto fill = [&](const auto &at) {
+        for (int y = 0; y < out.height; ++y)
+            for (int x = 0; x < out.width; ++x) {
+                double pick = 0;
+                for (int k = first; k <= last; ++k) {
+                    double v[3];
+                    for (int a = 0; a < 3; ++a)
+                        v[a] = origin[a] + x * across[a] + y * down[a] + k * deeper[a];
+                    const double value = at(v);
+                    if (k == first)
+                        pick = value;
+                    else if (projection == Projection::Max)
+                        pick = std::max(pick, value);
+                    else if (projection == Projection::Min)
+                        pick = std::min(pick, value);
+                    else
+                        pick += value;
+                }
+                if (projection == Projection::Mean)
+                    pick /= last - first + 1;
+                out.mono[y * out.width + x] = quint16(std::clamp(std::lround((pick - low) / slope), 0L, 65535L));
             }
-            if (projection == Projection::Mean)
-                pick /= last - first + 1;
-            out.mono[y * out.width + x] = quint16(std::clamp(std::lround((pick - low) / slope), 0L, 65535L));
-        }
+    };
+    if (tilted)
+        fill(leaning);
+    else
+        fill(sample);
     return out;
 }

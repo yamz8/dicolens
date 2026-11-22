@@ -174,8 +174,13 @@ inline bool sampleSlice(const Frame &frame, double x, double y, double &stored) 
     const quint16 *top = frame.mono.constData() + qsizetype(y0) * w, *bottom = frame.mono.constData() + qsizetype(y1) * w;
     // Signed values mix as numbers, not as bit patterns.
     const bool isSigned = frame.isSigned;
-    const int a = isSigned ? qint16(top[x0]) : top[x0], b = isSigned ? qint16(top[x1]) : top[x1];
-    const int c = isSigned ? qint16(bottom[x0]) : bottom[x0], d = isSigned ? qint16(bottom[x1]) : bottom[x1];
+    auto at = [isSigned](quint16 raw) { return isSigned ? int(qint16(raw)) : int(raw); };
+    // A pixel that weighs nothing isn't read, and is no padding to keep
+    // clear of: a place right on a pixel, or on the line between two, has
+    // only those. Most tilted stacks step down their columns alone, so that
+    // is two pixels of the four for every voxel of theirs.
+    const int a = at(top[x0]), b = fx > 0 ? at(top[x1]) : a, c = fy > 0 ? at(bottom[x0]) : a;
+    const int d = fx > 0 && fy > 0 ? at(bottom[x1]) : fx > 0 ? b : c;
     if (frame.hasPadding && (a == frame.padding || b == frame.padding || c == frame.padding || d == frame.padding)) {
         stored = fy < 0.5 ? (fx < 0.5 ? a : b) : (fx < 0.5 ? c : d);
         return true;
