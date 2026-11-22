@@ -10,7 +10,10 @@ import Dicolens
 // dismissed. The keys come here while it's open, as Main.qml sends them.
 Rectangle {
     id: panel
-    color: Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.98)
+    // Over the lists beside the scans as well as the scans, so it hides
+    // what's under it whole, as the shortcut list does: seen through, the
+    // black the scans are on would show as a band behind it.
+    color: theme.background
 
     readonly property AnonymousCopy copy: backend.anonymous
     readonly property bool planning: copy.stage === AnonymousCopy.Planning
@@ -195,7 +198,8 @@ Rectangle {
         contentHeight: content.implicitHeight + 24
         clip: true
         boundsBehavior: Flickable.StopAtBounds
-        ScrollBar.vertical: ScrollBar {}
+        // There while there's more than fits, so it's plain that there is.
+        ScrollBar.vertical: ScrollBar { policy: flick.contentHeight > flick.height ? ScrollBar.AlwaysOn : ScrollBar.AsNeeded }
         visible: panel.planned || panel.saved
 
         ColumnLayout {
@@ -291,6 +295,7 @@ Rectangle {
                                 // said once, and not at all while the
                                 // patient's details are hidden.
                                 Para {
+                                    objectName: "anonymousFound"
                                     text: win.infoHidden ? modelData.what : modelData.what + ": " + panel.isolated(modelData.found)
                                 }
                                 Para {
@@ -414,7 +419,7 @@ Rectangle {
                 visible: panel.copy.files > 0
                 Layout.fillWidth: true
                 spacing: 10
-                Heading { text: qsTr("What becomes of each attribute") }
+                Heading { text: panel.saved ? qsTr("What became of each attribute") : qsTr("What becomes of each attribute") }
                 Para { text: qsTr("By the name the standard gives it, with how many of the files have it.") }
                 GridLayout {
                     Layout.fillWidth: true
@@ -556,13 +561,24 @@ Rectangle {
             Material.roundedScale: theme.radius
             Material.accent: theme.accent
             onClicked: panel.accept()
+            // Material draws a highlighted button through a shadow effect,
+            // which the software renderer leaves out, background and all:
+            // in bin/looks' pictures and the recordings, drawn offscreen,
+            // the main action would be missing. So it's drawn plainly here.
+            background: Rectangle {
+                implicitWidth: 64
+                implicitHeight: main.Material.buttonHeight
+                radius: theme.radius
+                color: theme.accent
+                opacity: !main.enabled ? 0.3 : main.down ? 0.8 : 1
+            }
             // A highlighted button colors its caption by Material's own
             // rule, not Material.foreground, so it can't read on every accent.
             contentItem: Label {
                 text: main.text
                 font: main.font
                 color: theme.accentForeground
-                opacity: main.enabled ? 1 : 0.5
+                opacity: main.enabled ? 1 : 0.6
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
             }
