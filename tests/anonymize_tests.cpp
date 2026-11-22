@@ -1099,6 +1099,12 @@ private slots:
         QCOMPARE(result.failures.size(), 1);
         QCOMPARE(result.failures.first().path, dir.filePath("IM2"));
         QCOMPARE(result.failures.first().found, QString("Cuddy"));
+        // And by series, for the window: which one lacks a file, and why.
+        QCOMPARE(result.uncopied.size(), 1);
+        QCOMPARE(result.uncopied.first().series, 1);
+        QCOMPARE(result.uncopied.first().path, dir.filePath("IM2"));
+        QVERIFY(result.uncopied.first().refused);
+        QCOMPARE(dir.filePath("IM2") + ": " + result.uncopied.first().reason, result.errors.first());
         const QStringList copies = listFiles({result.folder}, true);
         QCOMPARE(copies.size(), 1);
         // What was kept counts only the copies that were.
@@ -1173,6 +1179,14 @@ private slots:
             QCOMPARE(filesOf(s.removed, "Private attributes"), 3);
             QCOMPARE(s.removed.last().name, QString("Private attributes"));
             QVERIFY(s.removed.last().tag.isEmpty());
+            // Those are Dicolens' words, to translate; the rest the standard's.
+            QVERIFY(!s.removed.last().standard && s.removed.first().standard);
+            // B2 isn't copied, which is said by series too, and that it
+            // wasn't for want of being readable.
+            QCOMPARE(planned.uncopied.size(), 1);
+            QCOMPARE(copied.uncopied.size(), 1);
+            QCOMPARE(copied.uncopied.first().series, 1);
+            QVERIFY(copied.uncopied.first().refused);
             QCOMPARE(filesOf(s.emptied, "Accession Number"), 4);
             QCOMPARE(filesOf(s.emptied, "Patient's Birth Date"), 4);
             QCOMPARE(filesOf(s.replaced, "Patient's Name"), 4);
@@ -1527,6 +1541,21 @@ private slots:
         QVERIFY2(drawn.written, qPrintable(drawn.error));
         QCOMPARE(decodeFrame(drawn.copy, 0).color.pixel(0, 0), qRgb(0, 0, 0));
         QCOMPARE(decodeFrame(drawn.copy, 0).color.pixel(1, 0), qRgb(0x80, 0x80, 0x80));
+
+        // The window asks the same before it lets a region be marked, and
+        // is told which it is, to say in the user's language.
+        using Cant = Anonymize::Redraw::Cant;
+        auto asked = [&](const QByteArray &bytes) { return Anonymize::canRedraw(onDisk(bytes)); };
+        QCOMPARE(asked(image(8, 8, "YBR_PARTIAL_420").encapsulated({QByteArray(8, 'v')}).file("1.2.840.10008.1.2.4.102")).cant, Cant::Video);
+        QCOMPARE(asked(image(32, 32).pixels(QByteArray(8, 1)).file(ExplicitLE)).cant, Cant::GreyBits);
+        QCOMPARE(asked(image(32, 32).pixels(QByteArray(8, 1)).file(ExplicitLE)).bits, 32);
+        QCOMPARE(asked(image(1, 1).pixels(QByteArray(2, 1), "OB").file(ExplicitLE)).bits, 1);
+        QCOMPARE(asked(image(16, 16, "RGB").pixels(QByteArray(12, 1)).file(ExplicitLE)).cant, Cant::ColourBits);
+        QCOMPARE(asked(palette(le16({0x1234, 0x8000}))).cant, Cant::Palette);
+        QCOMPARE(asked(none.file(ExplicitLE)).cant, Cant::NoPicture);
+        QVERIFY(asked(palette(le16({0x4040, 0x8000}))).possible());
+        QVERIFY(asked(image(16, 12).pixels(QByteArray(4, 1)).file(ExplicitLE)).possible());
+        QVERIFY(asked(image(8, 8).pixels(QByteArray(2, 1), "OB").file(ExplicitLE)).possible());
     }
 
     void blacksOutOnlyTheSeriesAsked() {
@@ -1551,6 +1580,8 @@ private slots:
         QCOMPARE(result.written, 3);
         QCOMPARE(result.blackedOut, 2);
         QCOMPARE(result.showDetails, 2);   // Ultrasound may show more than the rectangle hid.
+        QCOMPARE(result.showDetailsIn.value(1), 2);
+        QVERIFY(!result.showDetailsIn.contains(0));
         const DicomFile first = DicomFile::read(result.folder + "/Series 001/0001.dcm");
         QCOMPARE(first.transferSyntax(), QString("1.2.840.10008.1.2.4.70"));
         const DicomFile original = DicomFile::read(dir.filePath("A1"));

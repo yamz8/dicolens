@@ -112,6 +112,9 @@ struct Count {
     QString tag;      // "(0008,0080)", or "(60xx,xxxx)" for a family; empty for private attributes.
     QString name;
     int files = 0;
+    // The name is the standard's own. Otherwise it's Dicolens' words for a
+    // set of attributes, in English, which the window translates.
+    bool standard = true;
     bool operator==(const Count &) const = default;
 };
 
@@ -149,11 +152,32 @@ bool check(const DicomFile &file, Session &session, QString *error = nullptr, co
 // and screen captures often do; no change to the tags takes those out.
 bool mayShowDetails(const DicomFile &file);
 
+// Whether a file's picture can be drawn again value for value, which
+// blacking a region out of it takes, and what stops it when it can't. The
+// window asks before it lets a region be marked, and says why in the user's
+// language; a copy refuses the same files in its own words.
+struct Redraw {
+    enum class Cant { Nothing, NoPicture, Video, NoSize, Palette, GreyBits, ColourBits };
+    Cant cant = Cant::Nothing;
+    int bits = 0;     // What a pixel or a colour sample is stored in, for the last two.
+    bool possible() const { return cant == Cant::Nothing; }
+};
+Redraw canRedraw(const DicomFile &file);
+
 // The edition of the standard the profile is from, such as "2026d".
 QString edition();
 
 // What a copy says was done to it, as its De-identification Method reads.
 QStringList method(const Options &options = {});
+
+// A file that wasn't copied, for saying which series lacks it rather than
+// which path.
+struct Uncopied {
+    int series = 0;           // Its series' place in the scan, from 0.
+    QString path;             // The source file.
+    QString reason;           // In English, as errors has it.
+    bool refused = false;     // Its copy still held something of the patient's.
+};
 
 struct Result {
     QString folder;           // Where the copy went; empty for a plan.
@@ -166,6 +190,9 @@ struct Result {
     QList<Failure> failures;  // The errors that are something of the patient's found in a copy.
     Summary summary;
     QStringList method;
+    // The same by series, for the window, which names them.
+    QList<Uncopied> uncopied;         // Each of the errors that is a file's.
+    QHash<int, int> showDetailsIn;    // How many of showDetails each series has, by its place in the scan.
 };
 
 // Copies every image of a scan into a new folder inside folder, named

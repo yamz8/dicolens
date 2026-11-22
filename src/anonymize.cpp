@@ -536,38 +536,20 @@ bool overlayInPixels(const DicomFile &file) {
 }
 
 // Why a file's picture can't be drawn again value for value, or nothing
-// when it can. The decoder keeps grey values of 8 and 16 bits as stored and
-// colour of 8 bits a sample; anything else it rescales to show, which is no
-// way to write a copy.
+// when it can, in the words a copy's error has.
 QString cantRedraw(const DicomFile &file, const QList<QRect> &rectangles) {
-    if (!file.hasPixelData())
-        return QStringLiteral("it has no picture to black out");
-    if (isVideo(file.transferSyntax()))
-        return QStringLiteral("it's a video, which can't be written back frame for frame");
-    const ImageFormat f = ImageFormat::from(file);
-    if (f.rows <= 0 || f.columns <= 0)
-        return QStringLiteral("it has no image size");
-    if (f.photometric == "PALETTE COLOR") {
-        // A palette of 16-bit entries is shown through their top 8 bits;
-        // that loses nothing when the bottom ones repeat them or are zero.
-        for (auto [descriptor, data] : {std::pair{Tag::RedPaletteDescriptor, Tag::RedPaletteData},
-                                        std::pair{Tag::GreenPaletteDescriptor, Tag::GreenPaletteData},
-                                        std::pair{Tag::BluePaletteDescriptor, Tag::BluePaletteData}}) {
-            const DicomElement *table = file.element(data);
-            if (file.numbers(descriptor).value(2) <= 8 || !table)
-                continue;
-            for (qsizetype i = 0; i + 1 < table->value.size(); i += 2)
-                if (table->value[i] != 0 && table->value[i] != table->value[i + 1])
-                    return QStringLiteral("its colours come from a 16-bit palette, which is only shown in 8 bits");
-        }
-        if (f.samples != 1 || (f.bitsAllocated != 8 && f.bitsAllocated != 16))
-            return QStringLiteral("its pixels are %1-bit, which aren't kept value for value").arg(f.bitsAllocated);
-    } else if (f.samples == 1) {
-        if (f.bitsAllocated != 8 && f.bitsAllocated != 16)
-            return QStringLiteral("its pixels are %1-bit, which aren't kept value for value").arg(f.bitsAllocated);
-    } else if (f.samples != 3 || f.bitsAllocated != 8) {
-        return QStringLiteral("its colours are %1-bit, which are only shown in 8 bits").arg(f.bitsAllocated);
+    using Cant = Anonymize::Redraw::Cant;
+    const Anonymize::Redraw redraw = Anonymize::canRedraw(file);
+    switch (redraw.cant) {
+    case Cant::NoPicture: return QStringLiteral("it has no picture to black out");
+    case Cant::Video: return QStringLiteral("it's a video, which can't be written back frame for frame");
+    case Cant::NoSize: return QStringLiteral("it has no image size");
+    case Cant::Palette: return QStringLiteral("its colours come from a 16-bit palette, which is only shown in 8 bits");
+    case Cant::GreyBits: return QStringLiteral("its pixels are %1-bit, which aren't kept value for value").arg(redraw.bits);
+    case Cant::ColourBits: return QStringLiteral("its colours are %1-bit, which are only shown in 8 bits").arg(redraw.bits);
+    case Cant::Nothing: break;
     }
+    const ImageFormat f = ImageFormat::from(file);
     for (const QRect &r : rectangles)
         if (!r.isValid() || !r.intersects(QRect(0, 0, f.columns, f.rows)))
             return QStringLiteral("the rectangle %1,%2,%3,%4 lies outside its %5x%6 picture")
@@ -926,14 +908,16 @@ bool holds(const QString &text, const Identifier &id) {
     return false;
 }
 
+// In English, as a copy's error says it; the window translates these where
+// it shows them.
 QString whatIs(Identifier::Kind kind) {
     switch (kind) {
-    case Identifier::Kind::Name: return QStringLiteral("a person's name");
-    case Identifier::Kind::Id: return QStringLiteral("an ID");
-    case Identifier::Kind::BirthDate: return QStringLiteral("the birth date");
-    case Identifier::Kind::Place: return QStringLiteral("an institution or address");
-    case Identifier::Kind::Phone: return QStringLiteral("a phone number");
-    case Identifier::Kind::Device: return QStringLiteral("a device's name or serial number");
+    case Identifier::Kind::Name: return QT_TRANSLATE_NOOP("dicolens", "a person's name");
+    case Identifier::Kind::Id: return QT_TRANSLATE_NOOP("dicolens", "an ID");
+    case Identifier::Kind::BirthDate: return QT_TRANSLATE_NOOP("dicolens", "the birth date");
+    case Identifier::Kind::Place: return QT_TRANSLATE_NOOP("dicolens", "an institution or address");
+    case Identifier::Kind::Phone: return QT_TRANSLATE_NOOP("dicolens", "a phone number");
+    case Identifier::Kind::Device: return QT_TRANSLATE_NOOP("dicolens", "a device's name or serial number");
     }
     return {};
 }
@@ -962,7 +946,8 @@ void look(const DicomFile &copy, const QList<DicomElement> &elements, const Anon
             continue;
         auto fail = [&](const QString &found, const QString &what) {
             QString name = Dictionary::name(e.tag);
-            failures << Anonymize::Failure{{}, e.tag, name.isEmpty() ? QStringLiteral("an unnamed attribute") : name,
+            failures << Anonymize::Failure{{}, e.tag,
+                                           name.isEmpty() ? QString(QT_TRANSLATE_NOOP("dicolens", "an unnamed attribute")) : name,
                                            found, what};
         };
         // Three ways to read a value: text people wrote, a coded value,
@@ -986,7 +971,7 @@ void look(const DicomFile &copy, const QList<DicomElement> &elements, const Anon
         if (isUid(e)) {
             for (const QString &uid : uidValues(e.value))
                 if (session.sourceUids.contains(uid)) {
-                    fail(uid, QStringLiteral("one of the original's UIDs"));
+                    fail(uid, QT_TRANSLATE_NOOP("dicolens", "one of the original's UIDs"));
                     break;
                 }
             if (madeOf(text, "0123456789. \\"))
@@ -1174,18 +1159,23 @@ struct Tally {
             QString name = Dictionary::name(tag);
             if (tag == Anonymize::Family::Private)
                 continue;
+            // The names that aren't the standard's are marked for the
+            // window to translate, and say so.
             if (tag == Anonymize::Family::Curves)
                 list << Anonymize::Count{"(50xx,xxxx)", "Curve Data", it.value()};
             else if (tag == Anonymize::Family::Overlays)
-                list << Anonymize::Count{"(60xx,xxxx)", "Overlay planes", it.value()};
+                list << Anonymize::Count{"(60xx,xxxx)", QT_TRANSLATE_NOOP("dicolens", "Overlay planes"), it.value(), false};
             else if (tag == Anonymize::Family::Directory)
-                list << Anonymize::Count{"(0004,xxxx)", "File-set directory attributes", it.value()};
+                list << Anonymize::Count{"(0004,xxxx)", QT_TRANSLATE_NOOP("dicolens", "File-set directory attributes"),
+                                         it.value(), false};
+            else if (name.isEmpty())
+                list << Anonymize::Count{tagText(tag), QT_TRANSLATE_NOOP("dicolens", "Unnamed attribute"), it.value(), false};
             else
-                list << Anonymize::Count{tagText(tag), name.isEmpty() ? QStringLiteral("Unnamed attribute") : name, it.value()};
+                list << Anonymize::Count{tagText(tag), name, it.value()};
         }
         // Private attributes have no tag to sort by, and come last.
         if (const int n = files.value(Anonymize::Family::Private))
-            list << Anonymize::Count{{}, "Private attributes", n};
+            list << Anonymize::Count{{}, QT_TRANSLATE_NOOP("dicolens", "Private attributes"), n, false};
         return list;
     }
 
@@ -1259,14 +1249,17 @@ Anonymize::Result run(const Scan &scan, const QString *folder, const Anonymize::
         if (!done) {
             result.errors << QStringLiteral("%1: %2").arg(job.from, error);
             result.failures << outcome.failures;
+            result.uncopied << Anonymize::Uncopied{job.series, job.from, error, !outcome.failures.isEmpty()};
             continue;
         }
         ++result.written;
         tally.add(outcome.changes);
         if (outcome.blackedOut)
             ++result.blackedOut;
-        if (Anonymize::mayShowDetails(file))
+        if (Anonymize::mayShowDetails(file)) {
             ++result.showDetails;
+            ++result.showDetailsIn[job.series];
+        }
     }
     result.summary = tally.summary();
     return result;
@@ -1309,6 +1302,42 @@ QList<Failure> verify(const DicomFile &copy, const Session &session) {
     QList<Failure> failures;
     look(copy, copy.elements(), session, failures);
     return failures;
+}
+
+// The decoder keeps grey values of 8 and 16 bits as stored and colour of 8
+// bits a sample; anything else it rescales to show, which is no way to
+// write a copy.
+Redraw canRedraw(const DicomFile &file) {
+    using Cant = Redraw::Cant;
+    if (!file.hasPixelData())
+        return {Cant::NoPicture};
+    if (isVideo(file.transferSyntax()))
+        return {Cant::Video};
+    const ImageFormat f = ImageFormat::from(file);
+    if (f.rows <= 0 || f.columns <= 0)
+        return {Cant::NoSize};
+    if (f.photometric == "PALETTE COLOR") {
+        // A palette of 16-bit entries is shown through their top 8 bits;
+        // that loses nothing when the bottom ones repeat them or are zero.
+        for (auto [descriptor, data] : {std::pair{Tag::RedPaletteDescriptor, Tag::RedPaletteData},
+                                        std::pair{Tag::GreenPaletteDescriptor, Tag::GreenPaletteData},
+                                        std::pair{Tag::BluePaletteDescriptor, Tag::BluePaletteData}}) {
+            const DicomElement *table = file.element(data);
+            if (file.numbers(descriptor).value(2) <= 8 || !table)
+                continue;
+            for (qsizetype i = 0; i + 1 < table->value.size(); i += 2)
+                if (table->value[i] != 0 && table->value[i] != table->value[i + 1])
+                    return {Cant::Palette};
+        }
+        if (f.samples != 1 || (f.bitsAllocated != 8 && f.bitsAllocated != 16))
+            return {Cant::GreyBits, f.bitsAllocated};
+    } else if (f.samples == 1) {
+        if (f.bitsAllocated != 8 && f.bitsAllocated != 16)
+            return {Cant::GreyBits, f.bitsAllocated};
+    } else if (f.samples != 3 || f.bitsAllocated != 8) {
+        return {Cant::ColourBits, f.bitsAllocated};
+    }
+    return {};
 }
 
 bool mayShowDetails(const DicomFile &file) {
