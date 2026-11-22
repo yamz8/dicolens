@@ -164,9 +164,14 @@ void Backend::share(Backend *other) {
         return;
     join(other->m_library);
     sync();
-    // Already showing a series of that scan: what it shows stays.
-    if (m_seriesIndex >= 0)
+    // Already showing a series of that scan: what it shows stays, and is
+    // kept in memory again if it was put away.
+    if (m_seriesIndex >= 0) {
+        updateInterest();
+        build();
+        showSlice();
         return;
+    }
     selectSeries(m_library->companion(other->m_seriesIndex));
     setSliceIndex(0);
     emit opened();
@@ -177,8 +182,10 @@ void Backend::mirror(Backend *leader, int plane) {
         disconnect(c);
     m_leaderConnections.clear();
     m_leader = leader == this ? nullptr : leader;
-    if (!m_leader)
+    if (!m_leader) {
+        rest();
         return;
+    }
     join(leader->m_library);
     sync();
     m_leaderConnections << connect(leader, &Backend::fusionChanged, this, &Backend::adoptFusion);
@@ -200,6 +207,11 @@ void Backend::mirror(Backend *leader, int plane) {
     m_planes.meetWhere(leader->planes());
     sliceMoved();
     adoptFusion();
+}
+
+void Backend::rest() {
+    stop();
+    m_claim.show(-1, -1, false);
 }
 
 void Backend::adoptFusion() {

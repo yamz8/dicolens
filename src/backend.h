@@ -227,6 +227,10 @@ public:
     Q_INVOKABLE void matchWindow(Backend *other);
     Q_INVOKABLE void follow(Backend *other);
     Q_INVOKABLE void stop();
+    // Put away for now, as the second pane is when the window goes back
+    // to one: it lets go of the slices kept for it, which showing it
+    // again, or any move of it, takes up again.
+    Q_INVOKABLE void rest();
 
     // Whether the whole series can be kept in memory at once, as cutting
     // it another way, a slab, and four views need; says so when it can't.

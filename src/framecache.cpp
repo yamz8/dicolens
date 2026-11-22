@@ -336,7 +336,8 @@ bool FrameCache::choose(int &series, int &index) {
         if (e.held + e.reading == e.frames.size())
             continue;
         int at = 0;
-        const int d = e.video ? (e.state.value(0) == Missing ? 0 : INT_MAX)
+        // A video comes whole or not at all, in one read.
+        const int d = e.video ? (e.reading == 0 ? 0 : INT_MAX)
                               : nearest(i, 0, i.whole ? e.frames.size() : Neighbours, at);
         if (d < best) {
             best = d;
@@ -412,6 +413,9 @@ void FrameCache::start(int series, int index) {
 void FrameCache::startVideo(int series) {
     Entry &e = m_entries[series];
     const int n = e.frames.size();
+    // Frames left from when it was last shown are read again with the rest.
+    for (int i = 0; i < n; ++i)
+        release(series, i);
     e.state.fill(Reading);
     e.reading = n;
     ++m_running;

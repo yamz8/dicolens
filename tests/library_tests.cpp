@@ -372,6 +372,15 @@ private slots:
         QCOMPARE(right.decodedCount(), 12);
         QCOMPARE(left.picture().frame.value(0, 0), -1024.0);
         QCOMPARE(right.picture().frame.value(0, 0), 9 - 1024.0);
+        // Put away, a pane keeps nothing in memory; shown beside the first
+        // again, it keeps what it showed.
+        QVERIFY(cache->pinned(0, 9));
+        right.rest();
+        QVERIFY(!cache->pinned(0, 9));
+        right.share(&left);
+        QCOMPARE(right.sliceIndex(), 9);
+        QVERIFY(cache->pinned(0, 9));
+        QVERIFY(right.frameReady());
 
         // A pane with a library of its own joins this one to go beside the
         // first, on the next series, which is the only one read for it.

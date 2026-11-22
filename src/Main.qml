@@ -90,6 +90,8 @@ ApplicationWindow {
             rightActive = true
         } else {
             rightActive = false
+            // Put away, the other side keeps nothing in memory.
+            partner.rest()
         }
     }
 
@@ -110,6 +112,8 @@ ApplicationWindow {
         // memory; the backend says so when there isn't room for it.
         if (!backend.volumeFits())
             return
+        if (comparing)
+            partner.rest()
         comparing = false
         rightActive = false
         leftPane.threeD = false
