@@ -1,5 +1,7 @@
 #include "framecache.h"
 
+#include "reformat.h"
+
 #include <QCoreApplication>
 #include <QSet>
 #include <QThread>
@@ -154,6 +156,20 @@ qint64 FrameCache::sliceBytes(int series) const {
 
 qint64 FrameCache::wholeBytes(int series) const {
     return sliceBytes(series) * size(series);
+}
+
+qint64 FrameCache::volumeBytes(int series) const {
+    if (series < 0 || series >= m_entries.size())
+        return 0;
+    const Entry &e = m_entries[series];
+    if (e.block == 0) {
+        // A tilted stack's slices lie in a block wide enough for the first
+        // and the last, up to four times their own voxels.
+        const Volume volume = makeVolume(e.series);
+        const double slices = double(volume.columns()) * volume.rows();
+        e.block = volume.valid && volume.tilted() && slices > 0 ? double(volume.size[0]) * volume.size[1] / slices : 1;
+    }
+    return qint64(wholeBytes(series) * e.block);
 }
 
 bool FrameCache::wanted(int series) const {

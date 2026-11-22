@@ -16,14 +16,15 @@ void Claim::setCache(FrameCache *cache) {
 }
 
 qint64 Claim::reserve(int series) const {
-    // A 3D view packs the slices into a volume as big again, and a
-    // quicker one an eighth of that.
-    return m_views.isEmpty() || !m_cache ? 0 : m_cache->wholeBytes(series) * 9 / 8;
+    // A 3D view packs the slices into a volume, and a quicker one an
+    // eighth of that.
+    return m_views.isEmpty() || !m_cache ? 0 : m_cache->volumeBytes(series) * 9 / 8;
 }
 
 qint64 Claim::bytes(bool with3d) const {
-    const qint64 whole = m_cache ? m_cache->wholeBytes(m_series) : 0;
-    return with3d ? whole * 17 / 8 : whole;
+    if (!m_cache)
+        return 0;
+    return m_cache->wholeBytes(m_series) + (with3d ? m_cache->volumeBytes(m_series) * 9 / 8 : 0);
 }
 
 bool Claim::show(int series, int slice, bool whole) {

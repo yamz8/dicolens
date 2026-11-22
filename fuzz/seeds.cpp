@@ -302,6 +302,15 @@ void files() {
     if (!writeVolume(ct.path()))
         qFatal("Couldn't write the CT stack");
     save("scan", "ct", joined(ct.path()));
+    // And one taken with the gantry leaning each way, whose slices step
+    // sideways and are placed where they lie.
+    for (int tilt : {20, -20}) {
+        QTemporaryDir leaning;
+        if (!writeTiltedSeries(leaning.path(), "CT", "1.2.78.1", "1.2.78.100", 4, 4, 5, 1, 1.5, tilt,
+                               [](const double *p) { return 1024 + int(p[0] + 2 * p[1] + 3 * p[2]); }))
+            qFatal("Couldn't write the tilted CT stack");
+        save("scan", tilt > 0 ? "ct-tilted" : "ct-tilted-back", joined(leaning.path()));
+    }
     auto ball = [](int i, int j, int k) { return 100 * k + 10 * j + i; };
     if (!writeSeries(pet.path(), "CT", "1.2.77.1", "1.2.77.100", 4, 4, 2, 3, ball)
         || !writeSeries(pet.path(), "PT", "1.2.77.2", "1.2.77.100", 2, 3, 4, 4, ball))
