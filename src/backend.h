@@ -13,6 +13,7 @@
 #include <functional>
 #include <memory>
 
+#include "anonymouscopy.h"
 #include "claim.h"
 #include "exporter.h"
 #include "filepicker.h"
@@ -35,8 +36,8 @@
 // One pane of the window, as QML talks to it: which series and slice it
 // shows and how. What's open and every decoded slice belong to the library
 // the panes share; the window, the planes, the PET over the picture, the
-// reports, the tags, and saving each have a piece of their own, and this
-// puts them together and says what changed.
+// reports, the tags, saving, and the anonymous copy each have a piece of
+// their own, and this puts them together and says what changed.
 class Backend : public QObject {
     Q_OBJECT
     QML_ELEMENT
@@ -89,6 +90,7 @@ class Backend : public QObject {
     Q_PROPERTY(bool fused READ fused NOTIFY fusionChanged)
     Q_PROPERTY(QString fusionName READ fusionName NOTIFY fusionChanged)
     Q_PROPERTY(QString blackoutRefusal READ blackoutRefusal NOTIFY blackoutChanged)
+    Q_PROPERTY(AnonymousCopy *anonymous READ anonymous CONSTANT)
 
 public:
     // The panes of one window are given one library; a backend made
@@ -278,8 +280,10 @@ public:
     Q_INVOKABLE void exportImage();
     // The series (or plane) as an MP4, as shown: windowed, turned, coloured.
     Q_INVOKABLE void exportVideo();
-    // A copy of every image without what identifies the patient.
-    Q_INVOKABLE void exportAnonymous() { m_exporter.askAnonymous(scan()); }
+    // A copy of every image without what identifies the patient: this
+    // shows what one would do, and it's saved from there.
+    Q_INVOKABLE void exportAnonymous() { m_anonymous.begin(); }
+    AnonymousCopy *anonymous() { return &m_anonymous; }
     Q_INVOKABLE void copyImage();
 
     // The regions an anonymous copy blacks out of every image of the series
@@ -395,6 +399,7 @@ private:
     ReportReader m_reports;
     TagModel m_tags;
     Exporter m_exporter;
+    AnonymousCopy m_anonymous;
 
     int m_seriesIndex = -1;
     Frame m_built;

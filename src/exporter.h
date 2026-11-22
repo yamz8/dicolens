@@ -13,10 +13,11 @@
 #include "planes.h"
 #include "study.h"
 
-// Saves what a pane shows: a picture, the series as a video, or a copy of
-// every file without what identifies the patient. It asks the file chooser
-// where, taking only the answers to what it asked itself; each is then made
-// and written on a worker, and says how it went when it's done.
+// Saves what a pane shows: a picture, or the series as a video. It asks the
+// file chooser where, taking only the answers to what it asked itself; each
+// is then made and written on a worker, and says how it went when it's
+// done. A copy of every file without what identifies the patient has more
+// to show first, and is AnonymousCopy's.
 class Exporter : public QObject {
     Q_OBJECT
 
@@ -50,12 +51,10 @@ public:
     // slices aren't held on to while the chooser is open, or after it's
     // cancelled.
     void askVideo(const QString &name, const std::function<Video()> &video);
-    void askAnonymous(const Scan &scan);
     void copy(const QImage &picture);
 
     void savePicture(const QString &path, const std::function<QImage()> &picture);
     void saveVideo(const QString &path, const Video &video);
-    void saveAnonymous(const QString &folder, const Scan &scan);
 
 signals:
     // A moment's word that it worked, or what went wrong.
@@ -67,5 +66,4 @@ private:
     // What waits on the chooser's answer.
     std::function<QImage()> m_picture;
     std::function<Video()> m_video;
-    Scan m_scan;
 };

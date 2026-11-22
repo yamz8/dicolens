@@ -16,10 +16,7 @@ QVariant SeriesModel::data(const QModelIndex &index, int role) const {
     // The first series of each study carries its heading.
     const bool heads = row == 0 || s.studyUid + s.patientName != m_series[row - 1].studyUid + m_series[row - 1].patientName;
     switch (role) {
-    case Title:
-        if (!s.description.isEmpty())
-            return s.description;
-        return s.number.isEmpty() ? tr("Untitled series") : tr("Series %1").arg(s.number);
+    case Title: return titleOf(s);
     case Modality: return s.modality;
     case Images: return int(s.slices.size());
     case Number: return s.number;
@@ -32,6 +29,12 @@ QVariant SeriesModel::data(const QModelIndex &index, int role) const {
                    : QStringLiteral("image://thumbnails/%1/%2-%3").arg(row).arg(m_scans).arg(m_thumbnails[row]);
     }
     return {};
+}
+
+QString SeriesModel::titleOf(const Series &series) {
+    if (!series.description.isEmpty())
+        return series.description;
+    return series.number.isEmpty() ? tr("Untitled series") : tr("Series %1").arg(series.number);
 }
 
 void SeriesModel::reset(const QList<Series> &series) {

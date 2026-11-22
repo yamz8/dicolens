@@ -36,6 +36,9 @@ public:
     int count() const { return m_series.size(); }
     // A row's title, for whoever looks a series up by name.
     QString title(int row) const { return data(index(row), Title).toString(); }
+    // What a series is called wherever it's named: its description, or
+    // failing that its number.
+    static QString titleOf(const Series &series);
 
     void reset(const QList<Series> &series);
     void thumbnailArrived(int row);

@@ -70,10 +70,14 @@ ApplicationWindow {
     readonly property bool reading: backend.reportIndex >= 0
     // Letter keys go to the tag search while it's being typed in.
     readonly property bool typing: tagPanel.searching
+    // What an anonymous copy would do, or how it went, is up.
+    readonly property bool anonymizing: backend.anonymous.shown
     // The shortcut list covers the scans, so the keys move through it
-    // rather than act on what it hides; under it, a report takes them.
-    readonly property bool keys: !typing && !reading && !helpVisible
+    // rather than act on what it hides; under it, a report takes them, or
+    // the anonymous copy does.
+    readonly property bool keys: !typing && !reading && !helpVisible && !anonymizing
     readonly property bool reportKeys: reading && !helpVisible
+    readonly property bool anonymousKeys: anonymizing && !helpVisible
     readonly property bool rightToLeft: Qt.application.layoutDirection === Qt.RightToLeft
 
     onTagsVisibleChanged: { backend.tagsWanted = tagsVisible; partner.tagsWanted = tagsVisible }
@@ -314,7 +318,7 @@ ApplicationWindow {
             win.inUse.announce(win.linked ? qsTr("Scrolling together") : qsTr("Scrolling apart"))
         }
     }
-    Shortcut { sequence: "P"; enabled: !win.typing && !win.helpVisible; onActivated: win.reading ? backend.closeReport() : backend.openStudyReport() }
+    Shortcut { sequence: "P"; enabled: !win.typing && !win.helpVisible && !win.anonymizing; onActivated: win.reading ? backend.closeReport() : backend.openStudyReport() }
     Shortcut { sequences: ["Left", "Shift+Tab"]; enabled: win.reportKeys; onActivated: backend.stepReport(-1) }
     Shortcut { sequences: ["Right", "Tab"]; enabled: win.reportKeys; onActivated: backend.stepReport(1) }
     Shortcut { sequences: ["Up", "K"]; enabled: win.reportKeys; onActivated: reportPanel.scroll(-60) }
@@ -327,11 +331,19 @@ ApplicationWindow {
     Shortcut { sequences: ["Down", "J"]; enabled: win.helpVisible; onActivated: help.scroll(60) }
     Shortcut { sequence: "PgUp"; enabled: win.helpVisible; onActivated: help.scroll(-help.height * 0.8) }
     Shortcut { sequences: ["PgDown", "Space"]; enabled: win.helpVisible; onActivated: help.scroll(help.height * 0.8) }
+    // An anonymous copy's panel is long too. Space is its one choice, and
+    // Enter its main action: choosing a folder, or being done with it.
+    Shortcut { sequences: ["Up", "K"]; enabled: win.anonymousKeys; onActivated: anonymousPanel.scroll(-60) }
+    Shortcut { sequences: ["Down", "J"]; enabled: win.anonymousKeys; onActivated: anonymousPanel.scroll(60) }
+    Shortcut { sequence: "PgUp"; enabled: win.anonymousKeys; onActivated: anonymousPanel.scroll(-anonymousPanel.height * 0.8) }
+    Shortcut { sequence: "PgDown"; enabled: win.anonymousKeys; onActivated: anonymousPanel.scroll(anonymousPanel.height * 0.8) }
+    Shortcut { sequence: "Space"; enabled: win.anonymousKeys; onActivated: anonymousPanel.toggleDescriptions() }
+    Shortcut { sequences: ["Return", "Enter"]; enabled: win.anonymousKeys; onActivated: anonymousPanel.accept() }
     Shortcut { sequence: "S"; enabled: win.keys; onActivated: win.seriesVisible = !win.seriesVisible }
     Shortcut { sequence: "T"; enabled: win.keys; onActivated: win.tagsVisible = !win.tagsVisible }
     Shortcut { sequence: "H"; enabled: win.keys; onActivated: win.infoHidden = !win.infoHidden }
-    Shortcut { sequence: "Ctrl+F"; enabled: !win.reading && !win.helpVisible; onActivated: { win.tagsVisible = true; tagPanel.focusSearch() } }
-    Shortcut { sequence: "Ctrl+E"; enabled: !win.reading && !win.helpVisible; onActivated: win.in3d ? win.inUseVolume.exportImage() : win.inUse.exportImage() }
+    Shortcut { sequence: "Ctrl+F"; enabled: !win.reading && !win.helpVisible && !win.anonymizing; onActivated: { win.tagsVisible = true; tagPanel.focusSearch() } }
+    Shortcut { sequence: "Ctrl+E"; enabled: !win.reading && !win.helpVisible && !win.anonymizing; onActivated: win.in3d ? win.inUseVolume.exportImage() : win.inUse.exportImage() }
     Shortcut { sequence: "Ctrl+Shift+E"; enabled: win.keys && !win.in3d; onActivated: win.inUse.exportVideo() }
     Shortcut { sequence: "Ctrl+Shift+S"; enabled: win.keys; onActivated: backend.exportAnonymous() }
     Shortcut { sequence: "Ctrl+C"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.copyImage() : win.inUse.copyImage() }
@@ -341,6 +353,8 @@ ApplicationWindow {
         sequence: "Esc"
         onActivated: {
             if (win.helpVisible) win.helpVisible = false
+            // Before a folder is chosen this writes nothing.
+            else if (win.anonymizing) backend.anonymous.close()
             else if (win.reading) backend.closeReport()
             else if (win.typing) tagPanel.leaveSearch()
             else if (win.inUseView.drawing) win.inUseView.removeLast()
@@ -525,6 +539,16 @@ ApplicationWindow {
                 anchors.fill: parent
                 visible: win.reading
             }
+        }
+
+        // What an anonymous copy would do, and then how it went, over the
+        // scans and the lists beside them, under a problem and the
+        // shortcut list.
+        AnonymousPanel {
+            id: anonymousPanel
+            objectName: "anonymousPanel"
+            anchors.fill: parent
+            visible: win.anonymizing
         }
 
         // A problem stays until it's dismissed or the next scan opens.

@@ -14,7 +14,7 @@ int megabytes(qint64 bytes) { return int((bytes + (1 << 20) - 1) >> 20); }
 }
 
 Backend::Backend(FilePicker *picker, std::shared_ptr<Library> library, QObject *parent)
-    : QObject(parent), m_picker(picker), m_exporter(picker) {
+    : QObject(parent), m_picker(picker), m_exporter(picker), m_anonymous(picker) {
     connect(&m_notices, &Notices::problemChanged, this, &Backend::problemChanged);
     connect(&m_notices, &Notices::noticeChanged, this, &Backend::noticeChanged);
     connect(&m_claim, &Claim::changed, this, &Backend::decodedChanged);
@@ -43,6 +43,8 @@ Backend::Backend(FilePicker *picker, std::shared_ptr<Library> library, QObject *
     connect(&m_reports, &ReportReader::problem, &m_notices, &Notices::setProblem);
     connect(&m_exporter, &Exporter::said, &m_notices, &Notices::flash);
     connect(&m_exporter, &Exporter::failed, &m_notices, &Notices::setProblem);
+    connect(&m_anonymous, &AnonymousCopy::said, &m_notices, &Notices::flash);
+    connect(&m_anonymous, &AnonymousCopy::failed, &m_notices, &Notices::setProblem);
     // Whether a region can be marked goes by the series and how it's cut.
     connect(this, &Backend::sliceChanged, this, &Backend::blackoutChanged);
     connect(this, &Backend::orientationChanged, this, &Backend::blackoutChanged);
@@ -88,6 +90,7 @@ void Backend::join(const std::shared_ptr<Library> &library) {
     m_serial = -1;
     m_claim.setCache(m_library->cache());
     m_fusion.setGrids(m_library->grids());
+    m_anonymous.setLibrary(m_library.get());
     connect(m_library.get(), &Library::scanningChanged, this, &Backend::scanningChanged);
     connect(m_library.get(), &Library::scanProgress, this, &Backend::scanProgress);
     connect(m_library.get(), &Library::opened, this, &Backend::scanOpened);
@@ -504,6 +507,7 @@ void Backend::retranslate() {
     m_notices.retranslate();
     m_reports.retranslate();
     m_tags.retranslate();
+    m_anonymous.retranslate();
     m_library->retranslate();
     emit orientationChanged();
     emit sliceChanged();

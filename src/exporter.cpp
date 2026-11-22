@@ -17,7 +17,6 @@
 #include <cstring>
 #include <utility>
 
-#include "anonymize.h"
 #include "framecache.h"
 
 namespace {
@@ -50,8 +49,6 @@ Exporter::Exporter(FilePicker *picker, QObject *parent) : QObject(parent), m_pic
             savePicture(path, std::exchange(m_picture, nullptr));
         else if (purpose == FilePicker::Purpose::SaveVideo && m_video)
             saveVideo(path, std::exchange(m_video, nullptr)());
-        else if (purpose == FilePicker::Purpose::SaveFolder)
-            saveAnonymous(path, std::exchange(m_scan, Scan()));
     });
     connect(m_picker, &FilePicker::failed, this, [this](QObject *asker, const QString &message) {
         if (asker == this)
@@ -75,13 +72,6 @@ void Exporter::askVideo(const QString &name, const std::function<Video()> &video
     }
     m_video = video;
     m_picker->choose(this, FilePicker::Purpose::SaveVideo, name);
-}
-
-void Exporter::askAnonymous(const Scan &scan) {
-    if (!m_picker || scan.series.isEmpty())
-        return;
-    m_scan = scan;
-    m_picker->choose(this, FilePicker::Purpose::SaveFolder);
 }
 
 void Exporter::savePicture(const QString &path, const std::function<QImage()> &picture) {
@@ -182,39 +172,5 @@ void Exporter::saveVideo(const QString &path, const Video &v) {
         } else {
             report(self, [name = target.fileName()] { return tr("Saved %1").arg(name); }, {});
         }
-    });
-}
-
-void Exporter::saveAnonymous(const QString &folder, const Scan &scan) {
-    if (folder.isEmpty() || scan.series.isEmpty())
-        return;
-    emit said([] { return tr("Saving an anonymous copy…"); });
-    QPointer<Exporter> self(this);
-    auto locker = std::make_shared<QEventLoopLocker>();
-    QThreadPool::globalInstance()->start([self, scan, folder, locker] {
-        const Anonymize::Result result = Anonymize::copyScan(scan, folder);
-        if (result.written == 0) {
-            report(self, {}, [error = result.errors.value(0)] {
-                return tr("The anonymous copy couldn't be saved: %1").arg(error);
-            });
-            return;
-        }
-        const int written = result.written, showDetails = result.showDetails, skipped = result.skipped,
-                  errors = result.errors.size();
-        const QString name = QFileInfo(result.folder).fileName();
-        Words warnings;
-        // What the copy can't promise is said where it stays up.
-        if (showDetails > 0 || skipped > 0 || errors > 0)
-            warnings = [showDetails, skipped, errors] {
-                QStringList parts;
-                if (showDetails > 0)
-                    parts << tr("%Ln of the images may show the patient's details in the picture itself, which a copy can't take out. Look at them before sharing.", nullptr, showDetails);
-                if (skipped > 0)
-                    parts << tr("Reports were left out, as their text names the patient.");
-                if (errors > 0)
-                    parts << tr("%Ln files couldn't be copied.", nullptr, errors);
-                return parts.join(' ');
-            };
-        report(self, [written, name] { return tr("Saved %Ln files in %1", nullptr, written).arg(name); }, warnings);
     });
 }
