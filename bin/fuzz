@@ -1,0 +1,53 @@
+#!/bin/bash
+set -euo pipefail
+
+# Fuzzes the decoders with libFuzzer, under AddressSanitizer and
+# UndefinedBehaviorSanitizer, from seeds made of the tests' own files.
+#
+#   bin/fuzz                 every target, a minute each
+#   bin/fuzz decode 600      one target, for ten minutes
+#
+# A crash, a sanitizer report, an input that takes longer than TIMEOUT
+# seconds, or one that takes more memory than a file its size could need is a
+# bug: the input that did it is kept in build-fuzz/findings/<target>/, and the
+# script fails. What a run learns stays in build-fuzz/corpus/ for the next.
+root="$(cd "$(dirname "$0")/.." && pwd)"
+build="$root/build-fuzz"
+targets=(parse decode ljpeg rle native frames marks reports scan)
+
+target="${1:-all}"
+seconds="${2:-60}"
+if [[ "$target" != all && ! " ${targets[*]} " == *" $target "* ]]; then
+  echo "No fuzz target called '$target'. There are: ${targets[*]}" >&2
+  exit 2
+fi
+[[ "$target" == all ]] || targets=("$target")
+
+cmake -S "$root" -B "$build" -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ -DDICOLENS_FUZZ=ON >/dev/null
+cmake --build "$build" --target fuzzers -j"${JOBS:-$(nproc)}"
+"$build/fuzz/dicolens_fuzz_seeds" "$build/corpus"
+
+# A leak is a finding like any other; the stack of what leaked says where.
+export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=1}"
+export UBSAN_OPTIONS="${UBSAN_OPTIONS:-print_stacktrace=1}"
+
+failed=()
+for name in "${targets[@]}"; do
+  mkdir -p "$build/findings/$name"
+  echo "== $name, for $seconds seconds"
+  # Inputs up to 64 KB: a single allocation of 256 MB, or 1.5 GB in all, is
+  # far more than any file that small can account for.
+  if ! "$build/fuzz/fuzz_$name" "$build/corpus/$name" \
+      -max_total_time="$seconds" -max_len=65536 -timeout="${TIMEOUT:-10}" \
+      -rss_limit_mb=1500 -malloc_limit_mb=256 \
+      -dict="$root/fuzz/dicom.dict" -artifact_prefix="$build/findings/$name/" \
+      -print_final_stats=1 2>&1 | tee "$build/findings/$name.log" | grep -Ev '^#[0-9]+\s+(NEW|REDUCE|pulse|RELOAD)'; then
+    failed+=("$name")
+  fi
+done
+
+if ((${#failed[@]})); then
+  echo "Findings in: ${failed[*]} (inputs in $build/findings/)" >&2
+  exit 1
+fi
+echo "No findings."

@@ -165,6 +165,20 @@ Part 15's Table E.1-1), kept in `src/data` as the edition they were made from.
 Translations are kept in step with `src/i18n/en.json` as
 [docs/i18n.md](docs/i18n.md) says.
 
+The decoders read whatever a file says, so they are held to more than the
+tests, with three scripts for developing them (clang is needed for the first
+two, and [uv](https://docs.astral.sh/uv/) for the third):
+
+```sh
+bin/sanitize                # the tests under AddressSanitizer and UndefinedBehaviorSanitizer
+bin/fuzz [target] [seconds] # fuzz the decoders with libFuzzer, a minute each unless told
+bin/conformance             # compare every decoded frame of public test files with pydicom's decoders
+```
+
+`bin/fuzz` keeps what it finds in `build-fuzz/findings/`, and `bin/conformance`
+downloads its test files once into `~/.cache/dicolens-conformance/` and prints
+a table by transfer syntax of what matched.
+
 The package's recipe lives in
 [omarchy-pkgs](https://github.com/omacom/omarchy-pkgs), which is also where CI
 reads the dependencies from.

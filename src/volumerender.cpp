@@ -229,6 +229,17 @@ double minSpacing(const VoxelGrid &g) {
     return std::min({g.volume.spacing[0], g.volume.spacing[1], g.volume.spacing[2]});
 }
 
+// How far apart a ray's samples are, in millimetres: step of the finest
+// voxel's size. But a ray crosses no more voxels than the grid has along its
+// three sides together, and two samples to each of those is as fine as
+// there is anything to see: a stack whose slices lie a long way apart next
+// to its pixels' size (or whose file says they do) would otherwise be
+// walked through at its pixels' pace, a ray taking hours.
+double rayStep(const VoxelGrid &g, double step) {
+    const double crossed = double(g.volume.size[0]) + g.volume.size[1] + g.volume.size[2];
+    return step * std::max(minSpacing(g), g.radius / crossed);
+}
+
 } // namespace
 
 const char *lookName(Look look) {
@@ -295,11 +306,16 @@ VoxelGrid packVolume(const Volume &volume, const QVector<Frame> &slices, double 
         g.high = first ? hi : std::max(g.high, hi);
         first = false;
     }
+    // Values a scale (a made-up SUV factor, say) has taken past what a
+    // number holds have no range to pack them into.
+    if (!std::isfinite(g.low) || !std::isfinite(g.high) || !std::isfinite(g.high - g.low))
+        return g;
     if (g.high <= g.low)
         g.high = g.low + 1;
     g.volume = volume;
     g.data.resize(size_t(nx) * ny * nz);
-    const double factor = 65535 / (g.high - g.low);
+    // (So big a value that one more is no more has a span of nothing.)
+    const double factor = g.high > g.low ? 65535 / (g.high - g.low) : 0;
     eachRow(nz, [&](int k) {
         const Frame &f = slices[k];
         quint16 *out = g.data.data() + size_t(k) * nx * ny;
@@ -373,7 +389,7 @@ QImage renderVolume(const VoxelGrid &grid, const View3D &view, QSize size, doubl
     image.fill(Qt::black);
     if (!grid.valid)
         return image;
-    const double stepMm = minSpacing(grid) * std::max(0.1, step);
+    const double stepMm = rayStep(grid, std::max(0.1, step));
     const bool mip = view.look == Look::Mip;
     const Lut lut = mip ? Lut() : makeLut(grid, view, stepMm);
     const int nx = grid.volume.size[0], ny = grid.volume.size[1];
@@ -480,7 +496,7 @@ QImage renderVolume(const VoxelGrid &grid, const View3D &view, QSize size, doubl
             // The PET's brightest along the same ray, over what's drawn.
             if (overlay && overlay->grid && overlay->grid->valid) {
                 const VoxelGrid &pet = *overlay->grid;
-                const double petStep = minSpacing(pet) * 0.5;
+                const double petStep = rayStep(pet, 0.5);
                 const Ray q = rayThrough(grid, pet, view, size, x + 0.5, y + 0.5, petStep);
                 float most = -1;
                 for (double t = q.first; t <= q.last; ++t)
@@ -510,7 +526,7 @@ QImage renderVolume(const VoxelGrid &grid, const View3D &view, QSize size, doubl
 bool pickVolume(const VoxelGrid &grid, const View3D &view, QSize size, QPointF at, double *point) {
     if (!grid.valid || size.isEmpty())
         return false;
-    const double stepMm = minSpacing(grid) * 0.5;
+    const double stepMm = rayStep(grid, 0.5);
     const Ray r = rayThrough(grid, grid, view, size, at.x(), at.y(), stepMm);
     const bool mip = view.look == Look::Mip;
     const Lut lut = mip ? Lut() : makeLut(grid, view, stepMm);

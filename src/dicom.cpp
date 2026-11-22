@@ -4,7 +4,9 @@
 #include <QFile>
 #include <QStringDecoder>
 #include <QtEndian>
+#include <algorithm>
 #include <climits>
+#include <cmath>
 #include <cstring>
 #include <zlib.h>
 
@@ -68,6 +70,12 @@ QString tagText(quint32 tag) {
         .arg(tag >> 16, 4, 16, QLatin1Char('0'))
         .arg(tag & 0xFFFF, 4, 16, QLatin1Char('0'))
         .toUpper();
+}
+
+int toInt(double value, int fallback) {
+    if (std::isnan(value))
+        return fallback;
+    return int(std::clamp(value, double(INT_MIN), double(INT_MAX)));
 }
 
 DicomFile DicomFile::read(const QString &path, QString *error) {
@@ -340,6 +348,11 @@ void DicomFile::index() {
 }
 
 QByteArray DicomFile::readPixels(qint64 offset, qint64 length) const {
+    // No more than the pixel data holds: the length asked for is worked out
+    // from sizes the file gave, and reading sets that much memory aside.
+    if (offset < 0 || offset >= m_pixelLength)
+        return {};
+    length = std::min(length, m_pixelLength - offset);
     if (!m_inflated.isEmpty())
         return m_inflated.mid(m_pixelOffset + offset, length);
     QFile file(m_path);
@@ -463,7 +476,7 @@ double DicomFile::number(quint32 tag, double fallback) const {
     return values.isEmpty() ? fallback : values.first();
 }
 
-int DicomFile::integer(quint32 tag, int fallback) const { return int(number(tag, fallback)); }
+int DicomFile::integer(quint32 tag, int fallback) const { return toInt(number(tag, fallback), fallback); }
 
 QString DicomFile::formatName(const QString &value) {
     // Family^Given^Middle^Prefix^Suffix, with "=" between alphabetic,
@@ -600,19 +613,26 @@ QList<QByteArray> DicomFile::splitFrames(const QByteArray &encapsulated, int fra
     }
 
     // The basic offset table says where each frame's first fragment starts.
+    // Frames follow one another, so the offsets only grow; a table where
+    // they don't isn't one to go by, and would hand the same fragments to
+    // frame after frame.
     if (offsetTable.size() >= qint64(frameCount) * 4) {
         QList<qint64> starts;
         for (int i = 0; i < frameCount; ++i)
-            starts << qFromLittleEndian<quint32>(offsetTable.constData() + i * 4);
-        for (int i = 0; i < frameCount; ++i) {
-            const qint64 from = starts[i], to = i + 1 < frameCount ? starts[i + 1] : LLONG_MAX;
-            QByteArray frame;
-            for (const auto &f : fragments)
-                if (f.offset >= from && f.offset < to)
-                    frame += f.data;
-            frames << frame;
+            starts << qFromLittleEndian<quint32>(offsetTable.constData() + qsizetype(i) * 4);
+        if (std::adjacent_find(starts.begin(), starts.end(), std::greater_equal<>()) == starts.end()) {
+            qsizetype next = 0;
+            for (int i = 0; i < frameCount; ++i) {
+                const qint64 to = i + 1 < frameCount ? starts[i + 1] : LLONG_MAX;
+                while (next < fragments.size() && fragments[next].offset < starts[i])
+                    ++next;
+                QByteArray frame;
+                for (; next < fragments.size() && fragments[next].offset < to; ++next)
+                    frame += fragments[next].data;
+                frames << frame;
+            }
+            return frames;
         }
-        return frames;
     }
     if (fragments.size() == frameCount) {
         for (const auto &f : fragments)

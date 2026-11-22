@@ -56,9 +56,15 @@ public:
             }
             ++m_pos;
         }
+        // No marker: what's left is no data either.
+        m_pos = m_size;
     }
 
-    bool exhausted() const { return m_pos >= m_size && m_count == 0; }
+    // Whether a bit was asked for that the data didn't have: past its end,
+    // or past the marker that ends this stretch of it. An encoder pads the
+    // last byte before a marker with ones, so a whole stream never comes to
+    // this; one cut short does, and what was read since is made up.
+    bool ranOut() const { return m_ranOut; }
 
 private:
     void fill() {
@@ -72,11 +78,14 @@ private:
                     m_pos += 2;
                 } else {
                     m_marker = true;
+                    m_ranOut = true;
                     byte = 0;
                 }
             } else {
                 ++m_pos;
             }
+        } else {
+            m_ranOut = true;
         }
         m_buffer = byte;
         m_count = 8;
@@ -88,6 +97,7 @@ private:
     int m_buffer = 0;
     int m_count = 0;
     bool m_marker = false;
+    bool m_ranOut = false;
 };
 
 int decodeSymbol(Bits &bits, const Huffman &table) {
@@ -213,7 +223,7 @@ bool decodeLosslessJpeg(const QByteArray &stream, LosslessJpeg &out, QString *er
             // promises more than the data could hold isn't believed: it would
             // have the size of the picture's memory, and the time to fill it.
             if (qint64(width) * height * n > qint64(size - (pos + 2 + length)) * 8)
-                return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image is damaged"));
+                return fail(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
             const int bits = out.precision - pointTransform;
             const int mask = (1 << out.precision) - 1;
             out.samples = QVector<quint16>(qint64(width) * height * n);
@@ -231,8 +241,11 @@ bool decodeLosslessJpeg(const QByteArray &stream, LosslessJpeg &out, QString *er
                     }
                     for (int c = 0; c < n; ++c) {
                         const int symbol = decodeSymbol(reader, tables[tableFor[c]]);
+                        // (A code made of the zeros read past the end is no
+                        // fault of the stream's: it was cut short.)
                         if (symbol < 0 || symbol > 16)
-                            return fail(QT_TRANSLATE_NOOP("dicolens", "This JPEG image is damaged"));
+                            return fail(reader.ranOut() ? QT_TRANSLATE_NOOP("dicolens", "The image data is cut short")
+                                                        : QT_TRANSLATE_NOOP("dicolens", "This JPEG image is damaged"));
                         int diff = 0;
                         if (symbol == 16) {
                             diff = 32768;
@@ -270,6 +283,11 @@ bool decodeLosslessJpeg(const QByteArray &stream, LosslessJpeg &out, QString *er
                         --untilRestart;
                 }
                 firstLine = false;
+                // Zeros read past the end decode to something, a smear of
+                // the last line's values; a picture cut short isn't one to
+                // show as if it were whole.
+                if (reader.ranOut())
+                    return fail(QT_TRANSLATE_NOOP("dicolens", "The image data is cut short"));
             }
             return true;
         }

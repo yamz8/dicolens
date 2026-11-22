@@ -244,3 +244,7 @@ bool pattern(QByteArrayView text, quint32 *mask, quint32 *digits);
 }
 
 QString tagText(quint32 tag);
+
+// A number a file gave, as an int: the nearest an int can hold, since a file
+// may spell any number at all, and the fallback for one that isn't a number.
+int toInt(double value, int fallback = 0);

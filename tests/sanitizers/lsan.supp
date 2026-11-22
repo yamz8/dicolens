@@ -1,0 +1,16 @@
+# Leaks LeakSanitizer reports that are not in Dicolens. Each says whose it is
+# and why it is let through. A leak with any frame of Dicolens' own in its
+# stack matches nothing here.
+
+# fcitx5-qt, the desktop's input method plugin, which Qt loads into the
+# tests when QT_IM_MODULE names it (it does on Omarchy; in CI's container
+# there is no fcitx). The first key a test presses makes its candidate
+# window, with a theme and a file watcher that the plugin keeps until the
+# process ends and never frees.
+leak:fcitx::
+
+# The reference count Qt hangs on a socket notifier the first time it fires,
+# here the one fcitx5-qt listens to its daemon with. It goes when the
+# notifier does, which is with the plugin above: never. (A notifier leaked
+# by Dicolens would be reported itself, from where it was made, not here.)
+leak:QSocketNotifier::event

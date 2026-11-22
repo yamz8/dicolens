@@ -24,8 +24,12 @@ struct ImageFormat {
     QString transferSyntax;
     bool littleEndian = true;
 
+    // As the file says, but for frames: no more of those than its pixel data
+    // has room for.
     static ImageFormat from(const DicomFile &file, int frame = 0);
     bool color() const { return samples > 1 || photometric == "PALETTE COLOR"; }
+    // The bytes of one uncompressed frame, or 0 when the layout isn't one.
+    qint64 frameBytes() const;
 };
 
 // One decoded picture. Grey images keep their stored values, 16 bits a
