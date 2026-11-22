@@ -1001,26 +1001,44 @@ private slots:
         QVERIFY(!makeVolume(scan.series.first()).valid);
     }
 
-    void leavesATiltedGantryUncut() {
+    void cutsATiltedGantryButNotAWanderingStack() {
         // A CT taken with its gantry tilted steps sideways from slice to
-        // slice. Cut as a block it would come out sheared, so it isn't cut.
-        for (double aside : {0.0, 1.5}) {
+        // slice, the same way each time. Its slices are placed in the
+        // volume where they lie, so it's cut true. A stack that wanders
+        // from side to side, or leans further than any gantry, isn't cut.
+        auto volumeOf = [](const std::function<double(int)> &aside) {
             QTemporaryDir dir;
             for (int k = 0; k < 5; ++k) {
                 Writer w;
                 w.add(Tag::Modality, "CS", "CT")
                     .image(3, 4, 16, 12, false)
                     .add(Tag::InstanceNumber, "IS", QByteArray::number(k + 1))
-                    .add(Tag::ImagePosition, "DS", "0\\" + QByteArray::number(k * aside) + "\\" + QByteArray::number(k * 3))
+                    .add(Tag::ImagePosition, "DS", "0\\" + QByteArray::number(aside(k)) + "\\" + QByteArray::number(k * 3))
                     .add(Tag::ImageOrientation, "DS", "1\\0\\0\\0\\1\\0")
                     .add(Tag::PixelSpacing, "DS", "1\\1")
                     .pixels(le16(QList<int>(12, k)));
-                QVERIFY(write(dir.filePath(QString("IM%1").arg(k)), w.file(ExplicitLE)));
+                if (!write(dir.filePath(QString("IM%1").arg(k)), w.file(ExplicitLE)))
+                    return Volume();
             }
             const Scan scan = scanFiles(listFiles({dir.path()}, true));
-            QCOMPARE(scan.series.size(), 1);
-            QCOMPARE(makeVolume(scan.series.first()).valid, aside == 0.0);
-        }
+            return scan.series.size() == 1 ? makeVolume(scan.series.first()) : Volume();
+        };
+        const Volume straight = volumeOf([](int) { return 0.0; });
+        QVERIFY(straight.valid);
+        QVERIFY(!straight.tilted());
+        QCOMPARE(straight.size[1], 3);
+        // A millimetre and a half aside for every three along, 27 degrees:
+        // the block is as much taller as the last slice lies from the
+        // first, and its slices are as far apart as they were.
+        const Volume tilted = volumeOf([](int k) { return k * 1.5; });
+        QVERIFY(tilted.valid);
+        QVERIFY(tilted.tilted());
+        QCOMPARE(tilted.size[0], 4);
+        QCOMPARE(tilted.size[1], 3 + 6);
+        QCOMPARE(tilted.spacing[2], 3.0);
+        QCOMPARE(tilted.shift[2], QPointF(0, 3));
+        QVERIFY(!volumeOf([](int k) { return k % 2 ? 1.5 : 0.0; }).valid);
+        QVERIFY(!volumeOf([](int k) { return k * 3.0; }).valid);
     }
 
     void keepsHalfAMeasurementToItsSlice() {

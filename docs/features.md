@@ -58,7 +58,9 @@ all of the slice's.
 `V` rebuilds a CT or MR stack as coronal and sagittal planes, and back as it
 was scanned, through the same point. Side by side, a dashed line on each side
 shows where the other side's picture cuts it. It takes a stack of evenly
-spaced, parallel slices, which most CT and MR series are.
+spaced, parallel slices, which most CT and MR series are. A CT taken with
+its gantry tilted is one too: its slices are put where they lie, so nothing
+comes out sheared, and lengths through the stack read true.
 
 ## Cut it at any angle
 
