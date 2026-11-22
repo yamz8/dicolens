@@ -33,7 +33,9 @@ struct VoxelGrid {
 };
 
 // Packs a volume's decoded slices, each value times scale (a PET's SUV
-// factor); invalid unless every slice is there in grey.
+// factor); invalid unless every slice is there in grey. A tilted stack's
+// slices are packed where they lie in the block, with its lowest value
+// wherever none reaches, so the grid's own volume has no shift left in it.
 VoxelGrid packVolume(const Volume &volume, const QVector<Frame> &slices, double scale = 1);
 // Half as many voxels each way, each the mean of those it covers: quick to
 // draw while the volume turns.
