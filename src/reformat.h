@@ -105,9 +105,10 @@ enum class Projection { Max, Min, Mean };
 
 // The picture of one cut, from the series' decoded slices, or of the slab
 // reaching half slices either side of it; null unless every slice is there.
-// A tilted stack's slab is taken square to the cut all the same, and where
-// none of it reaches a slice the picture has the slices' padding, or
-// failing that the volume's empty value.
+// A tilted stack's slab is taken square to the cut all the same, of the
+// slices that reach each point alone. Where none does, the picture has the
+// volume's empty value, or the slices' own padding when it keeps their
+// stored values and they have one.
 Frame reformat(const Volume &volume, const Cut &cut, int index, const QVector<Frame> &slices, int half = 0,
                Projection projection = Projection::Max);
 
