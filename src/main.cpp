@@ -84,6 +84,11 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty("partner", &partner);
     engine.rootContext()->setContextProperty("coronal", &coronal);
     engine.rootContext()->setContextProperty("sagittal", &sagittal);
+    // A look asked for where there is a display would open a window on it.
+    // Kept hidden, the window is still drawn, offscreen, by the graphics
+    // card: how the pictures its shaders make are looked at without one.
+    if (qEnvironmentVariableIsSet("OMARCHY_LOOK_SCREENSHOT") && QGuiApplication::platformName() != "offscreen")
+        engine.setInitialProperties({{"visible", false}});
     engine.load(QUrl("qrc:/Main.qml"));
     if (engine.rootObjects().isEmpty())
         return 1;
