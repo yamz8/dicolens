@@ -45,6 +45,13 @@ isn't needed. Files are grouped into series and studies and sorted head to
 foot by where each slice is. A zip file is unpacked into a folder of the
 app's own (with `bsdtar`), which goes when the app closes.
 
+Slices are kept in memory once read, each once however many views show it, up
+to a third of the machine's memory (and at least 512 MB). Past that, the ones
+used longest ago are let go of and read again when they're looked at. Cutting
+a series another way, a slab, 3D, and a PET over it need the whole series at
+once, and say so when it doesn't fit. `DICOLENS_CACHE_MB=4000 dicolens …`
+sets the limit in megabytes.
+
 ## What it does
 
 Each of these is shown with a short recording in

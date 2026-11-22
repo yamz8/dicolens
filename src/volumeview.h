@@ -49,7 +49,10 @@ public:
     void setActive(bool active);
     bool ready() const { return m_full != nullptr; }
     QString status() const;
-    bool busy() const { return !status().isEmpty() && m_backend && m_backend->volume().valid && !m_unpackable; }
+    bool busy() const {
+        return !status().isEmpty() && m_backend && m_backend->volume().valid && !m_unpackable
+               && m_backend->volumeRefusal().isEmpty();
+    }
     QString lookName() const;
     bool followsWindow() const { return m_view.look == Look::Mip || m_view.look == Look::Surface; }
     double cut() const { return m_view.cut; }

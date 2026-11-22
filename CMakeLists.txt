@@ -76,9 +76,9 @@ if(DICOLENS_SANITIZE)
 endif()
 set_tests_properties(dicolens_tests hostile_tests decode_tests PROPERTIES ENVIRONMENT "${test_environment}")
 
-# The dictionary and the anonymizer have test files of their own, with the
-# tables from the standard, which are resources too.
-foreach(suite dictionary_tests anonymize_tests)
+# The dictionary, the anonymizer, and what the panes share have test files
+# of their own, with the tables from the standard, which are resources too.
+foreach(suite dictionary_tests anonymize_tests library_tests)
   add_executable(${suite} tests/${suite}.cpp src/resources.qrc)
   target_link_libraries(${suite} PRIVATE dicolens_core Qt6::Test)
   add_test(NAME ${suite} COMMAND ${suite})

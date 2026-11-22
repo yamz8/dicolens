@@ -9,8 +9,6 @@ Rectangle {
     id: panel
     color: Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.98)
 
-    readonly property var report: backend.reports[backend.reportIndex] || ({})
-
     function scroll(amount) {
         flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY + amount))
     }
@@ -39,9 +37,9 @@ Rectangle {
             }
             Label {
                 // Reads the language so the numbers follow it.
-                text: translator.language !== undefined && backend.reports.length > 1
+                text: translator.language !== undefined && backend.reportCount > 1
                       ? qsTr("Report %1 of %2").arg(Number(backend.reportIndex + 1).toLocaleString(Qt.locale(), 'f', 0))
-                                               .arg(Number(backend.reports.length).toLocaleString(Qt.locale(), 'f', 0))
+                                               .arg(Number(backend.reportCount).toLocaleString(Qt.locale(), 'f', 0))
                       : ""
                 color: theme.accent
                 font.bold: true
@@ -49,7 +47,7 @@ Rectangle {
             }
         }
         Label {
-            text: [panel.report.study, panel.report.date].filter(x => x).map(x => "\u2068" + x + "\u2069").join("  ·  ")
+            text: [backend.reportStudy, backend.reportDate].filter(x => x).map(x => "\u2068" + x + "\u2069").join("  ·  ")
             color: win.muted
             visible: text !== ""
             elide: Text.ElideRight
@@ -140,7 +138,7 @@ Rectangle {
         anchors.margins: 20
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.Wrap
-        text: (backend.reports.length > 1 ? qsTr("← → Other reports") + "   ·   " : "")
+        text: (backend.reportCount > 1 ? qsTr("← → Other reports") + "   ·   " : "")
               + (backend.reportIsPdf ? qsTr("Enter opens it") + "   ·   " : "")
               + qsTr("Esc closes")
         color: win.muted

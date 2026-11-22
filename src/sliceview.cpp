@@ -85,7 +85,7 @@ void SliceView::setSecondReference(Backend *reference) {
 }
 
 bool SliceView::lineTo(Backend *other, QPointF &a, QPointF &b) const {
-    if (!m_backend || !other || other == m_backend || m_backend->image().isNull())
+    if (!m_backend || !other || other == m_backend || m_backend->imageWidth() == 0)
         return false;
     const ImagePlane here = m_backend->imagePlane(), there = other->imagePlane();
     if (!here.valid || !there.valid || here.frame.isEmpty() || here.frame != there.frame)
@@ -103,7 +103,7 @@ bool SliceView::lineTo(Backend *other, QPointF &a, QPointF &b) const {
     if (std::hypot(ka, kb) < 1e-3 * std::max(here.rowSpacing, here.columnSpacing))
         return false;
     // Where the line crosses the image's edges, at pixel centres' bounds.
-    const double x0 = -0.5, y0 = -0.5, x1 = m_backend->image().width() - 0.5, y1 = m_backend->image().height() - 0.5;
+    const double x0 = -0.5, y0 = -0.5, x1 = m_backend->imageWidth() - 0.5, y1 = m_backend->imageHeight() - 0.5;
     QList<QPointF> hits;
     auto add = [&](double x, double y) {
         if (x >= x0 - 1e-6 && x <= x1 + 1e-6 && y >= y0 - 1e-6 && y <= y1 + 1e-6)
@@ -144,9 +144,11 @@ void SliceView::setTextScale(double scale) {
 }
 
 QTransform SliceView::transform() const {
-    if (!m_backend || m_backend->image().isNull())
+    // The picture's size is all this needs, which the backend knows
+    // without making the picture.
+    const QSizeF image = m_backend ? QSizeF(m_backend->imageWidth(), m_backend->imageHeight()) : QSizeF();
+    if (image.isEmpty())
         return {};
-    const QImage image = m_backend->image();
     const double aspect = m_backend->pixelAspect();
     // Fitted as turned: a quarter turn swaps the picture's sides.
     const bool sideways = m_backend->rotation() % 2;
@@ -163,10 +165,9 @@ QTransform SliceView::transform() const {
 }
 
 QRectF SliceView::imageRect() const {
-    if (!m_backend || m_backend->image().isNull())
+    if (!m_backend || m_backend->imageWidth() == 0)
         return {};
-    const QImage image = m_backend->image();
-    return transform().mapRect(QRectF(0, 0, image.width(), image.height()));
+    return transform().mapRect(QRectF(0, 0, m_backend->imageWidth(), m_backend->imageHeight()));
 }
 
 QPointF SliceView::toImage(double x, double y) const {
@@ -479,6 +480,8 @@ void SliceView::paint(QPainter *painter) {
     const QRectF r = imageRect();
     if (r.isEmpty())
         return;
+    // Painted in software, from the picture the backend windows on the
+    // CPU, which it makes here if nothing has asked for it since it changed.
     const QImage image = m_backend->image();
     const QTransform t = transform();
     // Smooth until single pixels are big enough to be worth seeing as such;

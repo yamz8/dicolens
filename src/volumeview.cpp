@@ -58,6 +58,8 @@ void VolumeView::followWindow() {
 }
 
 VolumeView::~VolumeView() {
+    if (m_backend)
+        m_backend->wantVolume(this, false);
     if (m_cancel)
         *m_cancel = true;
     m_pool.waitForDone();
@@ -66,10 +68,15 @@ VolumeView::~VolumeView() {
 void VolumeView::setBackend(Backend *backend) {
     if (backend == m_backend)
         return;
-    if (m_backend)
+    if (m_backend) {
         disconnect(m_backend, nullptr, this, nullptr);
+        m_backend->wantVolume(this, false);
+    }
     m_backend = backend;
     if (m_backend) {
+        // A shown 3D view needs the whole series kept, and room for the
+        // volume it packs from it.
+        m_backend->wantVolume(this, m_active);
         connect(m_backend, &Backend::decodedChanged, this, &VolumeView::prepare);
         connect(m_backend, &Backend::sliceChanged, this, [this] {
             prepare();
@@ -100,6 +107,8 @@ void VolumeView::setActive(bool active) {
     m_active = active;
     if (!m_active)
         stopSpin();
+    if (m_backend)
+        m_backend->wantVolume(this, m_active);
     emit activeChanged();
     prepare();
     request(false);
@@ -110,6 +119,9 @@ QString VolumeView::status() const {
         return {};
     if (!m_backend->volume().valid || m_unpackable)
         return tr("This series can't be shown in 3D");
+    // Too big for the memory the app keeps to: said plainly, not tried.
+    if (const QString refusal = m_backend->volumeRefusal(); !refusal.isEmpty())
+        return refusal;
     if (!m_backend->allDecoded())
         return tr("Reading the series…");
     if (!m_full)
@@ -163,7 +175,7 @@ void VolumeView::prepare() {
     }
     if (!m_active || key.isEmpty() || m_full || m_packing || m_unpackable)
         return;
-    if (!m_backend->volume().valid || !m_backend->allDecoded()) {
+    if (!m_backend->volume().valid || !m_backend->volumeRefusal().isEmpty() || !m_backend->allDecoded()) {
         emit stateChanged();
         return;
     }
