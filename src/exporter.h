@@ -46,7 +46,10 @@ public:
     // the worker too, so a big one being windowed and turned doesn't hold
     // the window up.
     void askPicture(const QString &name, const std::function<QImage()> &picture);
-    void askVideo(const QString &name, const Video &video);
+    // The video is put together once there's somewhere to save it, so the
+    // slices aren't held on to while the chooser is open, or after it's
+    // cancelled.
+    void askVideo(const QString &name, const std::function<Video()> &video);
     void askAnonymous(const Scan &scan);
     void copy(const QImage &picture);
 
@@ -63,6 +66,6 @@ private:
     FilePicker *m_picker;
     // What waits on the chooser's answer.
     std::function<QImage()> m_picture;
-    Video m_video;
+    std::function<Video()> m_video;
     Scan m_scan;
 };

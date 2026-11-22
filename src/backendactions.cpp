@@ -325,19 +325,23 @@ void Backend::exportVideo() {
         m_notices.flash([] { return tr("The series is still being read"); });
         return;
     }
-    Exporter::Video v;
-    v.recipe = m_planes.recipe(frames());
-    v.slices = frames();
-    v.center = m_window.center();
-    v.width = m_window.width();
-    v.inverted = m_window.inverted();
-    v.colorMap = m_window.colorMap();
-    v.pet = fusionGrid();
-    v.petLook = fusionLook();
-    v.aspect = pixelAspect();
-    v.turn = m_turn;
-    v.fps = s->frameRate > 0 && plane() == 0 ? std::clamp(s->frameRate, 1.0, 60.0) : 12.0;
-    m_exporter.askVideo(exportName(true) + ".mp4", v);
+    // As shown when there's somewhere to save it: windowed, turned, coloured.
+    m_exporter.askVideo(exportName(true) + ".mp4", [this] {
+        const Series *s = currentSeries();
+        Exporter::Video v;
+        v.recipe = m_planes.recipe(frames());
+        v.slices = frames();
+        v.center = m_window.center();
+        v.width = m_window.width();
+        v.inverted = m_window.inverted();
+        v.colorMap = m_window.colorMap();
+        v.pet = fusionGrid();
+        v.petLook = fusionLook();
+        v.aspect = pixelAspect();
+        v.turn = m_turn;
+        v.fps = s && s->frameRate > 0 && plane() == 0 ? std::clamp(s->frameRate, 1.0, 60.0) : 12.0;
+        return v;
+    });
 }
 
 QString Backend::fusionName() const {

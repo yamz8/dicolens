@@ -48,8 +48,8 @@ Exporter::Exporter(FilePicker *picker, QObject *parent) : QObject(parent), m_pic
         const QString path = urls.first().toLocalFile();
         if (purpose == FilePicker::Purpose::SaveImage)
             savePicture(path, std::exchange(m_picture, nullptr));
-        else if (purpose == FilePicker::Purpose::SaveVideo)
-            saveVideo(path, std::exchange(m_video, Video()));
+        else if (purpose == FilePicker::Purpose::SaveVideo && m_video)
+            saveVideo(path, std::exchange(m_video, nullptr)());
         else if (purpose == FilePicker::Purpose::SaveFolder)
             saveAnonymous(path, std::exchange(m_scan, Scan()));
     });
@@ -66,8 +66,8 @@ void Exporter::askPicture(const QString &name, const std::function<QImage()> &pi
     m_picker->choose(this, FilePicker::Purpose::SaveImage, name);
 }
 
-void Exporter::askVideo(const QString &name, const Video &video) {
-    if (!m_picker)
+void Exporter::askVideo(const QString &name, const std::function<Video()> &video) {
+    if (!m_picker || !video)
         return;
     if (QStandardPaths::findExecutable("ffmpeg").isEmpty()) {
         emit failed([] { return tr("Saving a video needs ffmpeg"); });
