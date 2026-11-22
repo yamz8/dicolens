@@ -44,7 +44,8 @@ ApplicationWindow {
     property bool seriesVisible: true
     property bool tagsVisible: false
     property bool infoHidden: false
-    // 0 looks; 1, 2, and 3 measure lengths, areas, and angles.
+    // 0 looks; 1 to 4 measure lengths, areas, angles, and Cobb angles; 5
+    // boxes what an anonymous copy blacks out of the series.
     property int tool: 0
     function useTool(t) { win.tool = win.tool === t ? 0 : t }
     // Side by side: two panes on the same scans, the keys going to one,
@@ -240,12 +241,32 @@ ApplicationWindow {
     Shortcut { sequence: "E"; enabled: win.keys; onActivated: win.useTool(2) }
     Shortcut { sequence: "Shift+M"; enabled: win.keys; onActivated: win.useTool(3) }
     Shortcut { sequence: "Shift+C"; enabled: win.keys; onActivated: win.useTool(4) }
+    Shortcut { sequence: "Shift+H"; enabled: win.keys; onActivated: win.useTool(5) }
     Shortcut { sequence: "Ctrl+Left"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.turnBy(-15, 0) : win.inUse.tilt(0, -5) }
     Shortcut { sequence: "Ctrl+Right"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.turnBy(15, 0) : win.inUse.tilt(0, 5) }
     Shortcut { sequence: "Ctrl+Up"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.turnBy(0, -15) : win.inUse.tilt(1, -5) }
     Shortcut { sequence: "Ctrl+Down"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.turnBy(0, 15) : win.inUse.tilt(1, 5) }
-    Shortcut { sequences: ["Delete", "Backspace"]; enabled: win.keys; onActivated: win.inUseView.removeLast() }
-    Shortcut { sequence: "Shift+Delete"; enabled: win.keys; onActivated: win.inUseView.clearMeasures() }
+    // With the blackout tool in hand they take away regions, which are the
+    // series', rather than the slice's measurements; a box half drawn is
+    // the view's to drop either way.
+    Shortcut {
+        sequences: ["Delete", "Backspace"]
+        enabled: win.keys
+        onActivated: win.tool === 5 && !win.inUseView.drawing ? win.inUse.removeLastBlackout() : win.inUseView.removeLast()
+    }
+    Shortcut {
+        sequence: "Shift+Delete"
+        enabled: win.keys
+        onActivated: {
+            if (win.tool !== 5) {
+                win.inUseView.clearMeasures()
+                return
+            }
+            if (win.inUseView.drawing)
+                win.inUseView.removeLast()
+            win.inUse.clearBlackouts()
+        }
+    }
     Shortcut { sequence: "G"; enabled: win.keys; onActivated: win.inUse.nextColorMap() }
     Shortcut { sequence: "F"; enabled: win.keys; onActivated: win.in3d ? win.inUseVolume.fit() : win.inUseView.fit() }
     Shortcut {

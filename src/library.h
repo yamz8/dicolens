@@ -9,6 +9,7 @@
 #include <atomic>
 #include <memory>
 
+#include "blackouts.h"
 #include "framecache.h"
 #include "notices.h"
 #include "petgrids.h"
@@ -17,9 +18,10 @@
 
 // What every pane of the window shares: the scan that's open, with its
 // series, reports, and marks; how far a scan being read has got; the series
-// list and its thumbnails; every slice decoded so far; and the PETs packed
-// to put over other series. A scan opened from any pane is open in all of
-// them, and a series two panes show is read once.
+// list and its thumbnails; every slice decoded so far; the PETs packed to
+// put over other series; and the regions marked to black out of an
+// anonymous copy. A scan opened from any pane is open in all of them, and a
+// series two panes show is read once.
 class Library : public QObject {
     Q_OBJECT
 
@@ -43,6 +45,7 @@ public:
 
     FrameCache *cache() { return &m_cache; }
     PetGrids *grids() { return &m_grids; }
+    Blackouts *blackouts() { return &m_blackouts; }
     SeriesModel *seriesModel() { return &m_seriesModel; }
     // Null until it's made. Asked for from the thread that loads the
     // list's pictures.
@@ -65,7 +68,8 @@ signals:
     void problem(QObject *asker, const Words &words);
 
 private:
-    void finished(int generation, const Scan &scan, const QString &focusPath, QObject *asker);
+    void finished(int generation, const Scan &scan, const QList<Anonymize::Redraw> &redraws, const QString &focusPath,
+                  QObject *asker);
     void makeThumbnails();
 
     Scan m_scan;
@@ -79,6 +83,7 @@ private:
 
     FrameCache m_cache;
     PetGrids m_grids;
+    Blackouts m_blackouts;
     SeriesModel m_seriesModel;
     mutable QMutex m_thumbnailMutex;
     QHash<int, QImage> m_thumbnails;

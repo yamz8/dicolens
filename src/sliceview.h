@@ -22,7 +22,8 @@ class SliceView : public QQuickPaintedItem {
     // The desktop's text size against its default, for what's written on
     // the picture.
     Q_PROPERTY(double textScale READ textScale WRITE setTextScale NOTIFY accentChanged)
-    // 0 looks, 1 draws rulers, 2 areas, 3 angles, 4 Cobb angles.
+    // 0 looks, 1 draws rulers, 2 areas, 3 angles, 4 Cobb angles, and 5
+    // boxes over what an anonymous copy blacks out of the series.
     Q_PROPERTY(int tool READ tool WRITE setTool NOTIFY toolChanged)
     // How many measurements the shown slice has, and whether one is
     // being drawn.
@@ -101,6 +102,11 @@ private:
 
     QString text(const Measure &m) const;
     void paintMeasure(QPainter *painter, const QTransform &t, const Measure &m, bool active);
+    // A region to black out: the whole pixels the box being dragged
+    // touches, and how one is drawn. The regions themselves are the
+    // backend's; only the box in hand is kept here, in m_current.
+    QRect regionDrawn() const;
+    void paintBlackout(QPainter *painter, const QTransform &t, const QRect &region, bool active);
     // Measurements stay with the slice they were drawn on, and are kept
     // for when the scans are opened again.
     QString seriesUid() const;

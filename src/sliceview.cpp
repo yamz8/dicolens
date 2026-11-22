@@ -14,6 +14,11 @@ namespace {
 // an image; the picture drawn counts from that pixel's corner.
 const QPointF Half(0.5, 0.5);
 
+// The tool that boxes what an anonymous copy blacks out. Its box in hand
+// borrows the measurement being drawn, from corner a to corner b, but is
+// never kept as one.
+constexpr int BlackoutTool = 5;
+
 }
 
 SliceView::SliceView(QQuickItem *parent) : QQuickPaintedItem(parent) {
@@ -51,6 +56,8 @@ void SliceView::setBackend(Backend *backend) {
         });
         connect(m_backend, &Backend::orientationChanged, this, [this] { update(); });
         connect(m_backend, &Backend::marksChanged, this, [this] { update(); });
+        // Another view of the series may have marked a region to black out.
+        connect(m_backend, &Backend::blackoutChanged, this, [this] { update(); });
     }
     emit backendChanged();
     update();
@@ -261,6 +268,10 @@ void SliceView::press(double x, double y) {
     }
     if (m_tool == 0)
         return;
+    // A region is only boxed where a copy can black it out; the backend
+    // says why when it can't.
+    if (m_tool == BlackoutTool && (!m_backend || !m_backend->mayBlackOut()))
+        return;
     m_current = {m_tool, p, p, p, p};
     m_drawing = true;
     emit measuresChanged();
@@ -304,6 +315,15 @@ void SliceView::release(double x, double y) {
     // A click with no drag measures nothing.
     const QPointF d = toItem(m_current.b.x(), m_current.b.y()) - toItem(m_current.a.x(), m_current.a.y());
     if (std::hypot(d.x(), d.y()) < 3) {
+        m_drawing = false;
+        emit measuresChanged();
+        update();
+        return;
+    }
+    if (m_current.kind == BlackoutTool) {
+        // The region is the series' from here on, in every view of it.
+        if (m_backend)
+            m_backend->blackOut(regionDrawn());
         m_drawing = false;
         emit measuresChanged();
         update();
@@ -503,6 +523,11 @@ void SliceView::paint(QPainter *painter) {
         painter->drawImage(QPointF(0, 0), tinted);
     }
     painter->restore();
+    // What a copy will black out of this series, where the picture is the
+    // series' own pixels.
+    if (m_backend->plane() == 0)
+        for (const QRect &region : m_backend->blackouts())
+            paintBlackout(painter, t, region, false);
     if (m_backend->marksShown())
         paintMarks(painter, t, image.size());
 
@@ -530,8 +555,43 @@ void SliceView::paint(QPainter *painter) {
 
     for (const auto &m : measures())
         paintMeasure(painter, t, m, false);
-    if (m_drawing)
+    if (m_drawing && m_current.kind == BlackoutTool)
+        paintBlackout(painter, t, regionDrawn(), true);
+    else if (m_drawing)
         paintMeasure(painter, t, m_current, true);
+}
+
+QRect SliceView::regionDrawn() const {
+    // Every pixel the box touches, as a copy blacks out whole pixels, and
+    // none outside the picture.
+    const QRectF box = QRectF(m_current.a, m_current.b).normalized();
+    const QRect pixels(QPoint(int(std::floor(box.left())), int(std::floor(box.top()))),
+                       QPoint(int(std::ceil(box.right())) - 1, int(std::ceil(box.bottom())) - 1));
+    return m_backend ? pixels & QRect(0, 0, m_backend->imageWidth(), m_backend->imageHeight()) : QRect();
+}
+
+void SliceView::paintBlackout(QPainter *painter, const QTransform &t, const QRect &region, bool active) {
+    if (region.isEmpty())
+        return;
+    // All but black, as the copy will have it, hatched and edged in a grey
+    // of its own: it shows on a black background, and isn't taken for a
+    // measurement, which are in the accent. The box in hand is lighter, to
+    // see what it's being drawn over. A quarter turn keeps it a rectangle.
+    const QRectF box = t.mapRect(QRectF(region));
+    const QColor edge(0xe8, 0xe8, 0xec);
+    painter->save();
+    painter->setRenderHint(QPainter::Antialiasing, false);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(QColor(0, 0, 0, active ? 150 : 235));
+    painter->drawRect(box);
+    painter->setBrush(QBrush(QColor(edge.red(), edge.green(), edge.blue(), 70), Qt::BDiagPattern));
+    painter->drawRect(box);
+    painter->setBrush(Qt::NoBrush);
+    painter->setPen(QPen(QColor(0, 0, 0, 160), 3));
+    painter->drawRect(box);
+    painter->setPen(QPen(edge, 1, Qt::DashLine));
+    painter->drawRect(box);
+    painter->restore();
 }
 
 void SliceView::paintLabel(QPainter *painter, QPointF at, const QString &text) {

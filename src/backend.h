@@ -5,6 +5,7 @@
 #include <QObject>
 #include <QPointer>
 #include <QPointF>
+#include <QRect>
 #include <QTimer>
 #include <QTransform>
 #include <QUrl>
@@ -87,6 +88,7 @@ class Backend : public QObject {
     Q_PROPERTY(TagModel *tags READ tagModel CONSTANT)
     Q_PROPERTY(bool fused READ fused NOTIFY fusionChanged)
     Q_PROPERTY(QString fusionName READ fusionName NOTIFY fusionChanged)
+    Q_PROPERTY(QString blackoutRefusal READ blackoutRefusal NOTIFY blackoutChanged)
 
 public:
     // The panes of one window are given one library; a backend made
@@ -279,6 +281,24 @@ public:
     // A copy of every image without what identifies the patient.
     Q_INVOKABLE void exportAnonymous() { m_exporter.askAnonymous(scan()); }
     Q_INVOKABLE void copyImage();
+
+    // The regions an anonymous copy blacks out of every image of the series
+    // shown, in image pixels. They're the library's, so every pane showing
+    // the series has them.
+    QList<QRect> blackouts() const;
+    // Why no region can be marked on the picture shown, in the user's
+    // language, or nothing when one can: a plane cut across the slices has
+    // no pixels of theirs to mark, and some pictures can't be written back
+    // value for value, which the anonymizer says.
+    QString blackoutRefusal() const;
+    // The same as a yes or no, saying why when it's no.
+    bool mayBlackOut();
+    // Marks a region, cut to the picture. False when none of it is in the
+    // picture, or none can be marked.
+    bool blackOut(const QRect &region);
+    Q_INVOKABLE void removeLastBlackout();
+    Q_INVOKABLE void clearBlackouts();
+
     Q_INVOKABLE void dismissProblem() { m_notices.setProblem({}); }
     // A word from the window about what it did, such as linking the panes.
     Q_INVOKABLE void announce(const QString &notice) { m_notices.flashText(notice); }
@@ -331,6 +351,8 @@ signals:
     void reportChanged();
     void reportsChanged();
     void fusionChanged();
+    // The shown series' regions to black out, or whether one can be marked.
+    void blackoutChanged();
 
 private:
     void join(const std::shared_ptr<Library> &library);
@@ -354,6 +376,8 @@ private:
     // What a saved file is called to start with: the series, and for a
     // video the plane it's cut in.
     QString exportName(bool withPlane) const;
+    // Says how many regions the shown series now has to black out.
+    void sayBlackouts();
     const Series *currentSeries() const;
     const Frame *currentFrame() const;
     // Shows a picture built from the slices, not one of them.

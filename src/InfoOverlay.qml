@@ -69,12 +69,20 @@ Item {
         anchors.bottomMargin: 6
         spacing: 2
         Line {
+            // What the tool in hand does, or why it can't be used here. It
+            // runs to more than a line in some languages, and wraps.
             text: overlay.tool === 1 ? qsTr("Ruler: drag across the image. Delete removes the last. Esc stops.")
                 : overlay.tool === 2 ? qsTr("Area: drag a box around it. Delete removes the last. Esc stops.")
                 : overlay.tool === 3 ? qsTr("Angle: drag one arm, then click the other's end. Esc stops.")
                 : overlay.tool === 4 ? qsTr("Cobb angle: drag along one end plate, then along the other. Esc stops.")
-                : ""
+                : overlay.tool !== 5 ? ""
+                : overlay.volume ? qsTr("A region is blacked out of the slices, not in 3D. D goes back to them.")
+                : overlay.source.blackoutRefusal !== "" ? overlay.source.blackoutRefusal
+                : qsTr("Black out: drag a box over what an anonymous copy must hide in every image of this series. Delete removes the last. Esc stops.")
             color: theme.accent
+            wrapMode: Text.Wrap
+            maximumLineCount: 4
+            horizontalAlignment: Text.AlignLeft
         }
         Line { text: overlay.hoverText; font.family: "monospace" }
         Line { text: overlay.source.fusionName; color: theme.accent }

@@ -43,6 +43,9 @@ Backend::Backend(FilePicker *picker, std::shared_ptr<Library> library, QObject *
     connect(&m_reports, &ReportReader::problem, &m_notices, &Notices::setProblem);
     connect(&m_exporter, &Exporter::said, &m_notices, &Notices::flash);
     connect(&m_exporter, &Exporter::failed, &m_notices, &Notices::setProblem);
+    // Whether a region can be marked goes by the series and how it's cut.
+    connect(this, &Backend::sliceChanged, this, &Backend::blackoutChanged);
+    connect(this, &Backend::orientationChanged, this, &Backend::blackoutChanged);
     connect(&m_play, &QTimer::timeout, this, [this] {
         // Waits for the next slice rather than showing a gap.
         const int next = (sliceIndex() + 1) % std::max(1, sliceCount());
@@ -76,6 +79,7 @@ void Backend::join(const std::shared_ptr<Library> &library) {
     if (m_library) {
         disconnect(m_library.get(), nullptr, this, nullptr);
         disconnect(m_library->cache(), nullptr, this, nullptr);
+        disconnect(m_library->blackouts(), nullptr, this, nullptr);
         // Let go of once this call is over: joining another library can
         // be asked for from inside a signal of the one being left.
         QTimer::singleShot(0, qApp, [old = m_library] {});
@@ -96,6 +100,7 @@ void Backend::join(const std::shared_ptr<Library> &library) {
         if (series == m_seriesIndex)
             emit decodedChanged();
     });
+    connect(m_library->blackouts(), &Blackouts::changed, this, &Backend::blackoutChanged);
     emit scanningChanged();
     emit scanProgress();
 }

@@ -136,14 +136,25 @@ void Library::open(const QStringList &paths, QObject *asker) {
                 emit scanProgress();
             }, Qt::QueuedConnection);
         }, cancel.get());
+        // Whether a region can be blacked out of a series' pictures is the
+        // anonymizer's to say, from one of its files; it's asked here, where
+        // reading a file is the worker's to do, so the window knows at once.
+        QList<Anonymize::Redraw> redraws;
+        for (const Series &series : std::as_const(scan.series)) {
+            if (*cancel)
+                return;
+            redraws << Anonymize::canRedraw(DicomFile::read(series.slices.value(0).path));
+        }
         if (*cancel)
             return;
-        QMetaObject::invokeMethod(this, [this, scan, focus, generation, who] { finished(generation, scan, focus, who); },
-                                  Qt::QueuedConnection);
+        QMetaObject::invokeMethod(this, [this, scan, redraws, focus, generation, who] {
+            finished(generation, scan, redraws, focus, who);
+        }, Qt::QueuedConnection);
     });
 }
 
-void Library::finished(int generation, const Scan &scan, const QString &focusPath, QObject *asker) {
+void Library::finished(int generation, const Scan &scan, const QList<Anonymize::Redraw> &redraws, const QString &focusPath,
+                       QObject *asker) {
     if (generation != m_generation)
         return;
     m_scanning = false;
@@ -176,6 +187,7 @@ void Library::finished(int generation, const Scan &scan, const QString &focusPat
     ++m_serial;
     m_grids.reset(scan.series);
     m_cache.reset(scan.series);
+    m_blackouts.reset(scan.series, redraws);
     {
         QMutexLocker lock(&m_thumbnailMutex);
         m_thumbnails.clear();

@@ -310,6 +310,75 @@ void Backend::copyImage() {
         m_exporter.copy(asShown(image(), pixelAspect(), m_turn));
 }
 
+QList<QRect> Backend::blackouts() const {
+    return currentSeries() ? m_library->blackouts()->of(m_seriesIndex) : QList<QRect>();
+}
+
+QString Backend::blackoutRefusal() const {
+    if (!currentSeries())
+        return {};
+    // A plane cut across the slices, or tilted, shows none of their own
+    // pixels, so a box drawn on it marks nothing a copy could black out.
+    if (plane() != 0)
+        return tr("A region is blacked out of the picture as it was scanned. V goes back to it.");
+    using Cant = Anonymize::Redraw::Cant;
+    const Anonymize::Redraw redraw = m_library->blackouts()->redraw(m_seriesIndex);
+    switch (redraw.cant) {
+    case Cant::Nothing: break;
+    case Cant::NoPicture:
+    case Cant::NoSize: return tr("This series has no picture to black a region out of.");
+    case Cant::Video: return tr("A region can't be blacked out of a video.");
+    case Cant::Palette:
+        return tr("A region can't be blacked out of this series: its colours come from a 16-bit palette, which can't be written back value for value.");
+    case Cant::GreyBits:
+        return tr("A region can't be blacked out of this series: its pixels are %1-bit, which can't be written back value for value.")
+            .arg(redraw.bits);
+    case Cant::ColourBits:
+        return tr("A region can't be blacked out of this series: its colours are %1-bit, which can't be written back value for value.")
+            .arg(redraw.bits);
+    }
+    return {};
+}
+
+bool Backend::mayBlackOut() {
+    if (!currentSeries())
+        return false;
+    if (blackoutRefusal().isEmpty())
+        return true;
+    m_notices.flash([this] { return blackoutRefusal(); });
+    return false;
+}
+
+bool Backend::blackOut(const QRect &region) {
+    if (!mayBlackOut())
+        return false;
+    const QRect within = region & QRect(0, 0, imageWidth(), imageHeight());
+    if (within.isEmpty())
+        return false;
+    m_library->blackouts()->add(m_seriesIndex, within);
+    sayBlackouts();
+    return true;
+}
+
+void Backend::removeLastBlackout() {
+    if (currentSeries() && m_library->blackouts()->removeLast(m_seriesIndex))
+        sayBlackouts();
+}
+
+void Backend::clearBlackouts() {
+    if (currentSeries() && m_library->blackouts()->clear(m_seriesIndex))
+        sayBlackouts();
+}
+
+void Backend::sayBlackouts() {
+    // A region is the series', which the picture alone doesn't show.
+    m_notices.flash([this] {
+        const int count = int(blackouts().size());
+        return count == 0 ? tr("Nothing will be blacked out of this series")
+                          : tr("%Ln regions will be blacked out of every image of this series", nullptr, count);
+    });
+}
+
 void Backend::exportVideo() {
     const Series *s = currentSeries();
     if (!s)
