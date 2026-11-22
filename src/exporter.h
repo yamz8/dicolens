@@ -7,14 +7,16 @@
 #include <functional>
 #include <memory>
 
+#include "filepicker.h"
 #include "notices.h"
 #include "picture.h"
 #include "planes.h"
 #include "study.h"
 
 // Saves what a pane shows: a picture, the series as a video, or a copy of
-// every file without what identifies the patient. Each is made and written
-// on a worker, and says how it went when it's done.
+// every file without what identifies the patient. It asks the file chooser
+// where, taking only the answers to what it asked itself; each is then made
+// and written on a worker, and says how it went when it's done.
 class Exporter : public QObject {
     Q_OBJECT
 
@@ -32,22 +34,35 @@ public:
         std::shared_ptr<const VoxelGrid> pet;
         Overlay3D petLook;
         double aspect = 1;
-        int rotation = 0;
-        bool flipped = false;
+        Turn turn;
         double fps = 12;
     };
 
-    explicit Exporter(QObject *parent = nullptr) : QObject(parent) {}
+    // Without a chooser there's nowhere to ask, and nothing is saved.
+    explicit Exporter(FilePicker *picker, QObject *parent = nullptr);
 
-    // The picture is made by the worker too, so a big one being windowed
-    // and turned doesn't hold the window up.
+    // Each asks where to save, under a name to start with, and saves
+    // what it was given once the chooser answers. The picture is made by
+    // the worker too, so a big one being windowed and turned doesn't hold
+    // the window up.
+    void askPicture(const QString &name, const std::function<QImage()> &picture);
+    void askVideo(const QString &name, const Video &video);
+    void askAnonymous(const Scan &scan);
+    void copy(const QImage &picture);
+
     void savePicture(const QString &path, const std::function<QImage()> &picture);
     void saveVideo(const QString &path, const Video &video);
     void saveAnonymous(const QString &folder, const Scan &scan);
-    void copy(const QImage &picture);
 
 signals:
     // A moment's word that it worked, or what went wrong.
     void said(const Words &words);
     void failed(const Words &words);
+
+private:
+    FilePicker *m_picker;
+    // What waits on the chooser's answer.
+    std::function<QImage()> m_picture;
+    Video m_video;
+    Scan m_scan;
 };

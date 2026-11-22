@@ -56,6 +56,8 @@
   "Enter opens it": "Enter opens it",
   "Esc closes": "Esc closes",
   "Female": "Female",
+  "The PET is too big to put over this: it takes %1 MB of memory, and Dicolens keeps to %2 MB": "The PET is too big to put over this: it takes %1 MB of memory, and Dicolens keeps to %2 MB",
+  "This series is too big to cut another way or show in 3D: that takes %1 MB of memory, and Dicolens keeps to %2 MB": "This series is too big to cut another way or show in 3D: that takes %1 MB of memory, and Dicolens keeps to %2 MB",
   "This video is too long to keep in memory, so only its start is shown": "This video is too long to keep in memory, so only its start is shown",
   "ffmpeg couldn't be started": "ffmpeg couldn't be started",
   "ffmpeg couldn't decode this image": "ffmpeg couldn't decode this image",

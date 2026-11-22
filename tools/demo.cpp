@@ -1081,10 +1081,12 @@ int main(int argc, char *argv[]) {
     Theme theme(work.filePath("state"));
     TextSize textSize(work.filePath("shell.toml"), work.filePath("state"));
     Picker picker(work.filePath("DEMO_CD"), work.path());
-    Backend backend(&picker);
-    Backend partner(&picker);
-    Backend coronal(&picker);
-    Backend sagittal(&picker);
+    // One library for the four panes, as the app has.
+    const auto library = std::make_shared<Library>();
+    Backend backend(&picker, library);
+    Backend partner(&picker, library);
+    Backend coronal(&picker, library);
+    Backend sagittal(&picker, library);
     // The PDF report stays in the window rather than opening a viewer.
     backend.setUrlOpener([](const QUrl &) { return true; });
 
@@ -1096,7 +1098,7 @@ int main(int argc, char *argv[]) {
         backend.retranslate();
         partner.retranslate();
     });
-    engine.addImageProvider("thumbnails", new ThumbnailProvider(&backend));
+    engine.addImageProvider("thumbnails", new ThumbnailProvider(library.get()));
     engine.rootContext()->setContextProperty("translator", &translator);
     engine.rootContext()->setContextProperty("theme", &theme);
     engine.rootContext()->setContextProperty("textSize", &textSize);
@@ -1130,8 +1132,8 @@ int main(int argc, char *argv[]) {
             backend.loadPaths({cd});
             QTRY_VERIFY_WITH_TIMEOUT(backend.hasImages() && !backend.scanning(), 20000);
         }
-        for (int i = 0; i < backend.seriesList().size(); ++i)
-            if (backend.seriesList()[i].toMap().value("title").toString().contains(title))
+        for (int i = 0; i < backend.seriesModel()->count(); ++i)
+            if (backend.seriesModel()->title(i).contains(title))
                 backend.selectSeries(i);
         if (slice >= 0)
             backend.setSliceIndex(slice);
@@ -1421,8 +1423,8 @@ int main(int argc, char *argv[]) {
              rec.badge("The copy, opened");
              backend.loadPaths({work.filePath("Anonymous scans")});
              QTRY_VERIFY_WITH_TIMEOUT(backend.hasImages() && !backend.scanning(), 20000);
-             for (int i = 0; i < backend.seriesList().size(); ++i)
-                 if (backend.seriesList()[i].toMap().value("title").toString().contains("Axial 5 mm"))
+             for (int i = 0; i < backend.seriesModel()->count(); ++i)
+                 if (backend.seriesModel()->title(i).contains("Axial 5 mm"))
                      backend.selectSeries(i);
              backend.setSliceIndex(22);
              settle();

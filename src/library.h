@@ -35,6 +35,12 @@ public:
     int scanDone() const { return m_scanDone; }
     int scanTotal() const { return m_scanTotal; }
 
+    // The series that goes beside one to compare with: the same kind from
+    // another study, the closest in time; failing that, the next series.
+    int companion(int series) const;
+    // The marks presentation states left on a slice.
+    QList<Mark> marksOn(const Slice &slice) const;
+
     FrameCache *cache() { return &m_cache; }
     PetGrids *grids() { return &m_grids; }
     SeriesModel *seriesModel() { return &m_seriesModel; }

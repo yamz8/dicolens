@@ -106,6 +106,10 @@ ApplicationWindow {
             backend.announce(qsTr("This series can't be cut another way"))
             return
         }
+        // Three planes and the 3D view each need the whole series in
+        // memory; the backend says so when there isn't room for it.
+        if (!backend.volumeFits())
+            return
         comparing = false
         rightActive = false
         leftPane.threeD = false
@@ -163,7 +167,7 @@ ApplicationWindow {
             const picked = backend.seriesIndex !== win.leftSeries
             win.leftSeries = backend.seriesIndex
             if (win.quad && picked) {
-                if (!backend.canReformat) {
+                if (!backend.canReformat || !backend.volumeFits()) {
                     win.toggleQuad()
                     return
                 }

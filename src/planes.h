@@ -91,6 +91,11 @@ public:
     bool turn(const double *axis, double radians);
     // The planes meet where another view's do.
     void meetWhere(const Planes &other);
+    // Whether another picture cuts the body the same way as this stack,
+    // and if so which picture of the stack lies where it does; -1 when
+    // none can be told.
+    bool parallelTo(const ImagePlane &there) const;
+    int indexAt(const ImagePlane &there) const;
 
     // The shown picture's recipe; a tilted plane needs the slices to know
     // the range of their values.

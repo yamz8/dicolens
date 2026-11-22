@@ -55,19 +55,25 @@ Rectangle {
 
             delegate: Item {
                 id: row
-                required property var modelData
+                required property int depth
+                required property string tag
+                required property string name
+                required property string vr
+                required property string value
+                // A sequence item's heading rather than an element.
+                required property bool item
                 width: list.width
-                height: Math.max(win.px(26), value.implicitHeight + 8)
+                height: Math.max(win.px(26), valueLabel.implicitHeight + 8)
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: 12 + row.modelData.depth * 12
+                    anchors.leftMargin: 12 + row.depth * 12
                     anchors.rightMargin: 14
                     spacing: 10
 
                     Label {
-                        text: row.modelData.tag
-                        visible: !row.modelData.item
+                        text: row.tag
+                        visible: !row.item
                         color: win.muted
                         font.family: "monospace"
                         font.pixelSize: win.px(12)
@@ -76,21 +82,21 @@ Rectangle {
                         Layout.topMargin: 4
                     }
                     Label {
-                        text: row.modelData.item ? row.modelData.name
-                              : (row.modelData.name || qsTr("Unknown")) + "  " + row.modelData.vr
-                        color: row.modelData.item ? theme.accent : row.modelData.name ? win.secondary : win.muted
+                        text: row.item ? row.name
+                              : (row.name || qsTr("Unknown")) + "  " + row.vr
+                        color: row.item ? theme.accent : row.name ? win.secondary : win.muted
                         font.pixelSize: win.px(12)
-                        font.bold: row.modelData.item
+                        font.bold: row.item
                         elide: Text.ElideRight
-                        Layout.preferredWidth: row.modelData.item ? -1 : Math.max(win.px(110), list.width * 0.36 - row.modelData.depth * 12)
-                        Layout.fillWidth: row.modelData.item
+                        Layout.preferredWidth: row.item ? -1 : Math.max(win.px(110), list.width * 0.36 - row.depth * 12)
+                        Layout.fillWidth: row.item
                         Layout.alignment: Qt.AlignTop
                         Layout.topMargin: 4
                     }
                     Label {
-                        id: value
-                        text: row.modelData.value
-                        visible: !row.modelData.item
+                        id: valueLabel
+                        text: row.value
+                        visible: !row.item
                         color: win.text
                         font.pixelSize: win.px(12)
                         wrapMode: Text.WrapAnywhere

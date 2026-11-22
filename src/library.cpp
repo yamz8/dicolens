@@ -1,8 +1,10 @@
 #include "library.h"
 
+#include <QDate>
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QPointer>
+#include <cstdlib>
 
 #include "archive.h"
 #include "picture.h"
@@ -26,6 +28,40 @@ Library::~Library() {
 QImage Library::thumbnail(int series) const {
     QMutexLocker lock(&m_thumbnailMutex);
     return m_thumbnails.value(series);
+}
+
+int Library::companion(int series) const {
+    const QList<Series> &all = m_scan.series;
+    if (all.isEmpty())
+        return -1;
+    int pick = (series + 1) % all.size();
+    if (series < 0 || series >= all.size())
+        return pick;
+    const Series &shown = all[series];
+    qint64 nearest = -1;
+    const QDate when = QDate::fromString(shown.studyDate, "yyyyMMdd");
+    for (int i = 0; i < all.size(); ++i) {
+        const Series &s = all[i];
+        if (s.studyUid == shown.studyUid || s.modality != shown.modality || s.slices.size() < 2)
+            continue;
+        const QDate date = QDate::fromString(s.studyDate, "yyyyMMdd");
+        const qint64 apart = when.isValid() && date.isValid() ? std::abs(date.daysTo(when)) : 0;
+        if (nearest < 0 || apart < nearest) {
+            nearest = apart;
+            pick = i;
+        }
+    }
+    return pick;
+}
+
+QList<Mark> Library::marksOn(const Slice &slice) const {
+    QList<Mark> out;
+    if (slice.sop.isEmpty())
+        return out;
+    for (const auto &m : m_scan.marks)
+        if (m.appliesTo(slice.sop, slice.frame))
+            out << m;
+    return out;
 }
 
 void Library::open(const QStringList &paths, QObject *asker) {

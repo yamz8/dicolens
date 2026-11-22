@@ -15,6 +15,7 @@
 #include "archive.h"
 #include "backend.h"
 #include "cli.h"
+#include "library.h"
 #include "portalfilepicker.h"
 #include "qmlmodule.h"
 #include "textsize.h"
@@ -54,25 +55,28 @@ int main(int argc, char *argv[]) {
     Theme theme;
     TextSize textSize;
     PortalFilePicker picker;
-    Backend backend(&picker);
+    // What's open and every slice read belong to all the panes at once.
+    const auto library = std::make_shared<Library>();
+    Backend backend(&picker, library);
     // The second pane, side by side, showing the same scans.
-    Backend partner(&picker);
+    Backend partner(&picker, library);
     // Four views: the series cut the other two ways beside it, and in 3D.
-    Backend coronal(&picker);
-    Backend sagittal(&picker);
+    Backend coronal(&picker, library);
+    Backend sagittal(&picker, library);
 
     keepQmlModule();
 
     QQmlApplicationEngine engine;
     QObject::connect(&translator, &Translator::changed, &engine, &QQmlEngine::retranslate);
-    // Strings made in C++ are translated when made, so remake them too.
+    // Strings made in C++ are translated when made, so remake them too:
+    // a problem or a notice that's up is said again in the new language.
     QObject::connect(&translator, &Translator::changed, &backend, [&backend, &partner, &coronal, &sagittal] {
         backend.retranslate();
         partner.retranslate();
         coronal.retranslate();
         sagittal.retranslate();
     });
-    engine.addImageProvider("thumbnails", new ThumbnailProvider(&backend));
+    engine.addImageProvider("thumbnails", new ThumbnailProvider(library.get()));
     engine.rootContext()->setContextProperty("translator", &translator);
     engine.rootContext()->setContextProperty("theme", &theme);
     engine.rootContext()->setContextProperty("textSize", &textSize);

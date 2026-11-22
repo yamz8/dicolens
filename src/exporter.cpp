@@ -9,10 +9,13 @@
 #include <QPointer>
 #include <QProcess>
 #include <QSaveFile>
+#include <QStandardPaths>
 #include <QThreadPool>
+#include <QUrl>
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+#include <utility>
 
 #include "anonymize.h"
 #include "framecache.h"
@@ -31,6 +34,54 @@ void report(const QPointer<Exporter> &self, const Words &said, const Words &fail
     }, Qt::QueuedConnection);
 }
 
+}
+
+Exporter::Exporter(FilePicker *picker, QObject *parent) : QObject(parent), m_picker(picker) {
+    if (!m_picker)
+        return;
+    // The panes share the chooser; each takes only the answers to what
+    // it asked.
+    connect(m_picker, &FilePicker::selected, this,
+            [this](QObject *asker, FilePicker::Purpose purpose, const QList<QUrl> &urls) {
+        if (asker != this || urls.isEmpty())
+            return;
+        const QString path = urls.first().toLocalFile();
+        if (purpose == FilePicker::Purpose::SaveImage)
+            savePicture(path, std::exchange(m_picture, nullptr));
+        else if (purpose == FilePicker::Purpose::SaveVideo)
+            saveVideo(path, std::exchange(m_video, Video()));
+        else if (purpose == FilePicker::Purpose::SaveFolder)
+            saveAnonymous(path, std::exchange(m_scan, Scan()));
+    });
+    connect(m_picker, &FilePicker::failed, this, [this](QObject *asker, const QString &message) {
+        if (asker == this)
+            emit failed([message] { return message; });
+    });
+}
+
+void Exporter::askPicture(const QString &name, const std::function<QImage()> &picture) {
+    if (!m_picker || !picture)
+        return;
+    m_picture = picture;
+    m_picker->choose(this, FilePicker::Purpose::SaveImage, name);
+}
+
+void Exporter::askVideo(const QString &name, const Video &video) {
+    if (!m_picker)
+        return;
+    if (QStandardPaths::findExecutable("ffmpeg").isEmpty()) {
+        emit failed([] { return tr("Saving a video needs ffmpeg"); });
+        return;
+    }
+    m_video = video;
+    m_picker->choose(this, FilePicker::Purpose::SaveVideo, name);
+}
+
+void Exporter::askAnonymous(const Scan &scan) {
+    if (!m_picker || scan.series.isEmpty())
+        return;
+    m_scan = scan;
+    m_picker->choose(this, FilePicker::Purpose::SaveFolder);
 }
 
 void Exporter::savePicture(const QString &path, const std::function<QImage()> &picture) {
@@ -86,7 +137,7 @@ void Exporter::saveVideo(const QString &path, const Video &v) {
             p.pet = v.pet;
             p.petLook = v.petLook;
             p.plane = v.recipe.where(i);
-            return asShown(p.render(), v.aspect, v.rotation, v.flipped).convertToFormat(QImage::Format_RGB32);
+            return asShown(p.render(), v.aspect, v.turn).convertToFormat(QImage::Format_RGB32);
         };
         QString error;
         const QImage first = picture(0);

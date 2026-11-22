@@ -299,6 +299,43 @@ void Planes::meetWhere(const Planes &other) {
         m_index = std::clamp(m_cursor[m_cut.fixed], 0, std::max(0, count() - 1));
 }
 
+bool Planes::parallelTo(const ImagePlane &there) const {
+    const ImagePlane here = imagePlane();
+    double a[3], b[3];
+    here.normal(a);
+    there.normal(b);
+    return here.valid && there.valid && std::abs(a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) > 0.95;
+}
+
+int Planes::indexAt(const ImagePlane &there) const {
+    if (m_plane == 3)
+        return m_oblique.indexAt(there.origin);
+    if (m_plane != 0) {
+        const int f = m_cut.fixed;
+        double along = 0;
+        for (int i = 0; i < 3; ++i)
+            along += (there.origin[i] - m_volume.origin[i]) * m_volume.axis[f][i];
+        return std::clamp(int(std::lround(along / m_volume.spacing[f])), 0, std::max(0, count() - 1));
+    }
+    // As scanned: the slice whose place along the stack is nearest.
+    double n[3];
+    imagePlane().normal(n);
+    const double target = there.origin[0] * n[0] + there.origin[1] * n[1] + there.origin[2] * n[2];
+    int best = -1;
+    double nearest = 0;
+    for (int i = 0; i < m_series.slices.size(); ++i) {
+        const Slice &s = m_series.slices[i];
+        if (!s.hasPosition)
+            continue;
+        const double d = std::abs(s.position[0] * n[0] + s.position[1] * n[1] + s.position[2] * n[2] - target);
+        if (best < 0 || d < nearest) {
+            best = i;
+            nearest = d;
+        }
+    }
+    return best;
+}
+
 Planes::Recipe Planes::recipe(const QVector<Frame> &slices) {
     Recipe r;
     r.series = m_series;

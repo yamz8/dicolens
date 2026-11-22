@@ -844,16 +844,20 @@ private slots:
         backend.loadPaths({dir.path()});
         QVERIFY(backend.waitForSlice(10000));
         QCOMPARE(backend.scan().reports.size(), 1);
-        QCOMPARE(backend.reportList().first().toMap().value("title").toString(), QString("Radiology report"));
-        QVERIFY(backend.reportList().first().toMap().value("current").toBool());
+        const ReportModel *reports = backend.reportModel();
+        QCOMPARE(reports->rowCount(), 1);
+        QCOMPARE(reports->data(reports->index(0), ReportModel::Title).toString(), QString("Radiology report"));
+        QVERIFY(reports->data(reports->index(0), ReportModel::Current).toBool());
 
         // P shows it in the panel; it opens in a PDF viewer only when asked.
         backend.openStudyReport();
         QCOMPARE(backend.reportIndex(), 0);
         QVERIFY(backend.reportIsPdf());
         QVERIFY(opened.isEmpty());
+        // The copy for the viewer is written on a worker, so it opens a
+        // moment after it's asked for.
         backend.openReport(0);
-        QVERIFY(opened.isLocalFile());
+        QTRY_VERIFY(opened.isLocalFile());
         QFile copy(opened.toLocalFile());
         QVERIFY(copy.open(QIODevice::ReadOnly));
         QCOMPARE(copy.readAll(), pdf + "x");
@@ -2212,10 +2216,12 @@ private slots:
         QCoreApplication::installTranslator(&translator);
         Theme theme(dir.path());
         TextSize textSize(dir.path() + "/shell.toml", dir.path());
-        Backend backend(nullptr);
-        Backend partner(nullptr);
-        Backend coronal(nullptr);
-        Backend sagittal(nullptr);
+        // One library for the four panes, as the app has.
+        const auto library = std::make_shared<Library>();
+        Backend backend(nullptr, library);
+        Backend partner(nullptr, library);
+        Backend coronal(nullptr, library);
+        Backend sagittal(nullptr, library);
 
         keepQmlModule();
 
@@ -2225,7 +2231,7 @@ private slots:
             for (const auto &error : errors)
                 warnings << error.toString();
         });
-        engine.addImageProvider("thumbnails", new ThumbnailProvider(&backend));
+        engine.addImageProvider("thumbnails", new ThumbnailProvider(library.get()));
         engine.rootContext()->setContextProperty("translator", &translator);
         engine.rootContext()->setContextProperty("theme", &theme);
         engine.rootContext()->setContextProperty("textSize", &textSize);
@@ -2469,6 +2475,8 @@ private slots:
         QTest::keyClick(window, 'P');
         QTRY_VERIFY(reportPanel->isVisible());
         QCOMPARE(backend.reportTitle(), QString("CT Report"));
+        // Its text is read on a worker, and arrives a moment later.
+        QTRY_VERIFY(!backend.reportLines().isEmpty());
         QCOMPARE(backend.reportLines().first().toMap().value("value").toString(), QString("Nothing to see."));
         QTest::keyClick(window, Qt::Key_Down);   // Scrolls the report, not the slices.
         QCOMPARE(backend.sliceIndex(), 2);

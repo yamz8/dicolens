@@ -6,6 +6,7 @@
 #include <QLocale>
 #include <QStringList>
 #include <QTime>
+#include <algorithm>
 #include <cmath>
 
 namespace {
@@ -53,6 +54,37 @@ QString unit(const Series &s) {
 namespace Readout {
 
 QString number(double value, int decimals) { return QLocale().toString(value, 'f', decimals); }
+
+QString planeName(const ImagePlane &p, bool tilted) {
+    if (!p.valid)
+        return {};
+    if (tilted) {
+        double n[3];
+        p.normal(n);
+        if (std::max({std::abs(n[0]), std::abs(n[1]), std::abs(n[2])}) < 0.9998)
+            return tr("Oblique");
+    }
+    return tr(::planeName(p));
+}
+
+QString slabName(int slab, double millimetres) {
+    const QString mm = number(millimetres, 0);
+    switch (slab) {
+    case 1: return tr("MIP %1 mm").arg(mm);
+    case 2: return tr("MinIP %1 mm").arg(mm);
+    case 3: return tr("Average %1 mm").arg(mm);
+    }
+    return {};
+}
+
+QString colorMapName(int map) {
+    switch (map) {
+    case 1: return tr("Hot iron");
+    case 2: return tr("PET colours");
+    case 3: return tr("Rainbow");
+    }
+    return {};
+}
 
 QString date(const QString &dicomDate) {
     const QDate date = QDate::fromString(DicomFile::formatDate(dicomDate), Qt::ISODate);
@@ -121,6 +153,14 @@ QString value(const Series &s, const Frame &frame, int x, int y) {
     if (s.modality == "CT")
         return tr("%1   %2 HU").arg(where, shown);
     return QStringLiteral("%1   %2").arg(where, shown);
+}
+
+QString petValue(const VoxelGrid &pet, const double *point, bool suv) {
+    double voxel[3], value;
+    toVoxel(pet.volume, point, voxel);
+    if (!sampleGrid(pet, voxel, value))
+        return {};
+    return "   " + (suv ? tr("PET %1 SUV").arg(number(value, 2)) : tr("PET %1").arg(number(value, 0)));
 }
 
 QString angle(double degrees) {

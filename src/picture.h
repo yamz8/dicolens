@@ -2,6 +2,7 @@
 
 #include <QImage>
 #include <QSize>
+#include <QStringList>
 #include <QTransform>
 #include <memory>
 
@@ -43,8 +44,24 @@ QImage colorize(const QImage &grey, int map);
 // after a flip left to right when flipped.
 QTransform turned(const QSizeF &size, int rotation, bool flipped);
 
+// How a pane turns its picture: quarter turns clockwise, after a flip
+// left to right when flipped.
+struct Turn {
+    int rotation = 0;
+    bool flipped = false;
+
+    bool isNone() const { return rotation == 0 && !flipped; }
+    void rotate(int quarterTurns);
+    void flipHorizontal() { flipped = !flipped; }
+    void flipVertical();
+    // The patient directions at the left, right, top, and bottom edges,
+    // given those of the picture before it was turned.
+    QStringList edges(QStringList unturned) const;
+    QTransform transform(const QSizeF &size) const { return turned(size, rotation, flipped); }
+};
+
 // A picture stretched so its pixels are as wide as they are tall on screen.
 QImage trueShape(const QImage &image, double aspect);
 
 // As it's saved and copied: at its true shape, turned as it's shown.
-QImage asShown(const QImage &image, double aspect, int rotation, bool flipped);
+QImage asShown(const QImage &image, double aspect, const Turn &turn);

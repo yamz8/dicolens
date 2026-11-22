@@ -53,7 +53,29 @@ QImage trueShape(const QImage &image, double aspect) {
                         Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
 }
 
-QImage asShown(const QImage &image, double aspect, int rotation, bool flipped) {
+void Turn::rotate(int quarterTurns) {
+    // Turning a flipped picture turns its unflipped self the other way.
+    rotation = ((rotation + (flipped ? -quarterTurns : quarterTurns)) % 4 + 4) % 4;
+}
+
+void Turn::flipVertical() {
+    // Top to bottom is left to right, then half a turn.
+    flipped = !flipped;
+    rotation = (rotation + 2) % 4;
+}
+
+QStringList Turn::edges(QStringList e) const {
+    if (e.size() != 4)
+        return e;
+    // Each clockwise turn brings the left edge to the top.
+    for (int i = 0; i < rotation; ++i)
+        e = {e[3], e[2], e[0], e[1]};
+    if (flipped)
+        e.swapItemsAt(0, 1);
+    return e;
+}
+
+QImage asShown(const QImage &image, double aspect, const Turn &turn) {
     const QImage shaped = trueShape(image, aspect);
-    return shaped.isNull() ? shaped : shaped.transformed(turned(shaped.size(), rotation, flipped));
+    return shaped.isNull() ? shaped : shaped.transformed(turn.transform(shaped.size()));
 }

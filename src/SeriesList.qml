@@ -31,7 +31,7 @@ Rectangle {
         footer: ColumnLayout {
             width: list.width
             spacing: 0
-            visible: backend.reports.length > 0
+            visible: backend.reportCount > 0
 
             Label {
                 text: qsTr("Reports")
@@ -45,7 +45,10 @@ Rectangle {
                 model: backend.reports
                 delegate: Rectangle {
                     id: reportRow
-                    required property var modelData
+                    required property string title
+                    required property string date
+                    required property string study
+                    required property bool pdf
                     required property int index
                     readonly property bool current: index === backend.reportIndex
                     Layout.fillWidth: true
@@ -73,7 +76,7 @@ Rectangle {
                             Label {
                                 anchors.centerIn: parent
                                 // Kinds of file, kept as they are in every language.
-                                text: reportRow.modelData.pdf ? "PDF" : "SR"
+                                text: reportRow.pdf ? "PDF" : "SR"
                                 color: win.muted
                                 font.pixelSize: win.px(12)
                                 font.bold: true
@@ -84,14 +87,14 @@ Rectangle {
                             Layout.fillWidth: true
                             spacing: 2
                             Label {
-                                text: reportRow.modelData.title
+                                text: reportRow.title
                                 color: reportRow.current ? win.text : win.secondary
                                 font.bold: reportRow.current
                                 elide: Text.ElideRight
                                 Layout.fillWidth: true
                             }
                             Label {
-                                text: [reportRow.modelData.study, reportRow.modelData.date].filter(x => x).map(x => "\u2068" + x + "\u2069").join("  ·  ")
+                                text: [reportRow.study, reportRow.date].filter(x => x).map(x => "\u2068" + x + "\u2069").join("  ·  ")
                                 color: win.muted
                                 font.pixelSize: win.px(12)
                                 elide: Text.ElideRight
@@ -109,7 +112,14 @@ Rectangle {
 
         delegate: Item {
             id: row
-            required property var modelData
+            required property string title
+            required property string modality
+            required property int images
+            required property string study
+            required property string studyDate
+            required property bool decodable
+            // Where its thumbnail is, once it's made: a new one, a new address.
+            required property string thumbnail
             required property int index
             readonly property bool current: index === win.inUse.seriesIndex
             width: list.width
@@ -122,7 +132,7 @@ Rectangle {
 
                 // The study's heading, above its first series.
                 ColumnLayout {
-                    visible: row.modelData.study !== ""
+                    visible: row.study !== ""
                     Layout.fillWidth: true
                     Layout.leftMargin: 14
                     Layout.rightMargin: 14
@@ -130,14 +140,14 @@ Rectangle {
                     Layout.bottomMargin: 6
                     spacing: 1
                     Label {
-                        text: row.modelData.study
+                        text: row.study
                         color: win.text
                         font.bold: true
                         elide: Text.ElideRight
                         Layout.fillWidth: true
                     }
                     Label {
-                        text: row.modelData.studyDate
+                        text: row.studyDate
                         color: win.muted
                         font.pixelSize: win.px(12)
                         visible: text !== ""
@@ -177,11 +187,11 @@ Rectangle {
                                 fillMode: Image.PreserveAspectFit
                                 asynchronous: true
                                 cache: false
-                                source: "image://thumbnails/" + row.index + "/" + backend.thumbnailsVersion
+                                source: row.thumbnail
                             }
                             Label {
                                 anchors.centerIn: parent
-                                text: row.modelData.modality
+                                text: row.modality
                                 color: win.muted
                                 font.pixelSize: win.px(12)
                                 visible: thumb.status !== Image.Ready || thumb.implicitWidth <= 1
@@ -193,7 +203,7 @@ Rectangle {
                             Layout.fillWidth: true
                             spacing: 2
                             Label {
-                                text: row.modelData.title
+                                text: row.title
                                 color: row.current ? win.text : win.secondary
                                 font.bold: row.current
                                 elide: Text.ElideRight
@@ -202,7 +212,7 @@ Rectangle {
                                 Layout.fillWidth: true
                             }
                             Label {
-                                text: [row.modelData.modality, qsTr("%Ln images", "", row.modelData.count)].filter(x => x).join("  ·  ")
+                                text: [row.modality, qsTr("%Ln images", "", row.images)].filter(x => x).join("  ·  ")
                                 color: win.muted
                                 font.pixelSize: win.px(12)
                                 Layout.fillWidth: true
@@ -212,7 +222,7 @@ Rectangle {
                                 text: qsTr("Can't be decoded")
                                 color: win.error
                                 font.pixelSize: win.px(12)
-                                visible: !row.modelData.decodable
+                                visible: !row.decodable
                             }
                         }
                     }
