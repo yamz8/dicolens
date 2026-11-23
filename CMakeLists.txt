@@ -69,12 +69,18 @@ add_executable(decode_tests tests/decode_tests.cpp)
 target_link_libraries(decode_tests PRIVATE dicolens_core Qt6::Test)
 add_test(NAME decode_tests COMMAND decode_tests)
 
+# A CT taken with its gantry tilted: a shape of known size, scanned straight
+# and leaning, has to come out of every cut, measurement, and drawing true.
+add_executable(geometry_tests tests/geometry_tests.cpp)
+target_link_libraries(geometry_tests PRIVATE dicolens_core Qt6::Test)
+add_test(NAME geometry_tests COMMAND geometry_tests)
+
 set(test_environment QT_QPA_PLATFORM=offscreen)
 if(DICOLENS_SANITIZE)
   list(APPEND test_environment
     LSAN_OPTIONS=suppressions=${CMAKE_SOURCE_DIR}/tests/sanitizers/lsan.supp:print_suppressions=0)
 endif()
-set_tests_properties(dicolens_tests hostile_tests decode_tests PROPERTIES ENVIRONMENT "${test_environment}")
+set_tests_properties(dicolens_tests hostile_tests decode_tests geometry_tests PROPERTIES ENVIRONMENT "${test_environment}")
 
 # The dictionary, the anonymizer, what the panes share, and the anonymous
 # copy as the window offers it have test files of their own, with the tables

@@ -29,6 +29,112 @@ bool runsBackwards(const double *v) {
     return axis == 2 ? v[axis] > 0 : v[axis] < 0;
 }
 
+// No gantry leans further than this: 35 degrees, as a tangent. Scanners
+// stop at 30 or so, and a stack that says more is damaged, not tilted.
+constexpr double SteepestTilt = 0.7002075382097097;
+
+// A leaning stack's block is its slices' own size and as much again as they
+// travel to the side, which at a gantry's tilt is a fraction of the stack's
+// length. A block many times its slices' size would be mostly nothing, and
+// spacings a file made up could ask for any amount of it.
+constexpr double MostEmptiness = 4;
+
+// Whether a stack leans as a tilted gantry's does: each slice the same step
+// to the side of the one before, within its own plane. Fills in how far each
+// lies from the first, in millimetres along the rows and down the columns.
+// False for a stack that wanders off that line by more than a pixel, that is
+// displaced some way its own directions don't account for, or that leans
+// more than a scanner can.
+bool leans(const Series &series, const double *normal, const QVector<double> &along, double step, double pixel,
+           QVector<QPointF> &aside) {
+    const int n = series.slices.size();
+    const double *row = series.orientation, *column = series.orientation + 3;
+    aside.resize(n);
+    for (int k = 0; k < n; ++k) {
+        double d[3];
+        for (int a = 0; a < 3; ++a)
+            d[a] = series.slices[k].position[a] - series.slices[0].position[a] - (along[k] - along[0]) * normal[a];
+        const double across = dot(d, row), down = dot(d, column);
+        // What is left once the step to the side is taken out is what the
+        // block can't place at all, held to a pixel as a straight stack's
+        // whole displacement is.
+        double left = 0;
+        for (int a = 0; a < 3; ++a)
+            left += std::pow(d[a] - across * row[a] - down * column[a], 2);
+        if (!(std::sqrt(left) <= pixel))
+            return false;
+        aside[k] = QPointF(across, down);
+    }
+    const QPointF each = aside[n - 1] / (n - 1);
+    for (int k = 0; k < n; ++k)
+        if (!(std::hypot(aside[k].x() - k * each.x(), aside[k].y() - k * each.y()) <= pixel))
+            return false;
+    return std::hypot(each.x(), each.y()) <= std::abs(step) * SteepestTilt;
+}
+
+// The stored value that shows as nothing in a picture of these slices: their
+// own padding, or else what the volume's empty value is stored as.
+int emptyStored(const Volume &volume, const Frame &f) {
+    if (f.hasPadding)
+        return f.padding;
+    const int lowest = f.isSigned ? -32768 : 0, highest = f.isSigned ? 32767 : 65535;
+    const double stored = (volume.empty - f.intercept) / f.slope;
+    // (A scale of nothing stores no value at all, and the lowest will do.)
+    if (!(stored >= lowest))
+        return lowest;
+    return stored > highest ? highest : int(std::lround(stored));
+}
+
+// A cut's picture from a tilted stack, or its slab from first to last. The
+// walk through the block is a straight stack's, but each voxel is read from
+// its slice at where the slice's shift puts it, and a voxel no slice
+// reaches is left out of the slab: counted as anything, it would win every
+// MinIP and drag every average down. Across the slices themselves the
+// picture is the one slice's own, so its pixels are the layer's voxels from
+// that slice's shift on, and the slab goes through the others square to it,
+// not down the lean.
+void leaningCut(const Volume &volume, const Cut &cut, int index, const QVector<Frame> &slices, int first, int last,
+                Projection projection, bool rescale, double low, double slope, Frame &out) {
+    const int width = out.width, height = out.height;
+    const QPointF own = cut.fixed == 2 ? volume.shift[index] : QPointF();
+    const int nothing = rescale ? int(std::clamp(std::lround((volume.empty - low) / slope), 0L, 65535L))
+                                : emptyStored(volume, slices[0]);
+    int at[3];
+    for (int y = 0; y < height; ++y) {
+        at[cut.vertical] = cut.flipVertical ? height - 1 - y : y;
+        for (int x = 0; x < width; ++x) {
+            at[cut.horizontal] = cut.flipHorizontal ? width - 1 - x : x;
+            double pick = 0;
+            int reached = 0;
+            for (int k = first; k <= last; ++k) {
+                at[cut.fixed] = k;
+                const Frame &f = slices[at[2]];
+                const QPointF &shift = volume.shift[at[2]];
+                double v;
+                if (!sampleSlice(f, at[0] + (own.x() - shift.x()), at[1] + (own.y() - shift.y()), v))
+                    continue;
+                if (rescale)
+                    v = v * f.slope + f.intercept;
+                if (reached++ == 0)
+                    pick = v;
+                else if (projection == Projection::Max)
+                    pick = std::max(pick, v);
+                else if (projection == Projection::Min)
+                    pick = std::min(pick, v);
+                else
+                    pick += v;
+            }
+            int stored = nothing;
+            if (reached > 0) {
+                if (projection == Projection::Mean)
+                    pick /= reached;
+                stored = rescale ? int(std::clamp(std::lround((pick - low) / slope), 0L, 65535L)) : int(std::lround(pick));
+            }
+            out.mono[qsizetype(y) * width + x] = quint16(stored);
+        }
+    }
+}
+
 }
 
 void ImagePlane::normal(double *n) const {
@@ -85,21 +191,24 @@ Volume makeVolume(const Series &series) {
     for (int k = 1; k < n; ++k)
         if (std::abs((along[k] - along[k - 1]) - step) > std::abs(step) * 0.1)
             return v;
-    // And one straight behind another: a CT taken with its gantry tilted
-    // steps sideways from slice to slice, and cut as a block it would come
-    // out sheared, with lengths through it too short.
+    // And one straight behind another, or else leaning evenly: a CT taken
+    // with its gantry tilted steps sideways from slice to slice. Cut as a
+    // plain block it would come out sheared, with lengths through it too
+    // short, so its slices are placed in the block where they lie.
     const double pixel = std::max(series.spacing[0], series.spacing[1]);
-    for (int k = 1; k < n; ++k) {
+    bool straight = true;
+    for (int k = 1; k < n && straight; ++k) {
         double aside = 0;
         for (int a = 0; a < 3; ++a) {
             const double d = series.slices[k].position[a] - series.slices[0].position[a] - (along[k] - along[0]) * normal[a];
             aside += d * d;
         }
-        if (std::sqrt(aside) > pixel)
-            return v;
+        straight = !(std::sqrt(aside) > pixel);
     }
+    QVector<QPointF> aside;
+    if (!straight && !leans(series, normal, along, step, pixel, aside))
+        return v;
 
-    v.valid = true;
     v.size[0] = series.columns;
     v.size[1] = series.rows;
     v.size[2] = n;
@@ -113,6 +222,43 @@ Volume makeVolume(const Series &series) {
     v.spacing[1] = series.spacing[0];
     v.spacing[2] = std::abs(step);
     v.frame = series.frame;
+    v.empty = series.modality == "CT" ? -1000 : 0;
+
+    if (!straight) {
+        // In voxels. The block starts where the slice furthest back each
+        // way does, so that no shift is below zero, and reaches as far as
+        // the one furthest on.
+        double least[2] = {0, 0}, most[2] = {0, 0};
+        for (QPointF &s : aside) {
+            s = QPointF(s.x() / v.spacing[0], s.y() / v.spacing[1]);
+            least[0] = std::min(least[0], s.x());
+            least[1] = std::min(least[1], s.y());
+            most[0] = std::max(most[0], s.x());
+            most[1] = std::max(most[1], s.y());
+        }
+        const double wider = most[0] - least[0], taller = most[1] - least[1];
+        if (!((series.columns + wider) * (series.rows + taller) <= MostEmptiness * series.columns * series.rows))
+            return {};
+        for (QPointF &s : aside) {
+            double shift[2] = {s.x() - least[0], s.y() - least[1]};
+            // A millionth of a pixel off a whole one is the file's decimals
+            // being rounded. Taken as whole, such a slice is read straight
+            // from its pixels, and a stack that steps only down its columns
+            // gets no column of nothing beside it.
+            for (double &x : shift)
+                if (std::abs(x - std::round(x)) < 1e-6)
+                    x = std::round(x);
+            s = QPointF(shift[0], shift[1]);
+        }
+        v.slice[0] = series.columns;
+        v.slice[1] = series.rows;
+        v.size[0] += int(std::ceil(wider - 1e-6));
+        v.size[1] += int(std::ceil(taller - 1e-6));
+        for (int a = 0; a < 3; ++a)
+            v.origin[a] += least[0] * v.spacing[0] * v.axis[0][a] + least[1] * v.spacing[1] * v.axis[1][a];
+        v.shift = aside;
+    }
+    v.valid = true;
     return v;
 }
 
@@ -142,7 +288,10 @@ Frame reformat(const Volume &volume, const Cut &cut, int index, const QVector<Fr
     Frame out;
     if (!volume.valid || index < 0 || index >= cut.count(volume) || slices.size() != volume.size[2])
         return out;
-    const int columns = volume.size[0], rows = volume.size[1];
+    const bool tilted = volume.tilted();
+    if (tilted && volume.shift.size() != slices.size())
+        return out;
+    const int columns = volume.columns(), rows = volume.rows();
     bool sameScale = true;
     for (const auto &f : slices) {
         if (f.isNull() || f.isColor() || !f.error.isEmpty() || f.width != columns || f.height != rows)
@@ -181,12 +330,22 @@ Frame reformat(const Volume &volume, const Cut &cut, int index, const QVector<Fr
             low = std::min(low, a);
             high = std::max(high, b);
         }
+        // What no slice of a tilted stack reaches is shown as empty, which
+        // the scale has to have room for.
+        if (tilted) {
+            low = std::min(low, volume.empty);
+            high = std::max(high, volume.empty);
+        }
         slope = std::max(1e-9, (high - low) / 65535);
         out.slope = slope;
         out.intercept = low;
         out.isSigned = false;
     }
 
+    if (tilted) {
+        leaningCut(volume, cut, index, slices, first, last, projection, rescale, low, slope, out);
+        return out;
+    }
     int at[3];
     for (int y = 0; y < height; ++y) {
         at[cut.vertical] = cut.flipVertical ? height - 1 - y : y;
@@ -231,10 +390,17 @@ ImagePlane cutPlane(const Volume &volume, const Cut &cut, int index) {
     plane.width = cut.width(volume);
     plane.height = cut.height(volume);
     plane.frame = volume.frame;
-    int at[3];
+    double at[3];
     at[cut.fixed] = index;
     at[cut.horizontal] = cut.flipHorizontal ? plane.width - 1 : 0;
     at[cut.vertical] = cut.flipVertical ? plane.height - 1 : 0;
+    // A tilted stack's slice as it was scanned starts where its shift puts
+    // it in its layer.
+    if (cut.fixed == 2 && volume.tilted()) {
+        const QPointF shift = volume.shift[std::clamp(index, 0, int(volume.shift.size()) - 1)];
+        at[0] += shift.x();
+        at[1] += shift.y();
+    }
     for (int a = 0; a < 3; ++a) {
         plane.origin[a] = volume.origin[a];
         for (int axis = 0; axis < 3; ++axis)
@@ -412,9 +578,12 @@ Frame resample(const Volume &volume, const Oblique &oblique, int index, const QV
     Frame out;
     if (!volume.valid || !oblique.valid || index < 0 || index >= oblique.count || slices.size() != volume.size[2])
         return out;
+    const bool tilted = volume.tilted();
+    if (tilted && volume.shift.size() != slices.size())
+        return out;
     const int columns = volume.size[0], rows = volume.size[1], depth = volume.size[2];
     for (const auto &f : slices)
-        if (f.isNull() || f.isColor() || !f.error.isEmpty() || f.width != columns || f.height != rows)
+        if (f.isNull() || f.isColor() || !f.error.isEmpty() || f.width != volume.columns() || f.height != volume.rows())
             return out;
     out.width = oblique.width;
     out.height = oblique.height;
@@ -442,6 +611,25 @@ Frame resample(const Volume &volume, const Oblique &oblique, int index, const QV
         const double d = at(z1, y1, x0) * (1 - fx) + at(z1, y1, x1) * fx;
         return ((a * (1 - fy) + b * fy) * (1 - fz) + (c * (1 - fy) + d * fy) * fz);
     };
+    // In a tilted stack the two slices either side of a point lie shifted
+    // against each other, so each is read at the point's own place in it,
+    // and then they are weighed along the normal. A slice that doesn't
+    // reach the point has low there, as outside the volume does.
+    auto leaning = [&](const double *v) {
+        if (v[0] < -0.5 || v[1] < -0.5 || v[2] < -0.5 || v[0] > columns - 0.5 || v[1] > rows - 0.5 || v[2] > depth - 0.5)
+            return low;
+        const double z = std::clamp(v[2], 0.0, depth - 1.0);
+        const int z0 = std::min(int(z), depth - 1), z1 = std::min(z0 + 1, depth - 1);
+        const double fz = z - z0;
+        auto layer = [&](int k) {
+            const Frame &f = slices[k];
+            double stored;
+            return sampleSlice(f, v[0] - volume.shift[k].x(), v[1] - volume.shift[k].y(), stored) ? stored * f.slope + f.intercept
+                                                                                                    : low;
+        };
+        const double a = layer(z0);
+        return fz > 0 ? a * (1 - fz) + layer(z1) * fz : a;
+    };
 
     // Stepping through voxel space directly: each pixel across, down, and
     // plane along is a fixed move in it.
@@ -454,26 +642,34 @@ Frame resample(const Volume &volume, const Oblique &oblique, int index, const QV
         deeper[a] = dot(volume.axis[a], oblique.normal) * oblique.step / volume.spacing[a];
     }
     const int first = std::max(-half, -index), last = std::min(half, oblique.count - 1 - index);
-    for (int y = 0; y < out.height; ++y)
-        for (int x = 0; x < out.width; ++x) {
-            double pick = 0;
-            for (int k = first; k <= last; ++k) {
-                double v[3];
-                for (int a = 0; a < 3; ++a)
-                    v[a] = origin[a] + x * across[a] + y * down[a] + k * deeper[a];
-                const double value = sample(v);
-                if (k == first)
-                    pick = value;
-                else if (projection == Projection::Max)
-                    pick = std::max(pick, value);
-                else if (projection == Projection::Min)
-                    pick = std::min(pick, value);
-                else
-                    pick += value;
+    // Written once and made twice, for a straight stack and for a leaning
+    // one, so that neither pays for the other's way of reading a voxel.
+    auto fill = [&](const auto &at) {
+        for (int y = 0; y < out.height; ++y)
+            for (int x = 0; x < out.width; ++x) {
+                double pick = 0;
+                for (int k = first; k <= last; ++k) {
+                    double v[3];
+                    for (int a = 0; a < 3; ++a)
+                        v[a] = origin[a] + x * across[a] + y * down[a] + k * deeper[a];
+                    const double value = at(v);
+                    if (k == first)
+                        pick = value;
+                    else if (projection == Projection::Max)
+                        pick = std::max(pick, value);
+                    else if (projection == Projection::Min)
+                        pick = std::min(pick, value);
+                    else
+                        pick += value;
+                }
+                if (projection == Projection::Mean)
+                    pick /= last - first + 1;
+                out.mono[y * out.width + x] = quint16(std::clamp(std::lround((pick - low) / slope), 0L, 65535L));
             }
-            if (projection == Projection::Mean)
-                pick /= last - first + 1;
-            out.mono[y * out.width + x] = quint16(std::clamp(std::lround((pick - low) / slope), 0L, 65535L));
-        }
+    };
+    if (tilted)
+        fill(leaning);
+    else
+        fill(sample);
     return out;
 }

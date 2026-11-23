@@ -79,6 +79,9 @@ public:
     bool fits(const QObject *who, const Interest &interest) const;
     // What a series takes read whole, by its size before it's read.
     qint64 wholeBytes(int series) const;
+    // What its slices take packed into a volume: as much again, and more
+    // for a tilted gantry's, whose block is bigger than its slices.
+    qint64 volumeBytes(int series) const;
 
     int size(int series) const;
     // How many of a series' slices are held now.
@@ -118,6 +121,9 @@ private:
         int reading = 0;
         bool video = false;
         std::shared_ptr<OpenFiles> files;
+        // How many times its slices' voxels the block they lie in holds;
+        // worked out when first asked, and zero until then.
+        mutable double block = 0;
     };
 
     qint64 reserved() const;

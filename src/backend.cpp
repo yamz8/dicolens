@@ -32,8 +32,9 @@ Backend::Backend(FilePicker *picker, std::shared_ptr<Library> library, QObject *
             m_notices.flash([] { return tr("The PET can't be read whole, so it can't be put over this"); });
             return;
         }
-        // Its slices and the voxels packed from them, each as big.
-        const qint64 bytes = 2 * m_library->cache()->wholeBytes(::fusionPartner(scan().series, m_seriesIndex));
+        // Its slices and the voxels packed from them.
+        const int pet = ::fusionPartner(scan().series, m_seriesIndex);
+        const qint64 bytes = m_library->cache()->wholeBytes(pet) + m_library->cache()->volumeBytes(pet);
         m_notices.setProblem([needed = megabytes(bytes), budget = megabytes(m_library->cache()->budget())] {
             return tr("The PET is too big to put over this: it takes %1 MB of memory, and Dicolens keeps to %2 MB")
                 .arg(needed).arg(budget);

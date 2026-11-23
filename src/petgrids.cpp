@@ -40,13 +40,13 @@ void PetGrids::hold(QObject *who, int series) {
     if (pet.state != State::None)
         return;
     // Its slices are all needed until they're packed, and the grid made
-    // of them takes as much again.
+    // of them takes as much again, or more when they lie tilted.
     pet.reader = new QObject(this);
     FrameCache::Interest interest;
     interest.series = series;
     interest.slice = m_series[series].slices.size() / 2;
     interest.whole = true;
-    interest.reserve = m_cache->wholeBytes(series);
+    interest.reserve = m_cache->volumeBytes(series);
     pet.state = m_cache->setInterest(pet.reader, interest) ? State::Reading : State::TooBig;
     if (pet.state == State::Reading)
         pack(series);

@@ -292,9 +292,12 @@ VoxelGrid packVolume(const Volume &volume, const QVector<Frame> &slices, double 
     const int nx = volume.size[0], ny = volume.size[1], nz = volume.size[2];
     if (!volume.valid || slices.size() != nz || nx <= 0 || ny <= 0 || nz <= 0)
         return g;
+    const bool tilted = volume.tilted();
+    if (tilted && volume.shift.size() != nz)
+        return g;
     bool first = true;
     for (const Frame &f : slices) {
-        if (f.isNull() || f.isColor() || !f.error.isEmpty() || f.width != nx || f.height != ny)
+        if (f.isNull() || f.isColor() || !f.error.isEmpty() || f.width != volume.columns() || f.height != volume.rows())
             return g;
         double lo, hi;
         f.range(lo, hi);
@@ -312,13 +315,32 @@ VoxelGrid packVolume(const Volume &volume, const QVector<Frame> &slices, double 
         return g;
     if (g.high <= g.low)
         g.high = g.low + 1;
+    // A tilted stack's slices are put where they lie in the block as they
+    // are packed, so the grid itself is a plain block with every voxel in
+    // its place, and nothing that draws it or looks a value up in it has a
+    // shift to know about.
     g.volume = volume;
+    g.volume.shift.clear();
+    g.volume.slice[0] = g.volume.slice[1] = 0;
     g.data.resize(size_t(nx) * ny * nz);
     // (So big a value that one more is no more has a span of nothing.)
     const double factor = g.high > g.low ? 65535 / (g.high - g.low) : 0;
     eachRow(nz, [&](int k) {
         const Frame &f = slices[k];
         quint16 *out = g.data.data() + size_t(k) * nx * ny;
+        if (tilted) {
+            // What the slice has at each voxel of its layer; where it
+            // doesn't reach is as empty as padding is.
+            const QPointF shift = volume.shift[k];
+            for (int j = 0; j < ny; ++j)
+                for (int i = 0; i < nx; ++i) {
+                    double stored, v = g.low;
+                    if (sampleSlice(f, i - shift.x(), j - shift.y(), stored) && !(f.hasPadding && stored == f.padding))
+                        v = (stored * f.slope + f.intercept) * scale;
+                    out[size_t(j) * nx + i] = quint16(std::clamp((v - g.low) * factor + 0.5, 0.0, 65535.0));
+                }
+            return;
+        }
         for (int j = 0; j < ny; ++j)
             for (int i = 0; i < nx; ++i) {
                 const int stored = f.stored(i, j);
@@ -577,6 +599,11 @@ QImage fuseSlice(const QImage &base, const ImagePlane &plane, const VoxelGrid &p
     if (base.isNull() || !plane.valid || !pet.valid)
         return base;
     QImage out = base.convertToFormat(QImage::Format_RGB32);
+    // A base that is in colour already shares its pixels with out until
+    // one is written. It gets its own here, before the rows are handed out
+    // to threads that would each make the copy, and write to the one being
+    // copied from meanwhile.
+    out.detach();
     // Each pixel across and down is a fixed move through the PET's voxels.
     double origin[3], across[3], down[3], p[3];
     toVoxel(pet.volume, plane.origin, origin);

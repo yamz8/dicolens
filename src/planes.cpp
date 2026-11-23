@@ -27,9 +27,11 @@ void Planes::setSeries(const Series &series) {
     m_cut = Cut();
     m_index = 0;
     // The planes meet in the middle of the first slice until a click says
-    // where.
-    m_cursor[0] = series.columns / 2;
-    m_cursor[1] = series.rows / 2;
+    // where. A tilted gantry's first slice lies shifted within its layer of
+    // the block, and its middle with it.
+    const QPointF shift = m_volume.valid && m_volume.tilted() ? m_volume.shift.value(0) : QPointF();
+    m_cursor[0] = series.columns / 2 + int(std::lround(shift.x()));
+    m_cursor[1] = series.rows / 2 + int(std::lround(shift.y()));
     m_cursor[2] = 0;
     m_crossingShown = false;
     m_oblique = Oblique();

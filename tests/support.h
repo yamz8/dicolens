@@ -14,6 +14,8 @@
 #include <QUrl>
 #include <QVector>
 #include <QtEndian>
+#include <array>
+#include <cmath>
 #include <cstring>
 #include <functional>
 
@@ -227,6 +229,71 @@ inline bool writeSeries(const QString &folder, const QByteArray &modality, const
             return false;
     }
     return true;
+}
+
+// A stack of slices placed wherever a test wants them: columns × rows
+// pixels, across and down mm apart, running along row and column (unit
+// vectors at right angles), with the first pixel's centre of each slice at
+// one of positions. Each pixel's stored value is from at(the patient point
+// at its centre), so the stack is a picture of a shape that lies in the
+// patient, however its slices cut it.
+inline bool writeSlicesAt(const QString &folder, const QByteArray &modality, const QByteArray &series, const QByteArray &frame,
+                          int columns, int rows, double across, double down, const double *row, const double *column,
+                          const QList<std::array<double, 3>> &positions, const std::function<int(const double *)> &at) {
+    // To the micrometre's thousandth, well inside a decimal string's 16
+    // characters.
+    auto mm = [](double v) { return QByteArray::number(v, 'f', 9); };
+    for (int k = 0; k < positions.size(); ++k) {
+        const auto &first = positions[k];
+        QList<int> values;
+        for (int j = 0; j < rows; ++j)
+            for (int i = 0; i < columns; ++i) {
+                double p[3];
+                for (int a = 0; a < 3; ++a)
+                    p[a] = first[a] + i * across * row[a] + j * down * column[a];
+                values << at(p);
+            }
+        Writer w;
+        w.add(Tag::SopClass, "UI", "1.2.840.10008.5.1.4.1.1.2")
+            .add(0x00080018, "UI", series + "." + QByteArray::number(k + 1))
+            .add(Tag::Modality, "CS", modality)
+            .add(0x0020000D, "UI", "1.2.77")
+            .add(0x00200052, "UI", frame)
+            .image(rows, columns, 16, 16, false)
+            .add(0x0020000E, "UI", series)
+            .add(Tag::InstanceNumber, "IS", QByteArray::number(k + 1))
+            .add(Tag::ImagePosition, "DS", mm(first[0]) + "\\" + mm(first[1]) + "\\" + mm(first[2]))
+            .add(Tag::ImageOrientation, "DS", mm(row[0]) + "\\" + mm(row[1]) + "\\" + mm(row[2]) + "\\" + mm(column[0]) + "\\"
+                                                  + mm(column[1]) + "\\" + mm(column[2]))
+            .add(Tag::PixelSpacing, "DS", mm(down) + "\\" + mm(across));
+        if (modality == "CT")
+            w.add(0x00281052, "DS", "-1024").add(0x00281053, "DS", "1");
+        w.pixels(le16(values));
+        if (!write(QStringLiteral("%1/%2-%3").arg(folder, QString::fromLatin1(series)).arg(k), w.file(ExplicitLE)))
+            return false;
+    }
+    return true;
+}
+
+// A stack as a scanner takes it with its gantry leaning tilt degrees about
+// the patient's left-right axis: the slices lean, their rows still running
+// to the patient's left, while the table carries the patient straight
+// through, so each slice's centre is step mm further along z than the one
+// before. The slices are centred on the z axis, and the stack's middle is
+// at z = 0. With no tilt it is an ordinary axial stack.
+inline bool writeTiltedSeries(const QString &folder, const QByteArray &modality, const QByteArray &series,
+                              const QByteArray &frame, int columns, int rows, int slices, double spacing, double step,
+                              double tilt, const std::function<int(const double *)> &at) {
+    const double radians = tilt * M_PI / 180;
+    const double row[3] = {1, 0, 0}, column[3] = {0, std::cos(radians), std::sin(radians)};
+    QList<std::array<double, 3>> positions;
+    for (int k = 0; k < slices; ++k) {
+        std::array<double, 3> first = {0, 0, (k - (slices - 1) / 2.0) * step};
+        for (int a = 0; a < 3; ++a)
+            first[a] -= (columns - 1) / 2.0 * spacing * row[a] + (rows - 1) / 2.0 * spacing * column[a];
+        positions << first;
+    }
+    return writeSlicesAt(folder, modality, series, frame, columns, rows, spacing, spacing, row, column, positions, at);
 }
 
 // A picker that answers at once with a path the test gave it.

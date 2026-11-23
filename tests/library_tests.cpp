@@ -586,6 +586,61 @@ private slots:
         QVERIFY(view.status().startsWith(tooBig));
     }
 
+    void cutsATiltedStackTrueInAPane() {
+        // A rod 40 mm long along the table, scanned with the gantry leaning
+        // 20 degrees. Cut along the table in a pane, its ends are where
+        // they lie in the patient, and it measures its own length; the
+        // block its slices are packed into is bigger than they are, and
+        // the memory kept for it is too.
+        QTemporaryDir dir;
+        QVERIFY(writeTiltedSeries(dir.path(), "CT", "1.2.89.1", "1.2.89.9", 64, 64, 41, 1, 1.5, 20, [](const double *p) {
+            const bool rod = std::hypot(p[0], p[1]) <= 4 && std::abs(p[2]) <= 20;
+            // 500 and -500 HU: values that read the same in any locale.
+            return rod ? 1524 : 524;
+        }));
+        Backend pane(nullptr);
+        pane.loadPaths({dir.path()});
+        QVERIFY(pane.waitForSlice(10000));
+        QVERIFY(pane.canReformat());
+        const FrameCache *cache = pane.library()->cache();
+        QVERIFY(cache->volumeBytes(0) > cache->wholeBytes(0));
+
+        pane.setPlane(2);
+        QCOMPARE(pane.plane(), 2);
+        QTRY_VERIFY_WITH_TIMEOUT(pane.frameReady(), 10000);
+        const ImagePlane plane = pane.imagePlane();
+        QVERIFY(plane.valid);
+        // The plane the pane first shows goes through the middle of the
+        // first slice, which the rod's axis passes within a voxel of.
+        double normal[3];
+        plane.normal(normal);
+        QVERIFY(std::abs(plane.origin[0] * normal[0] + plane.origin[1] * normal[1] + plane.origin[2] * normal[2]) <= 1.0);
+
+        // Where a patient point falls in the picture, counted from its corner.
+        auto at = [&](double x, double y, double z) {
+            const double d[3] = {x - plane.origin[0], y - plane.origin[1], z - plane.origin[2]};
+            return QPointF((d[0] * plane.row[0] + d[1] * plane.row[1] + d[2] * plane.row[2]) / plane.rowSpacing + 0.5,
+                           (d[0] * plane.column[0] + d[1] * plane.column[1] + d[2] * plane.column[2]) / plane.columnSpacing
+                               + 0.5);
+        };
+        auto value = [&](QPointF p) { return shownNumber(pane.valueAt(p.x(), p.y())); };
+        // Dense inside the rod, a little short of each end, and thin a
+        // little past them, and to either side of it.
+        const QPointF head = at(0, 0, 20), foot = at(0, 0, -20);
+        QVERIFY(value(at(0, 0, 18)) > 250);
+        QVERIFY(value(at(0, 0, -18)) > 250);
+        QVERIFY(value(at(0, 0, 23)) < -250);
+        QVERIFY(value(at(0, 0, -23)) < -250);
+        QVERIFY(value(at(0, 7, 0)) < -250);
+        QVERIFY(value(at(0, -7, 0)) < -250);
+        // End to end, it measures what it is; as a plain block, with each
+        // slice straight behind the one before, it would have come to
+        // 40 mm × cos 20° = 37.6 mm.
+        const QString measured = pane.distance(head.x(), head.y(), foot.x(), foot.y());
+        QVERIFY2(measured.endsWith(" mm"), qPrintable(measured));
+        QVERIFY2(std::abs(measured.chopped(3).toDouble() - 40) <= 0.2, qPrintable(measured));
+    }
+
     void makesThePictureOnlyWhenAsked() {
         QTemporaryDir dir;
         QVERIFY(writeVolume(dir.path()));
