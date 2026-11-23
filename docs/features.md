@@ -200,25 +200,46 @@ whole series (or plane, or slab) as an MP4, as it's shown.
 
 ![Saving an anonymous copy of the CD with Ctrl+Shift+S, then opening it: the same scans, with the name replaced](demos/anonymous.gif)
 
-`Ctrl+Shift+S` copies every image into a new folder, "Anonymous scans",
-without the patient's name, IDs, birth date, address, or the people and
-institution who saw them, and with new UIDs, following DICOM's Basic
-Confidentiality Profile attribute by attribute, from the standard's own
-table. Dates, age, sex, and weight stay, as reading the scans needs them. The
-descriptions people typed for the study and its series go, as the profile
-says. Reports and saved annotations are left out, as their text names the
-patient.
+`Ctrl+Shift+S` first shows what the copy will do, and writes nothing until
+a folder is chosen: how many files it copies, what becomes of each attribute,
+what's left out, and which pictures might show the patient. `Enter` chooses
+the folder, and `Esc` puts the panel away.
+
+The copy is every image, in a new folder, "Anonymous scans", without the
+patient's name, IDs, birth date, address, or the people and institution who
+saw them, and with new UIDs, following DICOM's Basic Confidentiality Profile
+attribute by attribute, from the standard's own table. Dates, age, sex, and
+weight stay, as reading the scans needs them. The descriptions people typed
+for the study and its series go, as the profile says, unless `Space` keeps
+them: they say what was scanned, and now and then who. Reports and saved
+annotations are left out, as their text names the patient.
 
 Each copy is read back and searched for the names, IDs, birth date,
 institution, addresses, and serial numbers the originals held; a copy that
-still has any of them isn't kept, and Dicolens says which file and where.
+still has any of them isn't kept, and the panel says which files, where, and
+in which series, once the copy is made.
 
-Some images, ultrasound and screen captures especially, can show the name in
-the picture itself; Dicolens says how many might, so you can look before
-sending them. From the command line, `dicolens anonymize` can black a
-rectangle out of every image of a series (`--blackout`), keep the study's and
-series' descriptions (`--keep-descriptions`), and say what a copy would
-remove and keep without making one (`--dry-run`).
+From the command line, `dicolens anonymize` does the same: `--dry-run` says
+what a copy would remove and keep without making one, `--keep-descriptions`
+keeps the study's and series' descriptions, and `--blackout` blacks a
+rectangle out of every image of a series.
+
+## Black out what the picture shows
+
+Some images, ultrasound and screen captures especially, show the name in the
+picture itself, where no attribute holds it. The anonymous copy's panel says
+how many might, and in which series, so you can look before sending them.
+
+`Shift+H` takes the blackout tool: drag a box over what has to go, and an
+anonymous copy has it black in every image of that series, as a caption burned
+into an ultrasound is in the same place in each. `Delete` removes the last
+box, `Shift+Delete` all of the series', and `Esc` puts the tool down. The
+boxes are kept until Dicolens closes, and the scans themselves are never
+changed.
+
+A box is drawn on the picture as it was scanned, not on a plane cut across
+the slices or in 3D. A video, and a series whose pixels can't be written back
+value for value, can't have a region blacked out, and the tool says so.
 
 ## Every shortcut, on `?`
 

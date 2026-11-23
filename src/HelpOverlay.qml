@@ -19,6 +19,7 @@ Rectangle {
                         [qsTr("Drop"), qsTr("Drop files or folders on the window")],
                         ["Ctrl+E", qsTr("Save the image as a PNG")], ["Ctrl+Shift+E", qsTr("Save the series as a video")],
                         ["Ctrl+C", qsTr("Copy the image")], ["Ctrl+Shift+S", qsTr("Save an anonymous copy of the scans")],
+                        ["Shift+H", qsTr("Black a region out of the anonymous copy")],
                         ["?", qsTr("This list")], ["Q", qsTr("Quit")]]],
         [qsTr("Move through"), [[qsTr("Wheel"), qsTr("Previous / next slice")], ["↑ ↓", qsTr("Previous / next slice")],
                                 ["PgUp PgDn", qsTr("Ten slices back / on")], ["Home End", qsTr("First / last slice")],

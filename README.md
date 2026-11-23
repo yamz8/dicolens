@@ -27,7 +27,9 @@ every tag. It shows the marks left on the images (overlay planes and saved
 annotations), reads the reports that came with them (structured reports and
 PDFs), and puts two series side by side, this year's beside last year's,
 scrolling together. It saves a series as a video, and an anonymous copy of the
-scans to send for a second opinion.
+scans to send for a second opinion: it shows what the copy will remove and
+keep before anything is written, blacks out a name burned into the pictures,
+and checks every file it wrote.
 
 Dicolens is for looking at your own scans. It's not for diagnosis.
 
@@ -79,6 +81,7 @@ Each of these is shown with a short recording in
 - [Hide the patient's details](docs/features.md#hide-the-patients-details)
 - [Save or copy the image](docs/features.md#save-or-copy-the-image)
 - [Save an anonymous copy](docs/features.md#save-an-anonymous-copy)
+- [Black out what the picture shows](docs/features.md#black-out-what-the-picture-shows)
 - [Every shortcut, on `?`](docs/features.md#every-shortcut-on-)
 - [Your theme and language](docs/features.md#your-theme-and-language)
 
@@ -124,7 +127,8 @@ Each of these is shown with a short recording in
 | `H` | Hide or show the patient's details |
 | `Ctrl+E` / `Ctrl+C` | Save the image as a PNG / copy it |
 | `Ctrl+Shift+E` | Save the series as a video |
-| `Ctrl+Shift+S` | Save an anonymous copy of the scans |
+| `Ctrl+Shift+S` | Save an anonymous copy of the scans: what it will do, then where (`Space` keeps the descriptions, `Enter` chooses a folder, `Esc` writes nothing) |
+| `Shift+H` | Box a region to black out of the anonymous copy, in every image of the series (`Delete` removes the last, `Shift+Delete` the series') |
 | `?` | Every shortcut (`↑` `↓` to move through them) |
 | `Q` | Quit |
 
