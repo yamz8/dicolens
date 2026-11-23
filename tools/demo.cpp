@@ -1417,8 +1417,14 @@ int main(int argc, char *argv[]) {
              rec.hidePointer();
              rec.hold(900);
              rec.key("Ctrl+Shift+S  Anonymous copy", Qt::Key_S, Qt::ControlModifier | Qt::ShiftModifier, 300);
-             QTRY_VERIFY_WITH_TIMEOUT(backend.notice().startsWith("Saved") || !backend.problem().isEmpty(), 60000);
+             // What the copy will do comes first; nothing is written until
+             // a folder is chosen.
+             QTRY_VERIFY_WITH_TIMEOUT(backend.anonymous()->stage() == AnonymousCopy::Planned, 60000);
+             rec.hold(3200);
+             rec.key("Enter  Choose a folder", Qt::Key_Return, Qt::NoModifier, 300);
+             QTRY_VERIFY_WITH_TIMEOUT(backend.anonymous()->stage() == AnonymousCopy::Saved, 60000);
              rec.hold(2600);
+             rec.key("Enter  Done", Qt::Key_Return, Qt::NoModifier, 700);
              // The copy, opened: the same scans, with nobody's name on them.
              rec.badge("The copy, opened");
              backend.loadPaths({work.filePath("Anonymous scans")});

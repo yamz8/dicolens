@@ -200,7 +200,7 @@ whole series (or plane, or slab) as an MP4, as it's shown.
 
 ## Save an anonymous copy
 
-![Saving an anonymous copy of the CD with Ctrl+Shift+S, then opening it: the same scans, with the name replaced](demos/anonymous.gif)
+![Ctrl+Shift+S shows what an anonymous copy of the CD will do, Enter saves it, and it is opened: the same scans, with the name replaced](demos/anonymous.gif)
 
 `Ctrl+Shift+S` first shows what the copy will do, and writes nothing until
 a folder is chosen: how many files it copies, what becomes of each attribute,

@@ -42,6 +42,8 @@ modes=(
   "3d:Right Right Right D"
   "pet:Right Right Right Right U"
   "measure:M"
+  "anonymous:Ctrl+Shift+S"
+  "blackout:Shift+H"
 )
 
 failed=0
@@ -77,7 +79,7 @@ for mode in "${modes[@]}"; do
   look "$name" "$keys" dark ar 12
 done
 # Larger text, where clipping shows first.
-for mode in "scan:" "tags:T" "help:?" "report:P"; do
+for mode in "scan:" "tags:T" "help:?" "report:P" "anonymous:Ctrl+Shift+S"; do
   look "${mode%%:*}" "${mode#*:}" dark da 18
 done
 
