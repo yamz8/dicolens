@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/">
+        <file alias="data/confidentiality.tsv">data/confidentiality.tsv</file>
+        <file alias="data/elements.tsv">data/elements.tsv</file>
+        <file alias="data/uids.tsv">data/uids.tsv</file>
+    </qresource>
+</RCC>

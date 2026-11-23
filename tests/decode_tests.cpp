@@ -50,6 +50,32 @@ class DecodeTests : public QObject {
     }
 
 private slots:
+    void readsAnImplicitFilesPaletteByTheDictionary() {
+        // An implicit file doesn't say what kind its values are: the
+        // standard's tables do, and they come with the library. This suite
+        // was once built without them, as the fuzzers and the reference
+        // comparison were, and every value was unknown: a palette's
+        // descriptors couldn't be read, and the image had "no palette".
+        Writer w;
+        w.explicitVr = false;
+        w.image(1, 2, 8, 8, false, "PALETTE COLOR");
+        QByteArray descriptor;
+        for (const quint16 v : {2, 0, 16})
+            w.u16(descriptor, v);
+        for (const quint32 tag : {Tag::RedPaletteDescriptor, Tag::GreenPaletteDescriptor, Tag::BluePaletteDescriptor})
+            w.add(tag, "US", descriptor);
+        w.add(Tag::RedPaletteData, "OW", QByteArray("\x00\x10\x00\xF0", 4));
+        w.add(Tag::GreenPaletteData, "OW", QByteArray("\x00\x20\x00\xE0", 4));
+        w.add(Tag::BluePaletteData, "OW", QByteArray("\x00\x30\x00\xD0", 4));
+        w.pixels(QByteArray("\x00\x01", 2));
+        const DicomFile file = onDisk(w.file("1.2.840.10008.1.2"));
+        QCOMPARE(file.element(Tag::RedPaletteDescriptor)->vr, QByteArray("US"));
+        const Frame frame = decodeFrame(file, 0);
+        QVERIFY2(frame.error.isEmpty(), qPrintable(frame.error));
+        QCOMPARE(frame.color.pixelColor(0, 0), QColor(0x10, 0x20, 0x30));
+        QCOMPARE(frame.color.pixelColor(1, 0), QColor(0xF0, 0xE0, 0xD0));
+    }
+
     void swapsEightBitPixelsInBigEndianWords() {
         // 8-bit pixels written as 16-bit words (OW): a big-endian file
         // swaps each word's bytes, so the pixels lie in pairs the wrong way

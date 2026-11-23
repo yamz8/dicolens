@@ -69,7 +69,7 @@ struct Writer {
     }
     Writer &image(int rows, int columns, int bits, int stored, bool isSigned, const QByteArray &photometric = "MONOCHROME2") {
         add(Tag::SeriesInstance, "UI", "1.2.3.4");
-        us(Tag::SamplesPerPixel, photometric.startsWith("MONO") ? 1 : 3);
+        us(Tag::SamplesPerPixel, photometric.startsWith("MONO") || photometric.startsWith("PALETTE") ? 1 : 3);
         add(Tag::Photometric, "CS", photometric);
         us(Tag::Rows, rows);
         us(Tag::Columns, columns);

@@ -12,9 +12,6 @@
         <file alias="SeriesList.qml">SeriesList.qml</file>
         <file alias="TagPanel.qml">TagPanel.qml</file>
         <file alias="skill/SKILL.md">skill/SKILL.md</file>
-        <file alias="data/confidentiality.tsv">data/confidentiality.tsv</file>
-        <file alias="data/elements.tsv">data/elements.tsv</file>
-        <file alias="data/uids.tsv">data/uids.tsv</file>
         <file alias="i18n/ar.json">i18n/ar.json</file>
         <file alias="i18n/bg.json">i18n/bg.json</file>
         <file alias="i18n/bn.json">i18n/bn.json</file>

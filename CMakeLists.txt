@@ -38,7 +38,10 @@ endif()
 # compiles once and a new file in src/ needs no line here.
 file(GLOB dicolens_sources CONFIGURE_DEPENDS src/*.cpp src/*.h)
 list(REMOVE_ITEM dicolens_sources ${CMAKE_SOURCE_DIR}/src/main.cpp)
-add_library(dicolens_core STATIC ${dicolens_sources})
+# The standard's tables are part of the library, so that everything built on
+# it, the tests, the fuzzers, and the tools as much as the app, reads an
+# implicit file by the same dictionary.
+add_library(dicolens_core STATIC ${dicolens_sources} src/data.qrc)
 target_include_directories(dicolens_core PUBLIC src)
 target_link_libraries(dicolens_core PUBLIC
   Qt6::Core Qt6::Gui Qt6::Network Qt6::Qml Qt6::Quick Qt6::QuickControls2 Qt6::DBus ZLIB::ZLIB)

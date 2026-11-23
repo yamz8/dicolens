@@ -11,6 +11,11 @@
 #include <algorithm>
 #include <vector>
 
+// The tables are compiled into the library. A static library's resources
+// are only linked in, and found, once something asks for them by name, and
+// the asking has to be outside any namespace.
+static void useTables() { Q_INIT_RESOURCE(data); }
+
 namespace {
 
 struct Element {
@@ -109,8 +114,14 @@ namespace Dictionary {
 
 QByteArray table(const char *resource, QString *edition, const std::function<void(const QList<QByteArrayView> &)> &row) {
     static const QByteArray marker("DICOM PS3.");
+    static const bool linked = (useTables(), true);
+    Q_UNUSED(linked)
     QFile file(QString::fromLatin1(resource));
-    const QByteArray text = file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+    // Without its tables every implicit file would be read as unknown values
+    // and the anonymizer would have no profile, each quietly: better to stop.
+    if (!file.open(QIODevice::ReadOnly))
+        qFatal("The standard's table %s isn't compiled in", resource);
+    const QByteArray text = file.readAll();
     QList<QByteArrayView> cells;
     for (qsizetype at = 0; at < text.size();) {
         qsizetype end = text.indexOf('\n', at);
