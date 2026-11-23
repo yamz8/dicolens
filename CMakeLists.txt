@@ -92,7 +92,7 @@ foreach(suite dictionary_tests anonymize_tests library_tests anonymous_tests)
   add_executable(${suite} tests/${suite}.cpp src/resources.qrc)
   target_link_libraries(${suite} PRIVATE dicolens_core Qt6::Test)
   add_test(NAME ${suite} COMMAND ${suite})
-  set_tests_properties(${suite} PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+  set_tests_properties(${suite} PROPERTIES ENVIRONMENT "${test_environment}")
 endforeach()
 
 # bin/demos records the GIFs in docs/features.md with this; a plain build leaves it out.
