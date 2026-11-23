@@ -318,6 +318,24 @@ private slots:
         }
     }
 
+    void keepsItsSumsWhenTheBitsAreNoNumberOfBits() {
+        // Bits Stored is the file's word, and as a decimal string it can be
+        // the least number an int holds: taking one from it for the high
+        // bit, when the file gives none, overflowed. The fuzzer found it.
+        for (const char *bits : {"-1e30", "-2147483648", "1e30", "nan"}) {
+            Writer w;
+            w.us(Tag::SamplesPerPixel, 1).add(Tag::Photometric, "CS", "MONOCHROME2").us(Tag::Rows, 2).us(Tag::Columns, 2)
+                .add(Tag::BitsAllocated, "DS", bits).add(Tag::BitsStored, "DS", bits).us(Tag::PixelRepresentation, 0);
+            w.pixels(le16({0, 1, 2, 3}));
+            const DicomFile file = onDisk(w.file(ExplicitLE));
+            const ImageFormat format = ImageFormat::from(file);
+            QVERIFY(format.highBit >= -1 && format.highBit <= 65536);
+            // Whether it's shown or refused, it's one or the other.
+            const Frame frame = decodeFrame(file, 0);
+            QVERIFY(!frame.error.isEmpty() || frame.width == 2);
+        }
+    }
+
     void keepsWindowsAndRescalesNumbers() {
         // "nan" is a decimal string too. A window or a rescale made of it
         // turned every grey level into one that isn't a number.

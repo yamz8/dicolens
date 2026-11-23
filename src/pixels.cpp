@@ -385,9 +385,13 @@ ImageFormat ImageFormat::from(const DicomFile &file, int frame) {
     f.rows = file.integer(Tag::Rows);
     f.columns = file.integer(Tag::Columns);
     f.samples = std::max(1, file.integer(Tag::SamplesPerPixel, 1));
-    f.bitsAllocated = file.integer(Tag::BitsAllocated, 16);
-    f.bitsStored = file.integer(Tag::BitsStored, f.bitsAllocated);
-    f.highBit = file.integer(Tag::HighBit, f.bitsStored - 1);
+    // What a file says of its bits goes into sums before it's checked, and
+    // may be any number at all. Held to a range no pixel leaves, a wrong one
+    // stays wrong and the sums stay sums.
+    const auto bits = [](int said) { return std::clamp(said, -1, 1 << 16); };
+    f.bitsAllocated = bits(file.integer(Tag::BitsAllocated, 16));
+    f.bitsStored = bits(file.integer(Tag::BitsStored, f.bitsAllocated));
+    f.highBit = bits(file.integer(Tag::HighBit, f.bitsStored - 1));
     f.isSigned = file.integer(Tag::PixelRepresentation) == 1;
     f.planar = file.integer(Tag::PlanarConfiguration);
     f.photometric = file.first(Tag::Photometric).toUpper();
