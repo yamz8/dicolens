@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
 
     QGuiApplication app(argc, argv);
     app.setApplicationName("dicolens");
-    app.setApplicationVersion("0.7.0");
+    app.setApplicationVersion("0.8.0");
 
     QStringList open;
     if (const int code = runCli(app.arguments(), open); code >= 0) {
