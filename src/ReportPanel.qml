@@ -7,7 +7,9 @@ import QtQuick.Layouts
 // report's findings as text, or a PDF's title with a way to open it.
 Rectangle {
     id: panel
-    color: Qt.rgba(theme.background.r, theme.background.g, theme.background.b, 0.98)
+    // Opaque, so the scan's corner text and its bright pixels don't read
+    // through the report.
+    color: theme.background
 
     function scroll(amount) {
         flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, flick.contentY + amount))
@@ -114,19 +116,31 @@ Rectangle {
         }
         Button {
             id: openButton
+            objectName: "openReport"
             Layout.alignment: Qt.AlignHCenter
             text: qsTr("Open in the PDF Viewer")
             highlighted: true
+            focusPolicy: Qt.NoFocus
             Material.roundedScale: theme.radius
             Material.accent: theme.accent
+            onClicked: backend.openReport(backend.reportIndex)
+            // Drawn plainly, as the empty state's main action is: Material's
+            // highlighted background is a shadow effect the software renderer
+            // leaves out, and its caption can't be read on every accent.
+            background: Rectangle {
+                implicitWidth: 64
+                implicitHeight: openButton.Material.buttonHeight
+                radius: theme.radius
+                color: theme.accent
+                opacity: openButton.down ? 0.8 : 1
+            }
             contentItem: Label {
                 text: openButton.text
+                font: openButton.font
                 color: theme.accentForeground
-                font.bold: true
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
             }
-            onClicked: backend.openReport(backend.reportIndex)
         }
     }
 
