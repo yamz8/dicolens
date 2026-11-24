@@ -24,6 +24,11 @@ Item {
         return language ? Number(value).toLocaleString(Qt.locale(), 'f', decimals) : ""
     }
 
+    // Each corner takes almost half the image, leaving a gap for the
+    // direction letter between them. Without a width, a long name or a
+    // larger text size paints across the letter and into the other corner.
+    readonly property real sideWidth: Math.max(0, (width - win.px(36)) / 2)
+
     component Line: Label {
         property bool alignRight: false
         color: win.canvasText
@@ -32,15 +37,20 @@ Item {
         font.pixelSize: win.px(13)
         visible: text !== ""
         elide: Text.ElideRight
-        Layout.maximumWidth: overlay.width * 0.45
-        Layout.alignment: alignRight ? Qt.AlignRight : Qt.AlignLeft
+        // Toward the outer edge. Mirroring moves the column, not this
+        // alignment, so a right-hand column keeps its text on the right in
+        // English and on the left once that column has moved there.
+        horizontalAlignment: (alignRight !== win.rightToLeft) ? Text.AlignRight : Text.AlignLeft
+        Layout.fillWidth: true
     }
 
     ColumnLayout {
         anchors.top: parent.top
         anchors.left: parent.left
+        width: overlay.sideWidth
         spacing: 2
         visible: !overlay.compact
+        clip: true
         Line { text: overlay.source.info.patient || ""; font.bold: true; font.pixelSize: win.px(15) }
         Line { text: overlay.source.info.patientDetails || ""; color: win.canvasDim }
         Line { text: overlay.source.info.study || "" }
@@ -50,7 +60,9 @@ Item {
     ColumnLayout {
         anchors.top: parent.top
         anchors.right: parent.right
+        width: overlay.sideWidth
         spacing: 2
+        clip: true
         Line { alignRight: true; text: overlay.compact ? "" : overlay.source.info.institution || ""; color: win.canvasDim }
         Line { alignRight: true; text: overlay.compact ? "" : overlay.source.info.series || ""; font.bold: true }
         Line { alignRight: true; text: overlay.compact ? "" : [overlay.source.info.modality, overlay.source.info.size].filter(x => x).join("  ·  ") }
@@ -67,7 +79,9 @@ Item {
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.bottomMargin: 6
+        width: overlay.sideWidth
         spacing: 2
+        clip: true
         Line {
             // What the tool in hand does, or why it can't be used here. It
             // runs to more than a line in some languages, and wraps.
@@ -82,7 +96,6 @@ Item {
             color: theme.accent
             wrapMode: Text.Wrap
             maximumLineCount: 4
-            horizontalAlignment: Text.AlignLeft
         }
         Line { text: overlay.hoverText; font.family: "monospace" }
         Line { text: overlay.source.fusionName; color: theme.accent }
@@ -102,7 +115,9 @@ Item {
         anchors.bottom: parent.bottom
         anchors.right: parent.right
         anchors.bottomMargin: 6
+        width: overlay.sideWidth
         spacing: 2
+        clip: true
         Line { alignRight: true; text: overlay.volume ? "" : overlay.source.info.geometry || ""; color: win.canvasDim }
     }
 

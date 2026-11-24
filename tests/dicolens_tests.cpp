@@ -2266,10 +2266,21 @@ private slots:
         QVERIFY(QTest::qWaitForWindowActive(window));
 
         // Nothing open: the window says how to open a scan, on the theme's colors.
+        // The main action is drawn in the accent itself, so it still reads
+        // where Material's highlighted button draws nothing.
         auto *empty = item(window->contentItem(), "emptyState");
         QVERIFY(empty);
         QVERIFY(empty->isVisible());
         QCOMPARE(window->color(), theme.background());
+        auto *openFiles = item(window->contentItem(), "openFiles");
+        QVERIFY(openFiles);
+        QVERIFY(openFiles->isVisible());
+        auto *openBackground = qobject_cast<QQuickItem *>(openFiles->property("background").value<QObject *>());
+        auto *openCaption = qobject_cast<QQuickItem *>(openFiles->property("contentItem").value<QObject *>());
+        QVERIFY(openBackground);
+        QVERIFY(openCaption);
+        QCOMPARE(openBackground->property("color").value<QColor>(), theme.accent());
+        QCOMPARE(openCaption->property("color").value<QColor>(), theme.accentForeground());
 
         // ? shows every shortcut, and Esc puts them away.
         auto *help = item(window->contentItem(), "help");
@@ -2490,8 +2501,14 @@ private slots:
         // P reads the report beside the scans; Esc goes back to them.
         auto *reportPanel = item(window->contentItem(), "reportPanel");
         QVERIFY(reportPanel);
+        auto *info = item(window->contentItem(), "infoOverlay");
+        QVERIFY(info);
+        QVERIFY(info->isVisible());
         QTest::keyClick(window, 'P');
         QTRY_VERIFY(reportPanel->isVisible());
+        // The corner text would otherwise read through the report.
+        QTRY_VERIFY(!info->isVisible());
+        QCOMPARE(reportPanel->property("color").value<QColor>(), theme.background());
         QCOMPARE(backend.reportTitle(), QString("CT Report"));
         // Its text is read on a worker, and arrives a moment later.
         QTRY_VERIFY(!backend.reportLines().isEmpty());

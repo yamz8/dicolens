@@ -232,12 +232,14 @@ Item {
     }
 
     InfoOverlay {
+        objectName: !pane.second && pane.quadIndex === 0 ? "infoOverlay" : ""
         anchors.fill: parent
         anchors.margins: 16
         source: pane.source
         volume: pane.threeD ? volumeView : null
         compact: win.quad && pane.quadIndex > 0
-        visible: pane.source.hasImages && !win.infoHidden
+        // A report covers this pane, so the corner text would read through it.
+        visible: pane.source.hasImages && !win.infoHidden && !win.reading
         hoverText: pane.hoverText
         zoom: pane.threeD ? volumeView.zoom : view.zoom
         tool: pane.inUse ? win.tool : 0
