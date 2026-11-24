@@ -29,11 +29,27 @@ ColumnLayout {
         spacing: 12
         Button {
             id: openButton
+            objectName: "openFiles"
             text: qsTr("Open Files") + "   O"
             highlighted: true
+            // Keys go through the window's shortcuts, so O and Space mean
+            // the same wherever the pointer last was.
+            focusPolicy: Qt.NoFocus
             Material.roundedScale: theme.radius
             Material.accent: theme.accent
             onClicked: backend.open()
+            // Material draws a highlighted button through a shadow effect,
+            // which the software renderer leaves out, background and all:
+            // in the looks, and wherever that effect is missing, the main
+            // action would be missing or unreadable on the accent. So it's
+            // drawn plainly here.
+            background: Rectangle {
+                implicitWidth: 64
+                implicitHeight: openButton.Material.buttonHeight
+                radius: theme.radius
+                color: theme.accent
+                opacity: openButton.down ? 0.8 : openButton.hovered ? 0.9 : 1
+            }
             // A highlighted button colors its caption by Material's own
             // rule, not Material.foreground, so it can't read on every accent.
             contentItem: Label {
@@ -47,6 +63,7 @@ ColumnLayout {
         Button {
             text: qsTr("Open Folder") + "   Shift+O"
             flat: true
+            focusPolicy: Qt.NoFocus
             Material.roundedScale: theme.radius
             onClicked: backend.openFolder()
         }
