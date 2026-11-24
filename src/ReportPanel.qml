@@ -119,6 +119,7 @@ Rectangle {
             objectName: "openReport"
             Layout.alignment: Qt.AlignHCenter
             text: qsTr("Open in the PDF Viewer")
+            font.bold: true
             highlighted: true
             focusPolicy: Qt.NoFocus
             Material.roundedScale: theme.radius
@@ -132,7 +133,7 @@ Rectangle {
                 implicitHeight: openButton.Material.buttonHeight
                 radius: theme.radius
                 color: theme.accent
-                opacity: openButton.down ? 0.8 : 1
+                opacity: openButton.down ? 0.8 : openButton.hovered ? 0.9 : 1
             }
             contentItem: Label {
                 text: openButton.text

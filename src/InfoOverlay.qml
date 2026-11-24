@@ -37,10 +37,9 @@ Item {
         font.pixelSize: win.px(13)
         visible: text !== ""
         elide: Text.ElideRight
-        // Toward the outer edge. Mirroring moves the column, not this
-        // alignment, so a right-hand column keeps its text on the right in
-        // English and on the left once that column has moved there.
-        horizontalAlignment: (alignRight !== win.rightToLeft) ? Text.AlignRight : Text.AlignLeft
+        // Toward the outer edge. Mirroring flips this along with the column,
+        // so a right-hand column's text stays against the edge it moves to.
+        horizontalAlignment: alignRight ? Text.AlignRight : Text.AlignLeft
         Layout.fillWidth: true
     }
 
@@ -50,7 +49,6 @@ Item {
         width: overlay.sideWidth
         spacing: 2
         visible: !overlay.compact
-        clip: true
         Line { text: overlay.source.info.patient || ""; font.bold: true; font.pixelSize: win.px(15) }
         Line { text: overlay.source.info.patientDetails || ""; color: win.canvasDim }
         Line { text: overlay.source.info.study || "" }
@@ -62,7 +60,6 @@ Item {
         anchors.right: parent.right
         width: overlay.sideWidth
         spacing: 2
-        clip: true
         Line { alignRight: true; text: overlay.compact ? "" : overlay.source.info.institution || ""; color: win.canvasDim }
         Line { alignRight: true; text: overlay.compact ? "" : overlay.source.info.series || ""; font.bold: true }
         Line { alignRight: true; text: overlay.compact ? "" : [overlay.source.info.modality, overlay.source.info.size].filter(x => x).join("  ·  ") }
@@ -81,7 +78,6 @@ Item {
         anchors.bottomMargin: 6
         width: overlay.sideWidth
         spacing: 2
-        clip: true
         Line {
             // What the tool in hand does, or why it can't be used here. It
             // runs to more than a line in some languages, and wraps.
@@ -117,7 +113,6 @@ Item {
         anchors.bottomMargin: 6
         width: overlay.sideWidth
         spacing: 2
-        clip: true
         Line { alignRight: true; text: overlay.volume ? "" : overlay.source.info.geometry || ""; color: win.canvasDim }
     }
 

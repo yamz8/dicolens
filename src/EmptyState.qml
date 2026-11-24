@@ -48,7 +48,7 @@ ColumnLayout {
                 implicitHeight: openButton.Material.buttonHeight
                 radius: theme.radius
                 color: theme.accent
-                opacity: openButton.down ? 0.8 : 1
+                opacity: openButton.down ? 0.8 : openButton.hovered ? 0.9 : 1
             }
             // A highlighted button colors its caption by Material's own
             // rule, not Material.foreground, so it can't read on every accent.
